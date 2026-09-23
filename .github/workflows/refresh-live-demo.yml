@@ -1,0 +1,109 @@
+# Keeps SOLVENT's deployed "Live Public Demo" from expiring in production.
+#
+# Why this exists: evidence/nostr/live-demo.json is bundled into the
+# production JS at build time (a static `with { type: "json" }` import —
+# see docs/trust-boundaries.md's "Making regeneration safe"), and its
+# reserve attestation has a real, network-aware freshness window (~1 week
+# on this build's network — see src/reserve/evaluate.ts's
+# RESERVE_FRESHNESS_POLICY). Regenerating the evidence locally
+# (`npm run live-demo`) never reaches a deployed site by itself — a
+# rebuild AND a redeploy are both required. This workflow does the whole
+# chain on a schedule, comfortably before the freshness window closes, and
+# fails closed at every step: it never deploys evidence it hasn't just
+# proven is genuinely live, fresh, and internally consistent.
+#
+# Freshness window:  ~7 days (network-aware; see RESERVE_FRESHNESS_POLICY)
+# Refresh cadence:    1 day
+# Safety margin:     ~6 days — a temporary CI or GitHub Pages outage does
+#                     not immediately take the deployed demo down.
+#
+# Manual fallback (if this workflow is disabled, failing, or you need an
+# immediate refresh): run `npm run live-demo:release` locally, then deploy
+# `dist/` however you deploy this repo. See README.md and
+# VERIFY_IN_5_MINUTES.md.
+name: Refresh Live Public Demo
+
+on:
+  schedule:
+    # 06:00 UTC daily — well inside the ~7 day / ~6 day safety margin above.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one refresh in flight at a time — a second scheduled/manual run
+# overlapping the first could publish two different Nostr events for two
+# different demo identities back to back, which is wasteful (not unsafe:
+# each identity is independently correct — see docs/trust-boundaries.md's
+# "Why the demo mint identity is NOT persisted" — but there is no reason to
+# do it twice concurrently).
+concurrency:
+  group: refresh-live-demo
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # ---- Fail-closed gates, in order. Any failure here stops the job
+      # ---- before anything is built or deployed — see module header.
+      - name: Regenerate + publish the Live Public Demo (real Nostr publish, real Signet reserve query)
+        run: npm run live-demo
+
+      - name: Verify the freshly regenerated demo is genuinely live, fresh, and ACCEPT_VERIFIED
+        run: npm run verify:live-demo
+
+      - name: Deterministic test suite
+        run: npm test
+
+      - name: Full attack corpus
+        run: npm run attacks
+
+      - name: Submission gate (mechanism + the canonical live demo just generated above)
+        run: npm run verify:submission
+
+      # ---- Build + deploy. GH_PAGES_BASE matches this repo's GitHub
+      # ---- Pages project-site subpath — see vite.config.ts.
+      - name: Build (bakes the freshly regenerated evidence into the production bundle)
+        run: npm run build
+        env:
+          GH_PAGES_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      # ---- Post-deploy verification. The success condition is "the public
+      # ---- deployed site is serving the refreshed canonical demo" — never
+      # ---- "the local dist/ was correct" (that was already checked above,
+      # ---- before deploying). If either check below fails, the workflow
+      # ---- fails even though a deploy already happened — the next
+      # ---- scheduled/manual run is the recovery path (see module header's
+      # ---- manual fallback for an immediate one).
+      - name: Post-deploy check — confirm the DEPLOYED bundle contains the new canonical evidence
+        run: npm run verify:deployed -- "${{ steps.deployment.outputs.page_url }}"
+
+      - name: Install Chromium for the post-deploy browser check
+        run: npx playwright install --with-deps chromium
+
+      - name: Post-deploy check — a real headless browser reaches ACCEPT VERIFIED against the deployed site
+        run: npm run verify:deployed:browser -- "${{ steps.deployment.outputs.page_url }}"
