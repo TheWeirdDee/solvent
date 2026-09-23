@@ -177,7 +177,15 @@ jobs:
           ONE_PUBKEY=$($ONE getinfo | jq -r .identity_pubkey)
           echo "ONE_PUBKEY=$ONE_PUBKEY" >> "$GITHUB_ENV"
           $TWO connect "$ONE_PUBKEY@127.0.0.1:$P2P_ONE" || true
-          $TWO openchannel --node_key="$ONE_PUBKEY" --local_amt=5000000 --sat_per_vbyte=1
+          # push_amt gives LND-1 (the mint's backend) real starting outbound
+          # liquidity on its side of this single-funder channel — without
+          # it, LND-1's only balance is whatever trickles in from R1's one
+          # small inbound payment, which real channel-reserve requirements
+          # then make effectively unspendable, so the mint's own outbound
+          # melt payment genuinely fails with FAILURE_REASON_INSUFFICIENT_
+          # BALANCE (observed for real, confirmed in the mint's own log —
+          # not a guess).
+          $TWO openchannel --node_key="$ONE_PUBKEY" --local_amt=5000000 --push_amt=2000000 --sat_per_vbyte=1
           $BTC generatetoaddress 6 "$MINE_ADDR" >/dev/null
 
           for i in $(seq 1 60); do
