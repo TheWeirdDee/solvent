@@ -1,0 +1,4 @@
+A24 refused-token-never-reaches-acceptance
+expected: REFUSE_RECEIPT_INVALID
+actual:   REFUSE_RECEIPT_INVALID
+PASS
