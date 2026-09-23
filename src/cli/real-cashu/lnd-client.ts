@@ -79,17 +79,63 @@ export class LndClient {
     return this.call<LndInvoiceLookup>('GET', `/v2/invoices/lookup?payment_hash=${hashUrlSafe}`);
   }
 
-  /** Pays a real bolt11 invoice from THIS node's real channel balance — a real Lightning payment, not a mocked settlement. */
-  async payInvoiceSync(paymentRequest: string): Promise<LndPaymentResult> {
-    const raw = await this.call<{ payment_error?: string; payment_preimage?: string; payment_hash?: string }>('POST', '/v1/channels/transactions', {
-      payment_request: paymentRequest,
+  /**
+   * Pays a real bolt11 invoice from THIS node's real channel balance — a
+   * real Lightning payment, not a mocked settlement.
+   *
+   * Uses `POST /v2/router/send` (`Router.SendPaymentV2`) — the old
+   * `POST /v1/channels/transactions` (`SendPaymentSync`) REST mapping no
+   * longer exists on the mainline `Lightning` service as of this pinned
+   * LND release (confirmed by inspecting `lnrpc/lightning.swagger.json`
+   * at the pinned tag after a real HTTP 404 on the old path — not
+   * assumed). `SendPaymentV2` is a *streaming* RPC even over REST: the
+   * response body is newline-delimited JSON, each line either
+   * `{"result": {...Payment}}` or `{"error": {...}}`, ending once the
+   * payment reaches a terminal state. Also sets an explicit
+   * `fee_limit_sat` — LND's own docs warn the default fee limit is zero,
+   * which "often fails with FAILURE_REASON_NO_ROUTE" even for routes that
+   * would otherwise succeed.
+   */
+  async payInvoiceSync(paymentRequest: string, feeLimitSat = 1000): Promise<LndPaymentResult> {
+    const res = await fetch(`${this.opts.restUrl}/v2/router/send`, {
+      method: 'POST',
+      headers: { 'Grpc-Metadata-macaroon': this.opts.macaroonHex, 'content-type': 'application/json' },
+      body: JSON.stringify({ payment_request: paymentRequest, fee_limit_sat: String(feeLimitSat), timeout_seconds: 60 }),
     });
-    if (raw.payment_error) return { ok: false, paymentError: raw.payment_error };
-    return {
-      ok: true,
-      paymentPreimageHex: raw.payment_preimage ? base64ToHex(raw.payment_preimage) : undefined,
-      paymentHashHex: raw.payment_hash ? base64ToHex(raw.payment_hash) : undefined,
-    };
+    if (!res.ok || !res.body) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, paymentError: `HTTP ${res.status}: ${text}` };
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newlineIndex: number;
+      while ((newlineIndex = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, newlineIndex).trim();
+        buffer = buffer.slice(newlineIndex + 1);
+        if (!line) continue;
+        const parsed = JSON.parse(line) as { result?: { status?: string; payment_preimage?: string; payment_hash?: string; failure_reason?: string }; error?: { message?: string } };
+        if (parsed.error) return { ok: false, paymentError: parsed.error.message ?? JSON.stringify(parsed.error) };
+        const status = parsed.result?.status;
+        if (status === 'SUCCEEDED') {
+          return {
+            ok: true,
+            paymentPreimageHex: parsed.result?.payment_preimage,
+            paymentHashHex: parsed.result?.payment_hash,
+          };
+        }
+        if (status === 'FAILED') {
+          return { ok: false, paymentError: parsed.result?.failure_reason ?? 'payment failed' };
+        }
+        // IN_FLIGHT / INITIATED — keep reading the stream for the terminal update.
+      }
+    }
+    return { ok: false, paymentError: 'payment stream ended without a terminal status' };
   }
 
   /** Lists this node's own real, observed payment history — used to independently confirm a payment actually settled, never trusting the mint's own claim alone. */
