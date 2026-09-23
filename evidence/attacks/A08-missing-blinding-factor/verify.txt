@@ -1,0 +1,4 @@
+A08 missing-blinding-factor
+expected: REFUSE_MISSING_BLINDING_FACTOR
+actual:   REFUSE_MISSING_BLINDING_FACTOR
+PASS
