@@ -1,0 +1,19 @@
+{
+  "keyset_id": "0077225f27eecdce",
+  "amount": 1000,
+  "amount_public_key": "020d8c6c5dfb33f42dca66d0286ea1fd0a70ff41f467bb147c61d5e1ce58ae1043",
+  "holder_reconstructed_b_prime": "0294f876655dcc5a603530370c015433270842009ca6aca7674c031cc5d00bea16",
+  "target_epoch": 12,
+  "message": "Cashu_PoL_Receipt_Issued:0294f876655dcc5a603530370c015433270842009ca6aca7674c031cc5d00bea16:12",
+  "receipt": {
+    "target_epoch": 12,
+    "signature": "931a143ffb82c5e6f01227c1d9f323b6e16467ecabda79ccf0ca332c70f60ebfa4549ec58e62e516162501ce22b318543a12f44e953432fb75fadf845c14981e"
+  },
+  "checks": {
+    "valid_receipt": true,
+    "flip_b_prime": false,
+    "change_target_epoch": false,
+    "wrong_key": false
+  },
+  "pass": true
+}
