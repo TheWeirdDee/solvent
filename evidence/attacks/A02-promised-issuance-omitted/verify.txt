@@ -1,0 +1,4 @@
+A02 promised-issuance-omitted
+expected: REFUSE_ISSUANCE_OMITTED
+actual:   REFUSE_ISSUANCE_OMITTED
+PASS
