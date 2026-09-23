@@ -1,0 +1,48 @@
+{
+  "schema": "solvent-mint-fixture/v1",
+  "mintIdentity": "mint-a",
+  "keysetId": "solvent-mint-a-keyset-v1",
+  "cashuKeys": {
+    "30000": "02fc1cd6de1686cec0f43a04d0a371ea666ee344e5caa49c1e211f492251a183ef",
+    "70000": "035dce378c81720e49bd861c99b6601ed0517f5228709a53e65b5924cb2ac0b319"
+  },
+  "nostrPubkeyHex": "70f0fe91f4118b074724e3710b389f38c41fb62fded39a2c680d966c09326ba7",
+  "nostrSecretKeyHexDemoOnly": "0edb38cea30ab44eaf4a6e5adf3a647b0747a010fc17649155a17878edb2f284",
+  "epoch": 1,
+  "reserveSats": 40000,
+  "reserveKind": "demo-reserve",
+  "validitySeconds": 86400,
+  "mintRoot": {
+    "hashHex": "f0ff1ae3d0bf2c576210b56bcbc0d973d0cb35f1b141eafa3ef9447ac78783c1",
+    "sumSats": 30000
+  },
+  "burnRoot": {
+    "hashHex": "f732ff22301f12b03b4a53b5004cd0de8c754276c0edd3dcdb331b08f2f0a479",
+    "sumSats": 5000
+  },
+  "liabilitiesSats": 25000,
+  "mintRecords": [
+    {
+      "label": "t1",
+      "amount": 30000,
+      "secret": "solvent-fixture-mint-a-t1-secret",
+      "published": true,
+      "cPrimeHex": "03e9704597d0f8bf2f2e645f5f7c8205d5c07682e84e4f015500a63687eee3961e"
+    },
+    {
+      "label": "t-hidden",
+      "amount": 70000,
+      "secret": "solvent-fixture-mint-a-t-hidden-secret",
+      "published": false,
+      "cPrimeHex": "03fbdf6000ee5dcb953ae7bb9f9a550dbf390c7bbf86cd34e73802ebfee0bbf746"
+    }
+  ],
+  "burnRecords": [
+    {
+      "label": "b1",
+      "amount": 5000,
+      "secret": "solvent-fixture-mint-a-burn-1-secret",
+      "secretHashHex": "365493de5799d86b5996299c6b1020cd29ab73127f5fbcac75604b80338780b6"
+    }
+  ]
+}
