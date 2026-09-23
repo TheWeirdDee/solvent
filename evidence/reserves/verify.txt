@@ -1,0 +1,18 @@
+SOLVENT Gate 6 evidence
+network: bitcoin-signet-mutinynet
+reserve address: tb1pjudsapt8mtzgxcj8rtfj3esz5x0mn7hwjt58rw2ww73l5que3z2srduxxe
+live utxos: 1
+live verified: true
+faucet attempt: FAILED — HTTP 401: {"error":"Missing token"}
+cases:
+  LIVE: real 1 outpoint(s), independently re-queried via Esplora -> PASS
+  malformed proof (no outpoints) -> PASS
+  wrong owner/binding (reserve key signature forged) -> PASS
+  wrong owner/binding (master key never signed this reserve key) -> PASS
+  stale evidence (attested height far behind tip) -> PASS
+  wrong UTXO (declared outpoint not found on chain) -> PASS
+  amount mismatch (on-chain value differs from statement) -> PASS
+  spent reserve (declared outpoint spent since attestation) -> PASS
+  reserve below liabilities -> PASS
+  honest case (ACCEPT) -> PASS
+mechanism: PASS
