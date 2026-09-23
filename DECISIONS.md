@@ -4,6 +4,21 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Steps 6/7/8A: real NUT-04 mint-native accounting, verified
+
+Built and proved, entirely for real, in [run 35882242998](https://github.com/TheWeirdDee/solvent/actions/runs/35882242998): the SQL-trigger architecture from Step 2, applied concretely to NUT-04. `migrations/solvent-accounting/0001_nut04_issued_liability.sql` adds `solvent_issued_liability`/`solvent_consumed_liability`/`solvent_pol_receipt` plus two triggers to CDK's own unmodified SQLite file. Real CDK schema extracted by building `cdk-sqlite` from the pinned source and constructing a real, fully-migrated database (`evidence/real-pol/cdk-schema-v0.18.1.sql`) rather than composed by hand from 47 migrations.
+
+Two real bugs found by the reconciliation itself running for real in CI, not caught by local review — recorded because both are exactly the kind of thing "prove it, don't state it" is meant to catch:
+
+1. **Operation-kind mislabeling.** The trigger's first version hardcoded the literal `'mint'` for every liability row instead of reading the real `NEW.operation_kind` CDK's own row already carries. First real CI run: 6 real mint outputs (1000 sat) produced 15 SOLVENT liability rows (2100 sat) — the swap's replacement outputs and the melt's change outputs were being mislabeled as mint too. Fixed by reading `crates/cdk-common/src/mint.rs`'s real `OperationKind` Display values (`"mint"`, `"swap"`, `"melt"`, `"batch_mint"`) and using `COALESCE(NEW.operation_kind, 'mint')` in the trigger.
+2. **Reconciliation receipt-count scoping.** After fix 1, counts/amounts matched exactly (6/6, 1000/1000 sat) but the receipt-outbox count (15, correctly covering mint+swap+melt liabilities) was compared against the mint-only liability count (6) — an apples-to-oranges bug in the reconciliation script itself, not the trigger. Fixed by joining the receipt query to `solvent_issued_liability` and filtering to `operation_kind = 'mint'`.
+
+**Result, confirmed by real execution**: a real Lightning-paid NUT-04 mint (1000 sat, 6 outputs) produces exactly 6 durable SOLVENT issued-liability rows summing to 1000 sat, matching CDK's own real `blind_signature` table exactly. Rollback leaves both CDK's and SOLVENT's rows absent; commit leaves both present. A genuine second HTTP mint attempt against the already-issued quote is rejected by the real mint (`Quote already issued`) with no duplicate accounting. Reconciliation is byte-identical before and after killing and restarting the real mint process.
+
+**Not yet done**: receipt *signing* (Step 8B/8C architecture decided, not implemented — `solvent_pol_receipt` rows exist but stay `pending`), and NUT-03/NUT-05 accounting (deliberately not started, per Step 8's own "NUT-04 first" instruction). Per Step 8's own explicit escape valve: **STEP 8 PARTIAL — REAL ATOMIC ACCOUNTING VERIFIED, MINT-NATIVE RECEIPT SIGNING NOT YET VERIFIED.**
+
+---
+
 ## 2026-09-23 — Phase 2 Step 8C: receipt-signing architecture — minimal `Signatory` trait extension
 
 **Problem**: `docs/cdk-signatory-audit.md`'s real source audit confirmed Step 2's "no CDK modification needed" finding does **not** extend to receipt signing. CDK's `Signatory` trait exposes only `blind_sign()` (a BDHKE point-blinding operation), `verify_proofs()`, `keysets()`, `subscribe_keysets()`, and `rotate_keyset()` — no generic "sign this message with the amount key" operation exists. A real PoL receipt needs a BIP-340 Schnorr signature over a specific message string, using the same per-amount private key `blind_sign()` uses, which today only that one narrow BDHKE operation can touch.
