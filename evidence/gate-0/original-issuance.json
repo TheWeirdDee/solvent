@@ -1,0 +1,9 @@
+{
+  "cashu_library": "@cashu/cashu-ts",
+  "cashu_library_version": "4.10.2",
+  "keyset_id": "00484ecf48365b7c",
+  "amount": 1000,
+  "amount_public_key_A": "02ce425d52b489523c221b3f501d4dc66c65df7284cdba85b6c32b88ea80e3393f",
+  "original_b_prime": "02137d57f5947f854f23f9c0e8fb87e1f99f176fa0e043fcc8a1ba014729fc4540",
+  "original_blind_signature_c_prime": "0361ba10f765e15aa89d027525aa61c308f0ced8a99b51dfabcfed7b4897bd20fe"
+}
