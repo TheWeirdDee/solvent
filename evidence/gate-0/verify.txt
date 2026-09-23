@@ -1,0 +1,18 @@
+SOLVENT Gate 0 — NUT-12 transfer invariant spike
+cashu library: @cashu/cashu-ts 4.10.2
+
+[1] real issuance produced: amount=1000 keyset=00484ecf48365b7c
+    original B'  = 02137d57f5947f854f23f9c0e8fb87e1f99f176fa0e043fcc8a1ba014729fc4540
+    original C_  = 0361ba10f765e15aa89d027525aa61c308f0ced8a99b51dfabcfed7b4897bd20fe
+
+[2] real token encode/decode round trip complete
+    encoded token length: 330 chars
+    received proof contains dleq.e/s/r: true
+
+[3] independent receiver-side reconstruction
+    reconstructed B' = 02137d57f5947f854f23f9c0e8fb87e1f99f176fa0e043fcc8a1ba014729fc4540
+    reconstructed C' = 0361ba10f765e15aa89d027525aa61c308f0ced8a99b51dfabcfed7b4897bd20fe
+    original_B' == reconstructed_B' : true
+    DLEQ valid                      : true
+
+GATE 0: PASS
