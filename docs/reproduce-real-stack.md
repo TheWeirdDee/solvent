@@ -79,7 +79,16 @@ grep cdk-mintd-0.18.1-x86_64 SHA256SUMS | sha256sum -c -
 chmod +x cdk-mintd
 ```
 
-Write a `config.toml` with `[payment_backend] backend = "lnd"` pointed at LND-1's real `tls.cert`/`admin.macaroon` — exact shape in `.github/workflows/real-cashu-integration.yml`'s "Start CDK mint" step. Run `CDK_MINTD_MNEMONIC="<your own test mnemonic>" cdk-mintd --config config.toml` and wait for `curl http://127.0.0.1:8085/v1/info` to succeed.
+Write a `config.toml` with `[payment_backend] backend = "lnd"` pointed at LND-1's real `tls.cert`/`admin.macaroon` — exact shape in `.github/workflows/real-cashu-integration.yml`'s "Start CDK mint" step. `cdk-mintd` 0.18.x moved to database-backed configuration, so `--config` is a legacy/migration-only flag, not a startup input — import the config once, then start with no subcommand:
+
+```bash
+mkdir -p /tmp/cdk/mint
+CDK_MINTD_MNEMONIC="<your own test mnemonic>" cdk-mintd --work-dir /tmp/cdk/mint \
+  config init --new-mint --file config.toml
+CDK_MINTD_MNEMONIC="<your own test mnemonic>" cdk-mintd --work-dir /tmp/cdk/mint &
+```
+
+Wait for `curl http://127.0.0.1:8085/v1/info` to succeed.
 
 ### 4. Run the Phase 1 integration test
 
@@ -95,6 +104,19 @@ npm run verify:cashu-real
 ```
 
 Expect the exact CLI output documented in `DECISIONS.md`'s Phase 1 entry, ending in `REAL CASHU FOUNDATION VERIFIED` (exit 0) or an explicit, itemized `PHASE 1 NOT VERIFIED — <reason>` (non-zero exit).
+
+### 5. Process-restart persistence check
+
+Kill the `cdk-mintd` process from step 3, then start it again against the SAME `--work-dir` (same on-disk SQLite database, no `config init` needed the second time), and confirm the already-spent proofs from step 4 are still SPENT afterward:
+
+```bash
+kill %1   # or the cdk-mintd job/PID from step 3
+CDK_MINTD_MNEMONIC="<the same test mnemonic as step 3>" cdk-mintd --work-dir /tmp/cdk/mint &
+# wait for curl http://127.0.0.1:8085/v1/info to succeed again, then:
+npm run verify:cashu-real:restart
+```
+
+Expect `REAL CASHU FOUNDATION RESTART PERSISTENCE VERIFIED` (exit 0). This is confirmed by real execution — see [run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23), where both this and step 4 passed for real in GitHub Actions.
 
 ## No missing private code, no undocumented manual steps
 
