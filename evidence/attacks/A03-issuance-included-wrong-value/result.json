@@ -1,0 +1,25 @@
+{
+  "attack_id": "A03",
+  "decision": "REFUSE",
+  "reasonCode": "REFUSE_MMR_PROOF_INVALID",
+  "reason": "The inclusion proof for this issuance does not verify against the signed epoch root.",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": true,
+    "dleqValid": true,
+    "bPrimeReconstructed": true,
+    "receiptValid": true,
+    "targetEpochClosed": true,
+    "manifestValid": true,
+    "inclusionValid": false,
+    "liabilityArithmeticValid": true,
+    "reserveCoverage": true,
+    "nostrEvidence": true
+  },
+  "mint": "solvent-fixture-mint",
+  "amount": 30000,
+  "keyset": "00ec50c9942f0c3a",
+  "reconstructedBPrime": "020686d4a6a8fc214b2e8975fe971483562b778cc94b38db49f12f12e02b20f172",
+  "timestamp": "2026-09-23T10:10:11.614Z"
+}
