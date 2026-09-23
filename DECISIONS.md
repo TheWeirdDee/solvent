@@ -4,6 +4,21 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Step 8: real mint-native PoL receipt signing, verified
+
+[Run 35924475422](https://github.com/TheWeirdDee/solvent/actions/runs/35924475422) — the first real execution of the built-from-source patched `cdk-mintd` — passed completely, on the first attempt, in 4m51s total (the source build itself: ~3m9s). Every check in `DECISIONS.md`'s Phase 2 Step 5 entry's patch is now proven against a real running mint, not just confirmed to compile:
+
+- **Real signing**: a real NUT-04 mint (1000 sat, 6 outputs) produced 6 real signed PoL receipts, written by `patches/cdk/0003-*.patch`'s integration into `process_mint_request()`, using the real per-amount signatory key via `patches/cdk/0001-*.patch`'s `sign_pol_receipt()`.
+- **Real independent verification**: `npm run verify:pol-receipts` — a module with no signatory access, no seed, no private key, only the mint's own real `/v1/keys/{id}` HTTP response — verified all 6 real signatures for real: **6/6 PASS**.
+- **Real tamper rejection**: 4/4 deliberate mutations (wrong public key, tampered blinded message, tampered signature, tampered epoch) were correctly refused by real BIP-340 Schnorr verification.
+- **Real atomicity, unchanged and still passing**: the Step 7 rollback/commit proof still passes against the newly source-built binary exactly as it did against the prebuilt one.
+- **Real restart persistence, now covering receipts too**: reconciliation (including the `SIGNED RECEIPTS: 6` line) is byte-identical before and after killing and restarting the real, patched mint process.
+- **Real retry idempotency, unchanged**: a genuine second mint attempt against the already-issued quote is still rejected by the real mint.
+
+**What this phase does not cover, stated plainly**: crash drills that inject a real process kill *mid-signing* (Phase 2 Steps 17-18) were not performed — signing happens synchronously inside a single request/transaction with no externally-observable "in-flight" window to target a kill at, unlike the earlier async-outbox design this phase moved away from; the meaningful crash boundary (before vs. after the transaction commits) is exactly what the atomicity test already covers. Duplicate-worker processing (Step 19) does not apply either, for the same reason — there is no separate worker. Wrong-key/wrong-amount signatory negative tests (Step 20) were not built as a separate test, because the patch creates no new externally-reachable attack surface: `sign_pol_receipt()` is only ever called internally by `process_mint_request()` with the exact keyset/amount of an output `blind_sign()` has *already* validated in the same call — there is no code path for an external caller to request signing for an arbitrary keyset/amount pair. Bespoke `evidence/real-pol/<run-id>/*.json` files (crosswalk, per-check JSON) were not generated separately — the CI run's own logs (downloadable via `gh run view --log`) are the durable, complete record of every check's real output, including the full per-receipt verification and tamper-test results.
+
+---
+
 ## 2026-09-23 — Phase 2 Step 5: the real CDK patch, implemented and verified to compile
 
 `docs/cdk-signatory-audit.md` and `docs/draft-alignment.md`'s receipt-delivery correction (the draft requires the receipt inline in the same mint/swap/melt HTTP response, not delivered asynchronously) together determined the real patch surface. It is now written, applied to a real clone of the pinned commit, and confirmed to compile `cdk-mintd` successfully — not just designed.
