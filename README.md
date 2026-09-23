@@ -15,11 +15,12 @@ The product is the protocol, aligned to Cashu PR #388 / the draft Proof-of-Liabi
 
 This is a **phase, not a finished system** — the verifier above and the real Cashu foundation below currently run side by side, not yet connected. See `docs/REALITY-MAP.md` for the full real/simulated breakdown and `DECISIONS.md` for why.
 
-**Verified this phase** (`src/cli/real-cashu/`, `.github/workflows/real-cashu-integration.yml` — see `docs/real-cashu-stack.md`):
+**Verified this phase** (`src/cli/real-cashu/`, `.github/workflows/real-cashu-integration.yml` — see `docs/real-cashu-stack.md`), confirmed by real execution in [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23):
 - a real, independent, external Cashu mint (**CDK**, not SOLVENT's own code)
 - a real regtest Lightning payment, settled by a separate real node and independently confirmed
 - real NUT-04 issuance, real NUT-03 swap, real NUT-07 proof-state transitions, real NUT-05 melt
 - real double-spend rejection by the mint's own state, not a client-side check
+- real process-restart persistence: after killing and restarting the mint against the same on-disk database, already-spent proofs still report SPENT and a fresh double-spend attempt is still refused
 
 **Not yet connected in this phase**:
 - SOLVENT's own Proof-of-Liabilities mint extension (signed receipts, epoch manifests, sum-MMR)
