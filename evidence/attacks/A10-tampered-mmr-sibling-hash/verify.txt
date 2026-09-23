@@ -1,0 +1,4 @@
+A10 tampered-mmr-sibling-hash
+expected: REFUSE_MMR_PROOF_INVALID
+actual:   REFUSE_MMR_PROOF_INVALID
+PASS
