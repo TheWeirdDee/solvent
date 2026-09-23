@@ -4,6 +4,14 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Step 0: correct the ordinary double-spend evidence
+
+Phase 1's ordinary-lifecycle double-spend check (R8/R9) used `senderWallet.ops.receive(token).prepare()`, which threw `Proof has unrecognised keyset '<id>' is not a keyset for this wallet unit`. Grepping cashu-ts's own bundled source (`isUnitKeyset` in `lib/cashu-ts.es.js`) confirmed this is a **client-side guard**, thrown before any HTTP request is made — it proved nothing about the mint's own double-spend enforcement. Only Phase 1's *restart*-persistence check (R12/R13, added later) happened to exercise a real mint rejection, because it used the low-level `Wallet` swap path differently.
+
+**Fix**: rewrote R8/R9 in `src/cli/real-cashu/real-cashu-foundation.ts` to bypass the high-level `Wallet` entirely. It now: (1) re-confirms via NUT-07 that the original proofs are SPENT; (2) constructs a real second `/v1/swap` request with fresh, validly-blinded outputs (`createRandomRawBlindedMessage()`); (3) sends it straight to the mint via the low-level `Mint.swap()` client (a direct HTTP POST with no client-side pre-validation); (4) requires the failure to be a genuine `MintOperationError` (`isMintOperationError()` — a type only ever constructed from a parsed HTTP error response, never from a client-side throw) whose message indicates an already-spent condition. Re-run for real in [run 35855551901](https://github.com/TheWeirdDee/solvent/actions/runs/35855551901) (2026-09-23, commit `9cb5eef`): the mint rejected the request with `real mint HTTP error (code 11001, status 400): Token Already Spent` — CDK's own real structured protocol error, observed over the network, not asserted client-side.
+
+---
+
 ## 2026-09-23 — Phase 1: Real Cashu Foundation
 
 Competitive analysis of other Freedom Stack (Nostr + Ecash) submissions (RelayJoin's real Signet Payjoin transaction, Lifeboat's real regtest LND-channel-backup recovery, ecashmesh's real regtest CDK/CLN/LND mint→swap→melt lifecycle with `CDK_FAKE_WALLET` explicitly excluded) surfaced a real gap: SOLVENT's live transaction path used SOLVENT's own locally-generated fixture mint keys/proofs and an in-memory reference acceptance store, never a real external mint's real issue/swap/melt lifecycle. Regtest/testnet is fine — the pattern the strongest competitors share is *real host-protocol implementations on a safe test network*, not synthetic protocol state. This entry records fixing that, scoped deliberately narrowly (Phase 1: prove the Cashu layer is real; do not yet touch SOLVENT's own PoL layer — see below).
