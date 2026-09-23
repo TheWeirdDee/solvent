@@ -1,0 +1,25 @@
+{
+  "attack_id": "A20",
+  "decision": "REFUSE",
+  "reasonCode": "REFUSE_RESERVE_ATTESTATION_INVALID",
+  "reason": "The reserve statement's signature or mint binding does not verify.",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": true,
+    "dleqValid": true,
+    "bPrimeReconstructed": true,
+    "receiptValid": true,
+    "targetEpochClosed": true,
+    "manifestValid": true,
+    "inclusionValid": true,
+    "liabilityArithmeticValid": true,
+    "reserveCoverage": false,
+    "nostrEvidence": true
+  },
+  "mint": "solvent-fixture-mint",
+  "amount": 30000,
+  "keyset": "00ec50c9942f0c3a",
+  "reconstructedBPrime": "020686d4a6a8fc214b2e8975fe971483562b778cc94b38db49f12f12e02b20f172",
+  "timestamp": "2026-09-23T10:10:12.152Z"
+}
