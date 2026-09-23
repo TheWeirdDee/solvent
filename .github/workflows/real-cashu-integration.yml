@@ -142,7 +142,22 @@ jobs:
           TWO="lncli --lnddir=/tmp/regtest/lnd-two --network=regtest --rpcserver=127.0.0.1:$RPC_TWO"
           BTC="bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest"
 
-          TWO_ADDR=$($TWO newaddress p2wkh | jq -r .address)
+          # lnd's gRPC server can answer `getinfo` (satisfying the previous
+          # step's readiness poll) before the wallet subsystem underneath it
+          # is ready for wallet-dependent calls like `newaddress` — a real,
+          # observed race ("server is still in the process of starting").
+          # Bounded retry on the first such call, rather than trusting a
+          # single attempt right after the earlier getinfo-based poll.
+          TWO_ADDR=""
+          for i in $(seq 1 30); do
+            TWO_ADDR=$($TWO newaddress p2wkh 2>/dev/null | jq -r .address 2>/dev/null || true)
+            [ -n "$TWO_ADDR" ] && [ "$TWO_ADDR" != "null" ] && break
+            sleep 2
+          done
+          if [ -z "$TWO_ADDR" ] || [ "$TWO_ADDR" = "null" ]; then
+            echo "LND-2 never became ready for wallet RPCs" >&2
+            exit 1
+          fi
           $BTC generatetoaddress 1 "$TWO_ADDR" >/dev/null
           $BTC generatetoaddress 100 "$MINE_ADDR" >/dev/null   # mature the coinbase output
           for i in $(seq 1 30); do
