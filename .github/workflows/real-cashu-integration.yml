@@ -50,30 +50,35 @@ jobs:
         run: |
           set -euo pipefail
           cd /tmp
-          curl -sSL -o bitcoin.tar.gz "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz"
+          # Download under the exact filename SHA256SUMS itself lists — a
+          # renamed local file (e.g. `-o bitcoin.tar.gz`) cannot be verified
+          # by `sha256sum -c`, which matches on the literal filename in the
+          # sums file, not file content alone.
+          curl -sSL -O "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz"
           curl -sSL -o SHA256SUMS "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/SHA256SUMS"
           grep "bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" SHA256SUMS | sha256sum -c -
-          tar xzf bitcoin.tar.gz
+          tar xzf "bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz"
           echo "/tmp/bitcoin-${BITCOIN_CORE_VERSION}/bin" >> "$GITHUB_PATH"
 
       - name: Download + verify LND ${{ env.LND_VERSION }}
         run: |
           set -euo pipefail
           cd /tmp
-          curl -sSL -o lnd.tar.gz "https://github.com/lightningnetwork/lnd/releases/download/v${LND_VERSION}/lnd-linux-amd64-v${LND_VERSION}.tar.gz"
+          curl -sSL -O "https://github.com/lightningnetwork/lnd/releases/download/v${LND_VERSION}/lnd-linux-amd64-v${LND_VERSION}.tar.gz"
           curl -sSL -o manifest.txt "https://github.com/lightningnetwork/lnd/releases/download/v${LND_VERSION}/manifest-v${LND_VERSION}.txt"
           grep "lnd-linux-amd64-v${LND_VERSION}.tar.gz" manifest.txt | sha256sum -c -
-          tar xzf lnd.tar.gz
+          tar xzf "lnd-linux-amd64-v${LND_VERSION}.tar.gz"
           echo "/tmp/lnd-linux-amd64-v${LND_VERSION}" >> "$GITHUB_PATH"
 
       - name: Download + verify CDK ${{ env.CDK_VERSION }} (cdk-mintd, real `lnd` backend compiled in)
         run: |
           set -euo pipefail
           mkdir -p /tmp/cdk && cd /tmp/cdk
-          curl -sSL -o cdk-mintd "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/cdk-mintd-${CDK_VERSION}-x86_64"
+          curl -sSL -O "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/cdk-mintd-${CDK_VERSION}-x86_64"
           curl -sSL -o SHA256SUMS "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/SHA256SUMS"
           grep "cdk-mintd-${CDK_VERSION}-x86_64" SHA256SUMS | sha256sum -c -
-          chmod +x cdk-mintd
+          chmod +x "cdk-mintd-${CDK_VERSION}-x86_64"
+          ln -s "cdk-mintd-${CDK_VERSION}-x86_64" cdk-mintd
           echo "/tmp/cdk" >> "$GITHUB_PATH"
 
       - name: Start Bitcoin Core regtest
@@ -164,7 +169,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/regtest/mint
-          MNEMONIC=$(cdk-cli generate-mnemonic 2>/dev/null || echo "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about")
+          # A fixed, well-known, publicly-documented BIP-39 test vector — this
+          # workflow does not download cdk-cli, and a real/random mnemonic
+          # buys nothing extra for a disposable regtest mint whose signing
+          # identity is discarded at the end of every run anyway.
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
           cat > /tmp/regtest/mint/config.toml <<EOF
           [info]
           url = "http://127.0.0.1:8085"
