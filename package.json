@@ -26,7 +26,8 @@
     "verify:submission": "tsx src/cli/verify-submission.ts",
     "verify:deployed": "tsx src/cli/verify-deployed.ts",
     "verify:deployed:browser": "tsx src/cli/verify-deployed-browser.ts",
-    "verify:cashu-real": "tsx src/cli/real-cashu/real-cashu-foundation.ts"
+    "verify:cashu-real": "tsx src/cli/real-cashu/real-cashu-foundation.ts",
+    "verify:cashu-real:restart": "tsx src/cli/real-cashu/real-cashu-restart-check.ts"
   },
   "repository": {
     "type": "git",
