@@ -27,3 +27,17 @@
 Lane A and Lane B are not in tension — Lane A's fixtures remain exactly as useful as they always were for fast, deterministic testing. What changed is that Lane A's fixture mint can no longer be pointed to as evidence that ecash issuance/redemption itself is real; that claim now rests on Lane B.
 
 Lane B is confirmed by real execution, not just by code review: [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23) ran the entire table above for real and printed `REAL CASHU FOUNDATION VERIFIED` and `REAL CASHU FOUNDATION RESTART PERSISTENCE VERIFIED`. See `docs/limitations.md` for exactly what that run proved and where its evidence artifact is attached.
+
+## Phase 2 — mint-native accounting (NUT-04 only so far)
+
+| Component | Implementation | Simulation? |
+| --- | --- | --- |
+| SOLVENT issued-liability records for NUT-04 | SQLite triggers on CDK's own unmodified `blind_signature` table, firing inside CDK's real transaction (`migrations/solvent-accounting/0001_nut04_issued_liability.sql`) | **NO** |
+| Accounting atomicity | A transaction that fails after the trigger fires but before commit leaves both CDK's and SOLVENT's rows absent; a real commit leaves both present — proven against the real database in CI, not asserted | **NO** |
+| Accounting reconciliation | SOLVENT's journal independently queried and compared against CDK's own real `blind_signature` table in the same database — exact match, not compared only against itself | **NO** |
+| Retry idempotency | A genuine second HTTP mint attempt against an already-issued quote, rejected by the real mint | **NO** |
+| Restart persistence (accounting) | Reconciliation re-run after killing and restarting the real mint process reports byte-identical results | **NO** |
+| PoL receipt signing (NUT-04) | Architecture decided and the real signatory source audited (`docs/cdk-signatory-audit.md`) — **NOT YET IMPLEMENTED**. `solvent_pol_receipt` rows are created (durably, atomically) but stay `status = 'pending'`; no signature exists yet. | N/A — not built |
+| NUT-03 (swap) / NUT-05 (melt) accounting | **NOT YET BUILT.** Phase 2 deliberately implemented NUT-04 alone first, per its own build-order instruction. | N/A — not built |
+
+Confirmed by real execution: [GitHub Actions run 35882242998](https://github.com/TheWeirdDee/solvent/actions/runs/35882242998) (2026-09-23).
