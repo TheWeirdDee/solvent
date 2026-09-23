@@ -1,0 +1,64 @@
+{
+  "mint_identity": "034e96633885aa1a102e09c79d177347fc001b52c64ace73bdd146d73a9907bf25",
+  "nostr_pubkey": "aa855698df8683882dff9000faf0c0479e44348c706f0c057464337b6bc6b4d9",
+  "epoch_index": 12,
+  "relays": [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.nostr.band"
+  ],
+  "published_ok_count": 2,
+  "fetched_event_count": 1,
+  "cases": [
+    {
+      "label": "ACCEPT (real publish + real fetch-back)",
+      "expected_reason_code": null,
+      "actual_reason_code": null,
+      "verified": true,
+      "pass": true,
+      "detail": "evaluated 1 relay-fetched event(s)"
+    },
+    {
+      "label": "REFUSE_NOSTR_SIGNATURE (tampered content)",
+      "expected_reason_code": "REFUSE_NOSTR_SIGNATURE",
+      "actual_reason_code": "REFUSE_NOSTR_SIGNATURE",
+      "verified": false,
+      "pass": true,
+      "detail": "Every fetched evidence event failed signature or shape verification."
+    },
+    {
+      "label": "REFUSE_NOSTR_STALE (expired valid_until)",
+      "expected_reason_code": "REFUSE_NOSTR_STALE",
+      "actual_reason_code": "REFUSE_NOSTR_STALE",
+      "verified": false,
+      "pass": true,
+      "detail": "Evidence valid_until=1790051428 is not fresh at now=1790055027."
+    },
+    {
+      "label": "REFUSE_NOSTR_STATE_MISMATCH (event digest != decision digest)",
+      "expected_reason_code": "REFUSE_NOSTR_STATE_MISMATCH",
+      "actual_reason_code": "REFUSE_NOSTR_STATE_MISMATCH",
+      "verified": false,
+      "pass": true,
+      "detail": "The published evidence does not commit to the same manifest/reserve digests used for this decision."
+    },
+    {
+      "label": "REFUSE_NOSTR_CONFLICT (two valid signed states, same identity/epoch)",
+      "expected_reason_code": "REFUSE_NOSTR_CONFLICT",
+      "actual_reason_code": "REFUSE_NOSTR_CONFLICT",
+      "verified": false,
+      "pass": true,
+      "detail": "Found 2 distinct validly-signed evidence states for the same mint identity/epoch."
+    },
+    {
+      "label": "REFUSE_NOSTR_UNAVAILABLE (no relay has any evidence)",
+      "expected_reason_code": "REFUSE_NOSTR_UNAVAILABLE",
+      "actual_reason_code": "REFUSE_NOSTR_UNAVAILABLE",
+      "verified": false,
+      "pass": true,
+      "detail": "No relay returned any matching evidence event."
+    }
+  ],
+  "pass": true,
+  "note": "reserve_digest/reserve_sats/reserve_network in the published event are a documented Gate-6-not-yet-implemented placeholder (see docs/trust-boundaries.md), not a real chain-state binding."
+}
