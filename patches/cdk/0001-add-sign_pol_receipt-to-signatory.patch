@@ -1,0 +1,170 @@
+diff --git a/crates/cdk-signatory/src/db_signatory.rs b/crates/cdk-signatory/src/db_signatory.rs
+index 551d4c0..1cfc29d 100644
+--- a/crates/cdk-signatory/src/db_signatory.rs
++++ b/crates/cdk-signatory/src/db_signatory.rs
+@@ -15,12 +15,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
+ 
+ use arc_swap::ArcSwap;
+ use bitcoin::bip32::{DerivationPath, Xpriv};
++use bitcoin::secp256k1::schnorr::Signature;
+ use bitcoin::secp256k1::{self, Secp256k1};
+ use cdk_common::database::MintKeyDatabaseTransaction;
+ use cdk_common::dhke::{sign_message, verify_message};
+ use cdk_common::mint::MintKeySetInfo;
+ use cdk_common::nuts::{BlindSignature, BlindedMessage, CurrencyUnit, Id, MintKeySet, Proof};
+-use cdk_common::{database, Error, PublicKey};
++use cdk_common::{database, Amount, Error, PublicKey};
+ use tokio::sync::{watch, Mutex};
+ use tracing::instrument;
+ 
+@@ -383,6 +384,34 @@ impl Signatory for DbSignatory {
+             .collect::<Result<Vec<_>, _>>()
+     }
+ 
++    // SOLVENT Phase 2: identical keyset/amount resolution and identical
++    // active/expired validation as blind_sign above — a receipt can only
++    // exist for a keyset/amount that could also have produced a real blind
++    // signature, so this deliberately reuses the same gate rather than a
++    // separate, possibly-inconsistent one. Signs with the real per-amount
++    // key already loaded for blind_sign; only the resulting Signature is
++    // ever returned.
++    #[instrument(skip_all)]
++    async fn sign_pol_receipt(
++        &self,
++        keyset_id: Id,
++        amount: Amount,
++        message: Vec<u8>,
++    ) -> Result<Signature, Error> {
++        let keysets = self.keysets.load();
++
++        let (info, key) = keysets.by_id.get(&keyset_id).ok_or(Error::UnknownKeySet)?;
++        if !info.active {
++            return Err(Error::InactiveKeyset);
++        }
++        if info.is_expired() {
++            return Err(Error::ExpiredKeyset);
++        }
++
++        let key_pair = key.keys.get(&amount).ok_or(Error::UnknownKeySet)?;
++        Ok(key_pair.secret_key.sign(&message)?)
++    }
++
+     #[tracing::instrument(skip_all)]
+     async fn verify_proofs(&self, proofs: Vec<Proof>) -> Result<(), Error> {
+         let keysets = self.keysets.load();
+diff --git a/crates/cdk-signatory/src/embedded.rs b/crates/cdk-signatory/src/embedded.rs
+index 44d9e5c..7de588c 100644
+--- a/crates/cdk-signatory/src/embedded.rs
++++ b/crates/cdk-signatory/src/embedded.rs
+@@ -2,7 +2,8 @@
+ //! run the Signatory in another thread, isolated form the main CDK, communicating through messages
+ use std::sync::Arc;
+ 
+-use cdk_common::{BlindSignature, BlindedMessage, Error, Proof};
++use bitcoin::secp256k1::schnorr::Signature;
++use cdk_common::{Amount, BlindSignature, BlindedMessage, Error, Id, Proof};
+ use tokio::sync::{mpsc, oneshot, watch};
+ use tokio::task::JoinHandle;
+ 
+@@ -24,6 +25,17 @@ enum Request {
+             oneshot::Sender<Result<SignatoryKeySet, Error>>,
+         ),
+     ),
++    // SOLVENT Phase 2: same actor/channel boundary as every other request —
++    // the real per-amount key never leaves the DbSignatory task; only the
++    // resulting Signature crosses back over this channel.
++    SignPolReceipt(
++        (
++            Id,
++            Amount,
++            Vec<u8>,
++            oneshot::Sender<Result<Signature, Error>>,
++        ),
++    ),
+ }
+ 
+ /// Creates a service-like to wrap an implementation of the Signatory
+@@ -97,6 +109,12 @@ impl Service {
+                         tracing::error!("Error sending keyset-rotation response: receiver dropped");
+                     }
+                 }
++                Request::SignPolReceipt((keyset_id, amount, message, response)) => {
++                    let output = handler.sign_pol_receipt(keyset_id, amount, message).await;
++                    if response.send(output).is_err() {
++                        tracing::error!("Error sending PoL receipt signature: receiver dropped");
++                    }
++                }
+             }
+         }
+     }
+@@ -165,4 +183,20 @@ impl Signatory for Service {
+ 
+         rx.await.map_err(|e| Error::RecvError(e.to_string()))?
+     }
++
++    #[tracing::instrument(skip_all)]
++    async fn sign_pol_receipt(
++        &self,
++        keyset_id: Id,
++        amount: Amount,
++        message: Vec<u8>,
++    ) -> Result<Signature, Error> {
++        let (tx, rx) = oneshot::channel();
++        self.pipeline
++            .send(Request::SignPolReceipt((keyset_id, amount, message, tx)))
++            .await
++            .map_err(|e| Error::SendError(e.to_string()))?;
++
++        rx.await.map_err(|e| Error::RecvError(e.to_string()))?
++    }
+ }
+diff --git a/crates/cdk-signatory/src/signatory.rs b/crates/cdk-signatory/src/signatory.rs
+index 67cdc29..708ccb6 100644
+--- a/crates/cdk-signatory/src/signatory.rs
++++ b/crates/cdk-signatory/src/signatory.rs
+@@ -6,12 +6,14 @@
+ //! There is an in memory implementation, when the keys are stored in memory, in the same process,
+ //! but it is isolated from the rest of the application, and they communicate through a channel with
+ //! the defined API.
++use bitcoin::secp256k1::schnorr::Signature;
+ use cdk_common::common::IssuerVersion;
+ use cdk_common::error::Error;
+ use cdk_common::mint::MintKeySetInfo;
+ use cdk_common::nuts::nut02::KeySetVersion;
+ use cdk_common::{
+-    BlindSignature, BlindedMessage, CurrencyUnit, Id, KeySet, Keys, MintKeySet, Proof, PublicKey,
++    Amount, BlindSignature, BlindedMessage, CurrencyUnit, Id, KeySet, Keys, MintKeySet, Proof,
++    PublicKey,
+ };
+ 
+ /// RotateKeyArguments
+@@ -169,6 +171,29 @@ pub trait Signatory {
+     /// Add current keyset to inactive keysets
+     /// Generate new keyset
+     async fn rotate_keyset(&self, args: RotateKeyArguments) -> Result<SignatoryKeySet, Error>;
++
++    /// SOLVENT Phase 2: signs a Proof-of-Liability receipt message with the
++    /// same real per-amount key `blind_sign` uses for this exact
++    /// keyset/amount — never a different, generic, or exported key. Only
++    /// the signature is ever returned; the private key never leaves this
++    /// boundary. See `solvent/docs/cdk-signatory-audit.md`.
++    ///
++    /// Default: unsupported. Only `DbSignatory` (the embedded, in-process
++    /// implementation Phase 1/2 actually deploy) overrides this with a real
++    /// implementation. The remote/gRPC signatory client
++    /// (`proto::client::SignatoryRpcClient`) is deliberately not extended
++    /// with a matching RPC in this phase — see
++    /// `solvent/docs/cdk-signatory-audit.md`'s "what remains unaudited."
++    async fn sign_pol_receipt(
++        &self,
++        _keyset_id: Id,
++        _amount: Amount,
++        _message: Vec<u8>,
++    ) -> Result<Signature, Error> {
++        Err(Error::Custom(
++            "sign_pol_receipt is not supported by this Signatory implementation".to_string(),
++        ))
++    }
+ }
+ 
+ #[cfg(test)]
