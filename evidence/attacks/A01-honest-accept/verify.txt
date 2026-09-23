@@ -1,0 +1,4 @@
+A01 honest-accept
+expected: ACCEPT_VERIFIED
+actual:   ACCEPT_VERIFIED
+PASS
