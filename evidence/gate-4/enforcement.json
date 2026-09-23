@@ -1,0 +1,51 @@
+{
+  "acceptance_definition": "A verified proof is serialized via the real @cashu/cashu-ts getEncodedToken() and committed to a local accepted-proof store. Not a live mint-swap network call — see docs/trust-boundaries.md.",
+  "cases": [
+    {
+      "label": "ACCEPT_VERIFIED",
+      "expected_reason_code": "ACCEPT_VERIFIED",
+      "actual_reason_code": "ACCEPT_VERIFIED",
+      "decision": "ACCEPT",
+      "accept_function_call_count": 1,
+      "accepted_store_length": 1,
+      "pass": true
+    },
+    {
+      "label": "REFUSE_ISSUANCE_OMITTED",
+      "expected_reason_code": "REFUSE_ISSUANCE_OMITTED",
+      "actual_reason_code": "REFUSE_ISSUANCE_OMITTED",
+      "decision": "REFUSE",
+      "accept_function_call_count": 0,
+      "accepted_store_length": 0,
+      "pass": true
+    },
+    {
+      "label": "REFUSE_RESERVE_SHORT",
+      "expected_reason_code": "REFUSE_RESERVE_SHORT",
+      "actual_reason_code": "REFUSE_RESERVE_SHORT",
+      "decision": "REFUSE",
+      "accept_function_call_count": 0,
+      "accepted_store_length": 0,
+      "pass": true
+    },
+    {
+      "label": "REFUSE_RECEIPT_INVALID",
+      "expected_reason_code": "REFUSE_RECEIPT_INVALID",
+      "actual_reason_code": "REFUSE_RECEIPT_INVALID",
+      "decision": "REFUSE",
+      "accept_function_call_count": 0,
+      "accepted_store_length": 0,
+      "pass": true
+    },
+    {
+      "label": "REFUSE_UNVERIFIABLE",
+      "expected_reason_code": "REFUSE_UNVERIFIABLE",
+      "actual_reason_code": "REFUSE_UNVERIFIABLE",
+      "decision": "REFUSE",
+      "accept_function_call_count": 0,
+      "accepted_store_length": 0,
+      "pass": true
+    }
+  ],
+  "pass": true
+}
