@@ -31,7 +31,19 @@
 // protocol logic, and lives in .github/workflows/real-cashu-integration.yml
 // (see docs/reproduce-real-stack.md to run it yourself).
 import { randomUUID } from 'node:crypto';
-import { Wallet, MintQuoteState, getDecodedToken, getEncodedToken, type Proof, type Token } from '@cashu/cashu-ts';
+import {
+  Wallet,
+  Mint,
+  MintQuoteState,
+  createRandomRawBlindedMessage,
+  isMintOperationError,
+  getDecodedToken,
+  getEncodedToken,
+  type Proof,
+  type SerializedBlindedMessage,
+  type SwapRequest,
+  type Token,
+} from '@cashu/cashu-ts';
 import { LndClient } from './lnd-client.js';
 import { ProofStore } from './proof-store.js';
 import { EvidenceWriter, redactProof, sha256Hex } from './evidence.js';
@@ -212,19 +224,56 @@ async function main() {
   record('R7  Receiver replacement proofs UNSPENT', r7Unspent);
   evidence.write('proof-state-after', { original: stateAfterOriginal, replacements: stateAfterNew });
 
-  // ---- R8/R9: double-spend rejection --------------------------------------
-  let r8Rejected = false;
-  let r8Detail = '';
+  // ---- R8/R9: double-spend rejection ---------------------------------------
+  // Phase 2 Step 0 correction: the original version of this check used
+  // `senderWallet.ops.receive(token).prepare()`, which threw "Proof has
+  // unrecognised keyset ... is not a keyset for this wallet unit" —
+  // confirmed (by grepping cashu-ts's own bundled source) to be a
+  // CLIENT-SIDE guard in `isUnitKeyset`, thrown before any HTTP request
+  // was ever sent. That proved nothing about the mint. This version
+  // bypasses the high-level Wallet entirely and sends a real, manually
+  // constructed `/v1/swap` request straight to the mint via the low-level
+  // `Mint` client (`Mint.swap()` is a direct HTTP POST with no client-side
+  // pre-validation), so a rejection here can only come from the mint's own
+  // real proof-state tracking. `isMintOperationError()` distinguishes a
+  // genuine parsed HTTP error response from the mint (only ever
+  // constructed from one) from any other kind of client-side throw.
+  const stateBeforeDoubleSpend = await senderWallet.checkProofsStates(issuedProofs);
+  const r8OriginalsStillSpent = stateBeforeDoubleSpend.every((s) => s.state === 'SPENT');
+  record('R8  NUT-07: original proofs still SPENT before the double-spend attempt', r8OriginalsStillSpent);
+
+  const rawMint = new Mint(cfg.mintUrl);
+  const doubleSpendOutputs: SerializedBlindedMessage[] = issuedProofs.map((p) => ({
+    amount: p.amount,
+    B_: createRandomRawBlindedMessage().B_.toHex(true),
+    id: p.id,
+  }));
+  const doubleSpendRequest: SwapRequest = { inputs: issuedProofs, outputs: doubleSpendOutputs };
+
+  let r9RequestSent = false;
+  let r9RejectedByMint = false;
+  let r9Detail = '';
   try {
-    const doubleSpendPreview = await senderWallet.ops.receive({ mint: cfg.mintUrl, proofs: issuedProofs } as Token).prepare();
-    await senderWallet.completeSwap(doubleSpendPreview);
-    r8Detail = 'mint incorrectly accepted already-spent proofs a second time';
+    r9RequestSent = true; // Mint.swap() is a real fetch() POST — reaching this line means it was dispatched.
+    await rawMint.swap(doubleSpendRequest);
+    r9Detail = 'mint incorrectly accepted already-spent proofs a second time';
   } catch (err) {
-    r8Rejected = true;
-    r8Detail = (err as Error).message;
+    if (isMintOperationError(err)) {
+      r9RejectedByMint = true;
+      r9Detail = `real mint HTTP error (code ${err.code}, status ${err.status}): ${err.message}`;
+    } else {
+      r9Detail = `rejected before reaching the mint (not a real mint response — this would be a test bug, not proof of anything): ${(err as Error).message}`;
+    }
   }
-  record('R8/R9  Double-spend of original proofs REFUSED', r8Rejected, r8Detail);
-  evidence.write('double-spend-result', { rejected: r8Rejected, detail: r8Detail });
+  const r9AlreadySpentReason = /spent/i.test(r9Detail);
+  const r9Pass = r9RequestSent && r9RejectedByMint && r9AlreadySpentReason;
+  record('R9  Second /v1/swap request reached the real mint and was rejected as already-spent', r9Pass, r9Detail);
+  evidence.write('double-spend-result', {
+    originalsStillSpentPerNut07: r8OriginalsStillSpent,
+    requestSentToMint: r9RequestSent,
+    rejectedByRealMintResponse: r9RejectedByMint,
+    detail: r9Detail,
+  });
 
   // ---- R10/R11: real NUT-05 melt back out to a real destination invoice ----
   const destInvoice = await lndSource.createInvoice(Math.max(1, Math.floor(cfg.amountSat * 0.9)), `solvent-phase1-melt-${runId}`);
