@@ -1,0 +1,10 @@
+{
+  "queriedRelays": [
+    "wss://relay.damus.io",
+    "wss://nos.lol",
+    "wss://relay.nostr.band"
+  ],
+  "fetchedEventIds": [
+    "0d2ace6c3dd56e8766afac366683cea788b8936a3ac366e10d7750a86f4a2c6f"
+  ]
+}
