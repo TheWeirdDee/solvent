@@ -1,0 +1,7 @@
+{
+  "nostrResult": {
+    "verified": false,
+    "reasonCode": "REFUSE_NOSTR_UNAVAILABLE",
+    "detail": "No relay returned any matching evidence event."
+  }
+}
