@@ -73,10 +73,21 @@ export class LndClient {
     return { r_hash: base64ToHex(raw.r_hash), payment_request: raw.payment_request, add_index: raw.add_index };
   }
 
-  /** Looks up an invoice by its real hex payment hash — the independent "did this Lightning node actually see this settle" check. */
+  /**
+   * Looks up an invoice by its real hex payment hash — the independent "did
+   * this Lightning node actually see this settle" check.
+   *
+   * `payment_hash` is a protobuf `bytes` field, and LND's REST gateway
+   * decodes query-parameter `bytes` fields as *standard* base64 (RFC 4648
+   * §4: `+`, `/`, `=` padding) — not the URL-safe variant. Sending
+   * base64url here fails for real with `HTTP 400: illegal base64 data`
+   * (confirmed by observing that exact error). So this encodes as standard
+   * base64 and then percent-encodes it for safe use inside the URL, rather
+   * than substituting URL-safe base64 characters.
+   */
   async lookupInvoice(paymentHashHex: string): Promise<LndInvoiceLookup> {
-    const hashUrlSafe = hexToBase64Url(paymentHashHex);
-    return this.call<LndInvoiceLookup>('GET', `/v2/invoices/lookup?payment_hash=${hashUrlSafe}`);
+    const hashB64 = encodeURIComponent(hexToBase64(paymentHashHex));
+    return this.call<LndInvoiceLookup>('GET', `/v2/invoices/lookup?payment_hash=${hashB64}`);
   }
 
   /**
@@ -173,7 +184,4 @@ function base64ToHex(b64: string): string {
 }
 function hexToBase64(hex: string): string {
   return Buffer.from(hex, 'hex').toString('base64');
-}
-function hexToBase64Url(hex: string): string {
-  return Buffer.from(hex, 'hex').toString('base64url');
 }
