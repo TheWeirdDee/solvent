@@ -1,0 +1,40 @@
+{
+  "schema": "solvent-mint-fixture/v1",
+  "mintIdentity": "mint-b",
+  "keysetId": "solvent-mint-b-keyset-v1",
+  "cashuKeys": {
+    "50000": "02e81e8411865b282e4fe8b1234547711d17af5279c2b044e64c0142092b2d6810"
+  },
+  "nostrPubkeyHex": "764224c3dc764ed4f027d0038b7890b61126f39dc901c626e5d40833d7fa4062",
+  "nostrSecretKeyHexDemoOnly": "f36b888a300abb2953db5223da11b15ef1f399458309e5fdb99b5d8c89f99db7",
+  "epoch": 1,
+  "reserveSats": 25000,
+  "reserveKind": "demo-reserve",
+  "validitySeconds": 86400,
+  "mintRoot": {
+    "hashHex": "c9e7fb49f9af05a9923f28352a53adb7a4bc1609923b4c2d021c14868541ef71",
+    "sumSats": 50000
+  },
+  "burnRoot": {
+    "hashHex": "213476b0bf0e624ed2fe75af715d2c2c037bbb4c344f1316d883f130df26d648",
+    "sumSats": 10000
+  },
+  "liabilitiesSats": 40000,
+  "mintRecords": [
+    {
+      "label": "t-b1",
+      "amount": 50000,
+      "secret": "solvent-fixture-mint-b-t-b1-secret",
+      "published": true,
+      "cPrimeHex": "02a0cb2b7776e0adcefc024974d90e8670b47c2f0568d8c2db71ac70b7a8959b68"
+    }
+  ],
+  "burnRecords": [
+    {
+      "label": "b1",
+      "amount": 10000,
+      "secret": "solvent-fixture-mint-b-burn-1-secret",
+      "secretHashHex": "ada4141b205b3d6c225fc1a1daca4193dc9fbbeb3fe23256e2da5537cbd65355"
+    }
+  ]
+}
