@@ -1,0 +1,4 @@
+A15 conflicting-signed-manifests-same-epoch
+expected: REFUSE_NOSTR_CONFLICT
+actual:   REFUSE_NOSTR_CONFLICT
+PASS
