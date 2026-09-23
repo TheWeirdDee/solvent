@@ -1,0 +1,4 @@
+A13 manifest-signature-flipped
+expected: REFUSE_MANIFEST_INVALID
+actual:   REFUSE_MANIFEST_INVALID
+PASS
