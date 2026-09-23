@@ -4,6 +4,25 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Step 2: integration architecture — SQL triggers, no CDK fork
+
+**Problem**: Phase 2 needs "a real CDK economic transition" and "a durable SOLVENT accounting obligation" to be coupled so a crash cannot leave one committed without the other. `docs/cdk-integration-seams.md`'s source audit found every economically-authoritative CDK commit (NUT-04's `process_mint_request()`, NUT-03's `swap_saga::finalize()`, NUT-05's `melt_saga::finalize()`) goes through one `Box<dyn database::Transaction<Error>>` per operation, provided by a `cdk_common::database::mint::Database<Error>` implementation.
+
+**Alternatives considered** (per Phase 2 Step 2's own list):
+- *(A) Upstream-compatible hook* — none exists today; CDK's pubsub/event system (`crates/cdk/src/event.rs`) is post-commit and best-effort, not a pre-commit hook.
+- *(B) Minimal patch against CDK* — technically possible (add a hook call inside `cdk-sql-common`'s transaction commit path) but requires patching and rebuilding CDK from source, abandoning Phase 1's prebuilt-binary approach and its exact pinned-release integrity guarantee.
+- *(C) SOLVENT-specific CDK fork* — rejected outright per the spec's own bias and Phase 1's `DECISIONS.md` precedent (avoid vendoring/forking CDK unless necessary); also the heaviest to keep in sync with upstream.
+- *(D) Transactional outbox, decorator-level* — a `Database`/`Transaction` implementation wrapping the real `cdk-sqlite` instance can observe every call and refuse to let a CDK commit succeed unless its own write succeeded first, but cannot make both writes part of one SQL `COMMIT`, because `cdk-sqlite`'s concrete `Transaction` owns an opaque `sqlx` handle a decorator never sees. Leaves a genuine (if narrow) crash window.
+- **(E) SQL triggers on CDK's own SQLite file — chosen.** `cdk-mintd --work-dir` keeps all durable state in one SQLite file. A `CREATE TRIGGER ... AFTER INSERT ON blind_signature/proof ...` fires *inside the same SQL transaction* as the firing `INSERT`/`UPDATE` — a standard SQLite guarantee, not a CDK-specific behavior. This is real single-`COMMIT` atomicity with **zero CDK source changes**: no patch, no fork, no custom Rust binary, nothing to rebuild. It is applied as a one-time SQL migration against the same database file `cdk-mintd` already manages, fully reproducible from a clean checkout.
+
+**Chosen design**: SOLVENT-owned tables (`solvent_issued_liability`, `solvent_consumed_liability`, `solvent_pol_receipt` — see `docs/accounting-model.md`) live in the *same* SQLite file as CDK's own `blind_signature`/`proof`/`mint_quote`/`melt_quote` tables. Triggers on CDK's tables populate them automatically, in the same transaction CDK itself commits. A separate, idempotent SOLVENT worker/reconciliation tool only *reads* from these tables (and derives PoL receipts/epoch structures from them) — it never itself needs to be in CDK's write path, because the trigger already guaranteed the raw accounting facts are durable before any worker runs. Full schema: `docs/accounting-model.md`. Full source citations backing this decision: `docs/cdk-integration-seams.md`.
+
+**Failure mode this avoids**: the explicitly forbidden architecture ("CDK commits issuance → HTTP response returns → SOLVENT later tries to create accounting, and SOLVENT crashes in between") — because there is no "later" step; the accounting row is written by the database engine itself as part of the same transaction, before CDK's own `tx.commit().await?` call can even return.
+
+**What this does not yet solve**: receipt *signing* (Phase 2 Step 9) still needs the mint's real amount private keys, which live in `cdk-signatory`, not in SQL — a trigger can record *that* an output was issued and for what amount/keyset, but cannot itself produce a NUT-PoL-style signed receipt over that fact. That remains a separate, not-yet-audited seam (`cdk-signatory` is explicitly flagged as unaudited in `docs/cdk-integration-seams.md`).
+
+---
+
 ## 2026-09-23 — Phase 2 Step 0: correct the ordinary double-spend evidence
 
 Phase 1's ordinary-lifecycle double-spend check (R8/R9) used `senderWallet.ops.receive(token).prepare()`, which threw `Proof has unrecognised keyset '<id>' is not a keyset for this wallet unit`. Grepping cashu-ts's own bundled source (`isUnitKeyset` in `lib/cashu-ts.es.js`) confirmed this is a **client-side guard**, thrown before any HTTP request is made — it proved nothing about the mint's own double-spend enforcement. Only Phase 1's *restart*-persistence check (R12/R13, added later) happened to exercise a real mint rejection, because it used the low-level `Wallet` swap path differently.
