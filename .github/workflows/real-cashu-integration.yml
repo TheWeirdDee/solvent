@@ -176,7 +176,23 @@ jobs:
 
           ONE_PUBKEY=$($ONE getinfo | jq -r .identity_pubkey)
           echo "ONE_PUBKEY=$ONE_PUBKEY" >> "$GITHUB_ENV"
-          $TWO connect "$ONE_PUBKEY@127.0.0.1:$P2P_ONE" || true
+
+          # `connect` and `openchannel` can hit the same startup race as
+          # `newaddress` above, just later: lnd's peer/channel RPC surface
+          # can still answer "server is still in the process of starting"
+          # for a few more seconds after wallet RPCs already work — a
+          # real, observed race (`connect` tolerated it via `|| true`, but
+          # the very next `openchannel` call then hit it unretried and
+          # aborted the whole step). Bounded retry on both, but only for
+          # that specific readiness error — any other failure (e.g. a real
+          # funding/balance problem) still fails fast instead of being
+          # silently retried away.
+          for i in $(seq 1 15); do
+            if CONNECT_OUT=$($TWO connect "$ONE_PUBKEY@127.0.0.1:$P2P_ONE" 2>&1); then break; fi
+            if ! echo "$CONNECT_OUT" | grep -qi "still in the process of starting"; then break; fi
+            sleep 2
+          done
+
           # push_amt gives LND-1 (the mint's backend) real starting outbound
           # liquidity on its side of this single-funder channel — without
           # it, LND-1's only balance is whatever trickles in from R1's one
@@ -185,7 +201,22 @@ jobs:
           # melt payment genuinely fails with FAILURE_REASON_INSUFFICIENT_
           # BALANCE (observed for real, confirmed in the mint's own log —
           # not a guess).
-          $TWO openchannel --node_key="$ONE_PUBKEY" --local_amt=5000000 --push_amt=2000000 --sat_per_vbyte=1
+          OPEN_OUT=""
+          for i in $(seq 1 15); do
+            if OPEN_OUT=$($TWO openchannel --node_key="$ONE_PUBKEY" --local_amt=5000000 --push_amt=2000000 --sat_per_vbyte=1 2>&1); then
+              break
+            fi
+            if ! echo "$OPEN_OUT" | grep -qi "still in the process of starting"; then
+              echo "$OPEN_OUT" >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "$OPEN_OUT"
+          if ! echo "$OPEN_OUT" | grep -q "funding_txid"; then
+            echo "openchannel never succeeded after retries: $OPEN_OUT" >&2
+            exit 1
+          fi
           $BTC generatetoaddress 6 "$MINE_ADDR" >/dev/null
 
           for i in $(seq 1 60); do
