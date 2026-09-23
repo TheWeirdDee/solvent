@@ -12,6 +12,7 @@
 | NUT-07 proof state | Queried from the real mint's `/v1/checkstate` endpoint, never local application memory | — | **NO** |
 | NUT-05 melt | Real CDK HTTP endpoint (`/v1/melt/quote/bolt11`, `/v1/melt/bolt11`) | — | **NO** |
 | Double-spend rejection | The real mint's own real proof-state tracking rejects a resubmitted spent proof — not a client-side check | — | **NO** |
+| Process-restart persistence | The mint process is killed and restarted against the SAME on-disk SQLite database; already-spent proofs are re-queried in a fresh process and still report SPENT, and a fresh double-spend attempt against them is still refused — proving durable state, not an in-memory artifact | Bitcoin regtest | **NO** |
 | Money | Bitcoin regtest coins | Regtest | Economic value: **NONE** (by construction — regtest coins are worthless everywhere) |
 | SOLVENT PoL (signed receipts, epoch manifests, sum-MMR, reserve attestation, Nostr publication) | **NOT YET CONNECTED IN PHASE 1** — see "Why SOLVENT is not yet connected" in `DECISIONS.md`. This is Phase 2's job. | — | N/A this phase |
 | Nostr publication/verification, Bitcoin Signet reserve verification (the existing SOLVENT verifier) | Unchanged, fully preserved from prior passes — see `docs/trust-boundaries.md` | Bitcoin Signet (Mutinynet) + real public Nostr relays | **NO** (already real, and untouched by this phase) |
@@ -24,3 +25,5 @@
 - **Lane B — real integration.** This phase's new work: `npm run verify:cashu-real` against a real Bitcoin regtest + real Lightning + real CDK mint stack, orchestrated by `.github/workflows/real-cashu-integration.yml` (see `docs/real-cashu-stack.md`). Proves the underlying Cashu *economic lifecycle* is genuinely real, independent of anything SOLVENT itself asserts.
 
 Lane A and Lane B are not in tension — Lane A's fixtures remain exactly as useful as they always were for fast, deterministic testing. What changed is that Lane A's fixture mint can no longer be pointed to as evidence that ecash issuance/redemption itself is real; that claim now rests on Lane B.
+
+Lane B is confirmed by real execution, not just by code review: [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23) ran the entire table above for real and printed `REAL CASHU FOUNDATION VERIFIED` and `REAL CASHU FOUNDATION RESTART PERSISTENCE VERIFIED`. See `docs/limitations.md` for exactly what that run proved and where its evidence artifact is attached.
