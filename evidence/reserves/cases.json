@@ -1,0 +1,96 @@
+{
+  "network": "bitcoin-signet-mutinynet",
+  "reserve_address": "tb1pjudsapt8mtzgxcj8rtfj3esz5x0mn7hwjt58rw2ww73l5que3z2srduxxe",
+  "reserve_output_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+  "live_utxo_count": 1,
+  "live_verified": true,
+  "tip_height": 3446486,
+  "faucet_attempt": {
+    "ok": false,
+    "detail": "HTTP 401: {\"error\":\"Missing token\"}"
+  },
+  "cases": [
+    {
+      "label": "LIVE: real 1 outpoint(s), independently re-queried via Esplora",
+      "expected_reason_code": null,
+      "actual_reason_code": null,
+      "verified": true,
+      "pass": true,
+      "detail": "Verified reserve 1000000 sats covers outstanding balance 70000 sats."
+    },
+    {
+      "label": "malformed proof (no outpoints)",
+      "expected_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "actual_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "verified": false,
+      "pass": true,
+      "detail": "Reserve statement is structurally malformed."
+    },
+    {
+      "label": "wrong owner/binding (reserve key signature forged)",
+      "expected_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "actual_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "verified": false,
+      "pass": true,
+      "detail": "Reserve statement signature does not verify against reserve_pubkey."
+    },
+    {
+      "label": "wrong owner/binding (master key never signed this reserve key)",
+      "expected_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "actual_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "verified": false,
+      "pass": true,
+      "detail": "Mint master-key binding signature does not verify over Solvent_Reserve_Binding_v1:971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895:5fd3f387cf85416dc8affd36f9ac1c76dff5b732dd771d19ea7a17538db940ea."
+    },
+    {
+      "label": "stale evidence (attested height far behind tip)",
+      "expected_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "actual_reason_code": "REFUSE_RESERVE_ATTESTATION_INVALID",
+      "verified": false,
+      "pass": true,
+      "detail": "Attestation block_height=100 is stale relative to tip=500000 (max age 1008 blocks)."
+    },
+    {
+      "label": "wrong UTXO (declared outpoint not found on chain)",
+      "expected_reason_code": "REFUSE_RESERVE_STATE_MISMATCH",
+      "actual_reason_code": "REFUSE_RESERVE_STATE_MISMATCH",
+      "verified": false,
+      "pass": true,
+      "detail": "Declared outpoint abababababababababababababababababababababababababababababababab:0 was not found on-chain."
+    },
+    {
+      "label": "amount mismatch (on-chain value differs from statement)",
+      "expected_reason_code": "REFUSE_RESERVE_STATE_MISMATCH",
+      "actual_reason_code": "REFUSE_RESERVE_STATE_MISMATCH",
+      "verified": false,
+      "pass": true,
+      "detail": "Outpoint abababababababababababababababababababababababababababababababab:0 on-chain value/script (1, 5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895) does not match the declared statement (80000, 5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895)."
+    },
+    {
+      "label": "spent reserve (declared outpoint spent since attestation)",
+      "expected_reason_code": "REFUSE_RESERVE_UTXO_SPENT",
+      "actual_reason_code": "REFUSE_RESERVE_UTXO_SPENT",
+      "verified": false,
+      "pass": true,
+      "detail": "Outpoint abababababababababababababababababababababababababababababababab:0 has been spent since attestation."
+    },
+    {
+      "label": "reserve below liabilities",
+      "expected_reason_code": "REFUSE_RESERVE_SHORT",
+      "actual_reason_code": "REFUSE_RESERVE_SHORT",
+      "verified": false,
+      "pass": true,
+      "detail": "Verified reserve 80000 sats is below outstanding balance 999999 sats."
+    },
+    {
+      "label": "honest case (ACCEPT)",
+      "expected_reason_code": null,
+      "actual_reason_code": null,
+      "verified": true,
+      "pass": true,
+      "detail": "Verified reserve 80000 sats covers outstanding balance 70000 sats."
+    }
+  ],
+  "mechanism_pass": true,
+  "note": "live_verified=true: the LIVE case above independently re-queried a real, real-world-broadcast Bitcoin Signet (Mutinynet) UTXO via a public Esplora API and confirmed it covers outstanding liabilities. See docs/reserve-attestation.md."
+}
