@@ -1,0 +1,4 @@
+A21 reserve-outpoint-spent-after-attestation
+expected: REFUSE_RESERVE_UTXO_SPENT
+actual:   REFUSE_RESERVE_UTXO_SPENT
+PASS
