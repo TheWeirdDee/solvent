@@ -1,0 +1,4 @@
+A11 tampered-mmr-sibling-sum
+expected: REFUSE_MMR_PROOF_INVALID
+actual:   REFUSE_MMR_PROOF_INVALID
+PASS
