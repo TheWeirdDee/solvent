@@ -1,0 +1,4 @@
+A25 signed-state-never-published
+expected: REFUSE_NOSTR_EVENT_NOT_FOUND
+actual:   REFUSE_NOSTR_EVENT_NOT_FOUND
+PASS
