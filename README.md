@@ -29,7 +29,20 @@ This is a **phase, not a finished system** — the verifier above and the real C
 - reserve binding to a real mint's real liabilities
 - SOLVENT's verifier gating a real receiver's swap
 
-Those are Phase 2 (not started — requires separate review before beginning). Everything described in the rest of this README (the verifier, the attack corpus, the Live Public Demo, the deployment automation) is real, unchanged, and already documented in detail below and in `docs/trust-boundaries.md` — Phase 1 adds to it, it does not replace or weaken any of it.
+Everything described in the rest of this README (the verifier, the attack corpus, the Live Public Demo, the deployment automation) is real, unchanged, and already documented in detail below and in `docs/trust-boundaries.md` — Phase 1 adds to it, it does not replace or weaken any of it.
+
+## PHASE 2 MINT-NATIVE ACCOUNTING (in progress — NUT-04 only)
+
+Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic transitions, inside the mint's real database transaction — not a sidecar that could lose the obligation on a crash. See `docs/cdk-integration-seams.md`, `docs/accounting-model.md`, and `DECISIONS.md`'s Phase 2 entries for the full architecture (SQLite triggers on CDK's own unmodified database file — no CDK fork, no CDK patch, for this part).
+
+**Verified this phase**, confirmed by real execution in [GitHub Actions run 35882242998](https://github.com/TheWeirdDee/solvent/actions/runs/35882242998) (2026-09-23):
+- a real NUT-04 mint's issued outputs create durable SOLVENT accounting records automatically, via SQL triggers firing inside CDK's own transaction (`migrations/solvent-accounting/0001_nut04_issued_liability.sql`)
+- real atomicity: a transaction that fails after the trigger fires but before commit leaves **both** the CDK row and the SOLVENT row absent; a real commit leaves both present
+- real reconciliation: SOLVENT's journal (6 records, 1000 sats) exactly matches CDK's own real `blind_signature` table for the same operation, independently queried
+- real retry idempotency: a genuine second mint attempt against an already-issued quote is rejected by the real mint (`Quote already issued`), so no duplicate accounting can be created
+- real restart persistence: reconciliation reports byte-identical results before and after killing and restarting the real mint process
+
+**STEP 8 PARTIAL — not yet verified**: mint-native PoL receipt *signing*. The real signing boundary has been audited (`docs/cdk-signatory-audit.md`) and the architecture decided (a minimal, real patch to CDK's `cdk-signatory` crate — `DECISIONS.md`'s Phase 2 Step 8C entry), but not yet implemented: no receipt is signed with the mint's real amount key yet, and `solvent_pol_receipt` rows stay `pending`. NUT-03 (swap) and NUT-05 (melt) accounting are not yet built either — Phase 2 deliberately did NUT-04 alone first.
 
 ## Why SOLVENT exists
 
