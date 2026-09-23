@@ -1,0 +1,225 @@
+# SOLVENT Phase 1 — Real Cashu Foundation.
+#
+# Brings up a REAL regtest stack (Bitcoin Core + 2 real `lnd` nodes + a real
+# CDK mint, backend `lnd` — no fakewallet) and runs
+# src/cli/real-cashu/real-cashu-foundation.ts against it: real invoice
+# payment, real NUT-04 issuance, real NUT-03 swap, real double-spend
+# rejection, real NUT-05 melt. See docs/real-cashu-stack.md for the full
+# architecture and docs/reproduce-real-stack.md to run this exact sequence
+# yourself outside CI.
+#
+# Every binary is a pinned, checksum-verified prebuilt release — see
+# docs/dependencies.md for exactly which versions and why. Nothing here
+# builds Bitcoin Core, LND, or CDK from source.
+#
+# Fails closed: any step failing stops the job before the ones after it —
+# there is no fallback path that reports success without the real stack
+# actually running.
+name: Real Cashu Integration (Phase 1)
+
+on:
+  workflow_dispatch: {}
+  # Not run on every push/PR by default — this brings up real Bitcoin/
+  # Lightning/Cashu processes and takes several minutes. Run on demand, or
+  # uncomment a schedule once Phase 1 evidence needs to stay continuously
+  # fresh (it currently does not — this proves a protocol capability, not
+  # a time-bound demo artifact like refresh-live-demo.yml).
+  # schedule:
+  #   - cron: '0 8 * * 1'
+
+env:
+  BITCOIN_CORE_VERSION: '29.4'
+  LND_VERSION: '0.21.3-beta'
+  CDK_VERSION: '0.18.1'
+
+jobs:
+  real-cashu-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Download + verify Bitcoin Core ${{ env.BITCOIN_CORE_VERSION }}
+        run: |
+          set -euo pipefail
+          cd /tmp
+          curl -sSL -o bitcoin.tar.gz "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz"
+          curl -sSL -o SHA256SUMS "https://bitcoincore.org/bin/bitcoin-core-${BITCOIN_CORE_VERSION}/SHA256SUMS"
+          grep "bitcoin-${BITCOIN_CORE_VERSION}-x86_64-linux-gnu.tar.gz" SHA256SUMS | sha256sum -c -
+          tar xzf bitcoin.tar.gz
+          echo "/tmp/bitcoin-${BITCOIN_CORE_VERSION}/bin" >> "$GITHUB_PATH"
+
+      - name: Download + verify LND ${{ env.LND_VERSION }}
+        run: |
+          set -euo pipefail
+          cd /tmp
+          curl -sSL -o lnd.tar.gz "https://github.com/lightningnetwork/lnd/releases/download/v${LND_VERSION}/lnd-linux-amd64-v${LND_VERSION}.tar.gz"
+          curl -sSL -o manifest.txt "https://github.com/lightningnetwork/lnd/releases/download/v${LND_VERSION}/manifest-v${LND_VERSION}.txt"
+          grep "lnd-linux-amd64-v${LND_VERSION}.tar.gz" manifest.txt | sha256sum -c -
+          tar xzf lnd.tar.gz
+          echo "/tmp/lnd-linux-amd64-v${LND_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Download + verify CDK ${{ env.CDK_VERSION }} (cdk-mintd, real `lnd` backend compiled in)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/cdk && cd /tmp/cdk
+          curl -sSL -o cdk-mintd "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/cdk-mintd-${CDK_VERSION}-x86_64"
+          curl -sSL -o SHA256SUMS "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/SHA256SUMS"
+          grep "cdk-mintd-${CDK_VERSION}-x86_64" SHA256SUMS | sha256sum -c -
+          chmod +x cdk-mintd
+          echo "/tmp/cdk" >> "$GITHUB_PATH"
+
+      - name: Start Bitcoin Core regtest
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/regtest/bitcoin
+          cat > /tmp/regtest/bitcoin/bitcoin.conf <<'EOF'
+          regtest=1
+          server=1
+          txindex=1
+          fallbackfee=0.0001
+          rpcuser=solvent
+          rpcpassword=solvent-regtest-only
+          [regtest]
+          rpcport=18443
+          rpcbind=127.0.0.1
+          rpcallowip=127.0.0.1
+          zmqpubrawblock=tcp://127.0.0.1:28332
+          zmqpubrawtx=tcp://127.0.0.1:28333
+          EOF
+          bitcoind -datadir=/tmp/regtest/bitcoin -daemon
+          for i in $(seq 1 30); do
+            bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest getblockchaininfo >/dev/null 2>&1 && break
+            sleep 1
+          done
+          bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest createwallet miner
+          MINE_ADDR=$(bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest getnewaddress)
+          echo "MINE_ADDR=$MINE_ADDR" >> "$GITHUB_ENV"
+          bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest generatetoaddress 110 "$MINE_ADDR"
+
+      - name: Start LND-1 (mint's real payment backend) and LND-2 (sender/destination)
+        run: |
+          set -euo pipefail
+          for NODE in one two; do
+            mkdir -p /tmp/regtest/lnd-$NODE
+          done
+          RPC_ONE=10009; REST_ONE=8080; P2P_ONE=9735
+          RPC_TWO=10010; REST_TWO=8081; P2P_TWO=9736
+          lnd --lnddir=/tmp/regtest/lnd-one --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind \
+            --bitcoind.rpchost=127.0.0.1:18443 --bitcoind.rpcuser=solvent --bitcoind.rpcpass=solvent-regtest-only \
+            --bitcoind.zmqpubrawblock=tcp://127.0.0.1:28332 --bitcoind.zmqpubrawtx=tcp://127.0.0.1:28333 \
+            --rpclisten=127.0.0.1:$RPC_ONE --restlisten=127.0.0.1:$REST_ONE --listen=127.0.0.1:$P2P_ONE \
+            --noseedbackup --accept-keysend --protocol.wumbo-channels > /tmp/regtest/lnd-one/lnd.log 2>&1 &
+          lnd --lnddir=/tmp/regtest/lnd-two --bitcoin.active --bitcoin.regtest --bitcoin.node=bitcoind \
+            --bitcoind.rpchost=127.0.0.1:18443 --bitcoind.rpcuser=solvent --bitcoind.rpcpass=solvent-regtest-only \
+            --bitcoind.zmqpubrawblock=tcp://127.0.0.1:28332 --bitcoind.zmqpubrawtx=tcp://127.0.0.1:28333 \
+            --rpclisten=127.0.0.1:$RPC_TWO --restlisten=127.0.0.1:$REST_TWO --listen=127.0.0.1:$P2P_TWO \
+            --noseedbackup --accept-keysend > /tmp/regtest/lnd-two/lnd.log 2>&1 &
+          for i in $(seq 1 60); do
+            lncli --lnddir=/tmp/regtest/lnd-one --network=regtest --rpcserver=127.0.0.1:$RPC_ONE getinfo >/dev/null 2>&1 && \
+            lncli --lnddir=/tmp/regtest/lnd-two --network=regtest --rpcserver=127.0.0.1:$RPC_TWO getinfo >/dev/null 2>&1 && break
+            sleep 1
+          done
+          echo "RPC_ONE=$RPC_ONE" >> "$GITHUB_ENV"; echo "REST_ONE=$REST_ONE" >> "$GITHUB_ENV"; echo "P2P_ONE=$P2P_ONE" >> "$GITHUB_ENV"
+          echo "RPC_TWO=$RPC_TWO" >> "$GITHUB_ENV"; echo "REST_TWO=$REST_TWO" >> "$GITHUB_ENV"
+
+      - name: Fund LND-2 and open a real regtest channel LND-2 -> LND-1
+        run: |
+          set -euo pipefail
+          ONE="lncli --lnddir=/tmp/regtest/lnd-one --network=regtest --rpcserver=127.0.0.1:$RPC_ONE"
+          TWO="lncli --lnddir=/tmp/regtest/lnd-two --network=regtest --rpcserver=127.0.0.1:$RPC_TWO"
+          BTC="bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest"
+
+          TWO_ADDR=$($TWO newaddress p2wkh | jq -r .address)
+          $BTC generatetoaddress 1 "$TWO_ADDR" >/dev/null
+          $BTC generatetoaddress 100 "$MINE_ADDR" >/dev/null   # mature the coinbase output
+          for i in $(seq 1 30); do
+            BAL=$($TWO walletbalance | jq -r .confirmed_balance)
+            [ "$BAL" != "0" ] && break
+            sleep 1
+          done
+
+          ONE_PUBKEY=$($ONE getinfo | jq -r .identity_pubkey)
+          echo "ONE_PUBKEY=$ONE_PUBKEY" >> "$GITHUB_ENV"
+          $TWO connect "$ONE_PUBKEY@127.0.0.1:$P2P_ONE" || true
+          $TWO openchannel --node_key="$ONE_PUBKEY" --local_amt=5000000 --sat_per_vbyte=1
+          $BTC generatetoaddress 6 "$MINE_ADDR" >/dev/null
+
+          for i in $(seq 1 60); do
+            ACTIVE=$($TWO listchannels | jq -r '.channels | map(select(.active==true)) | length')
+            [ "${ACTIVE:-0}" -ge "1" ] && break
+            sleep 2
+          done
+          $ONE listchannels
+          $TWO listchannels
+
+      - name: Start CDK mint (real `lnd` backend pointed at LND-1 — no fakewallet)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/regtest/mint
+          MNEMONIC=$(cdk-cli generate-mnemonic 2>/dev/null || echo "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about")
+          cat > /tmp/regtest/mint/config.toml <<EOF
+          [info]
+          url = "http://127.0.0.1:8085"
+          listen_host = "127.0.0.1"
+          listen_port = 8085
+          mnemonic = "env:CDK_MINTD_MNEMONIC"
+
+          [database]
+          engine = "sqlite"
+
+          [payment_backend]
+          backend = "lnd"
+          unit = "sat"
+
+          [lnd]
+          address = "https://127.0.0.1:$RPC_ONE"
+          cert_file = "/tmp/regtest/lnd-one/tls.cert"
+          macaroon_file = "/tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon"
+          EOF
+          CDK_MINTD_MNEMONIC="$MNEMONIC" CDK_MINTD_WORK_DIR=/tmp/regtest/mint \
+            cdk-mintd --config /tmp/regtest/mint/config.toml > /tmp/regtest/mint/mintd.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1 && break
+            sleep 1
+          done
+          curl -s http://127.0.0.1:8085/v1/info | tee /tmp/regtest/mint/info.json
+
+      - name: Run the Phase 1 real-Cashu integration test
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+          LND_BACKEND_REST_URL: 'https://127.0.0.1:8080'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export LND_BACKEND_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0  # regtest LND self-signed certs only — see src/cli/real-cashu/lnd-client.ts's module header
+          npm run verify:cashu-real
+
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p /tmp/regtest-logs
+          cp -r /tmp/regtest/bitcoin/regtest/debug.log /tmp/regtest-logs/bitcoind.log 2>/dev/null || true
+          cp /tmp/regtest/lnd-one/lnd.log /tmp/regtest-logs/lnd-one.log 2>/dev/null || true
+          cp /tmp/regtest/lnd-two/lnd.log /tmp/regtest-logs/lnd-two.log 2>/dev/null || true
+          cp /tmp/regtest/mint/mintd.log /tmp/regtest-logs/mintd.log 2>/dev/null || true
+
+      - name: Upload Phase 1 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-cashu-evidence
+          path: |
+            evidence/real-cashu/
+            /tmp/regtest-logs/
+          if-no-files-found: warn
+          retention-days: 90
