@@ -1,0 +1,73 @@
+diff --git a/crates/cdk-common/src/database/mint/mod.rs b/crates/cdk-common/src/database/mint/mod.rs
+index 5e9871d..9d9cd58 100644
+--- a/crates/cdk-common/src/database/mint/mod.rs
++++ b/crates/cdk-common/src/database/mint/mod.rs
+@@ -531,6 +531,20 @@ pub trait SignaturesTransaction {
+         &mut self,
+         blinded_messages: &[PublicKey],
+     ) -> Result<Vec<Option<BlindSignature>>, Self::Err>;
++
++    /// SOLVENT Phase 2: records a signed Proof-of-Liability receipt for an
++    /// already-signed blinded message, in the same transaction as the
++    /// blind signature itself. Default no-op so only a backend that
++    /// actually carries SOLVENT's accounting schema needs to override it —
++    /// see `cdk-sql-common`'s implementation and
++    /// `solvent/docs/accounting-model.md`.
++    async fn record_pol_receipt_signature(
++        &mut self,
++        _blinded_message: &PublicKey,
++        _signature_hex: &str,
++    ) -> Result<(), Self::Err> {
++        Ok(())
++    }
+ }
+ 
+ #[async_trait]
+diff --git a/crates/cdk-sql-common/src/mint/signatures.rs b/crates/cdk-sql-common/src/mint/signatures.rs
+index 46020c0..c946aaf 100644
+--- a/crates/cdk-sql-common/src/mint/signatures.rs
++++ b/crates/cdk-sql-common/src/mint/signatures.rs
+@@ -216,6 +216,43 @@ where
+         Ok(())
+     }
+ 
++    // SOLVENT Phase 2: writes the already-computed PoL receipt signature
++    // into the SOLVENT-owned solvent_pol_receipt table, using the exact
++    // same pooled connection (self.inner) this transaction already writes
++    // blind_signature rows through — so the write lands in the same
++    // commit, not a separate one. The row itself was created by SOLVENT's
++    // own SQL trigger (migrations/solvent-accounting/0001_nut04_issued_liability.sql)
++    // the instant the blind_signature row it references was written;
++    // this only ever flips an already-existing 'pending' row to 'signed'.
++    // Errors (including "no such table" on a vanilla upstream CDK database
++    // that never had SOLVENT's migration applied) are deliberately
++    // swallowed via `let _ =` below — this hook must never fail the
++    // surrounding mint/swap/melt transaction just because SOLVENT's
++    // optional accounting schema isn't present.
++    async fn record_pol_receipt_signature(
++        &mut self,
++        blinded_message: &PublicKey,
++        signature_hex: &str,
++    ) -> Result<(), Self::Err> {
++        let _ = query(
++            r#"
++            UPDATE solvent_pol_receipt
++            SET status = 'signed', signature_hex = :signature_hex, signed_at = :signed_at
++            WHERE liability_kind = 'issued'
++              AND liability_id = (
++                  SELECT id FROM solvent_issued_liability WHERE blinded_message_hex = :blinded_message_hex
++              )
++            "#,
++        )?
++        .bind("signature_hex", signature_hex.to_string())
++        .bind("signed_at", unix_time() as i64)
++        .bind("blinded_message_hex", blinded_message.to_hex())
++        .execute(&self.inner)
++        .await;
++
++        Ok(())
++    }
++
+     async fn get_blind_signatures(
+         &mut self,
+         blinded_messages: &[PublicKey],
