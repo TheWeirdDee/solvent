@@ -1,0 +1,13 @@
+SOLVENT Gate 5 evidence
+event id: 0d2ace6c3dd56e8766afac366683cea788b8936a3ac366e10d7750a86f4a2c6f
+nostr pubkey: aa855698df8683882dff9000faf0c0479e44348c706f0c057464337b6bc6b4d9
+mint_identity: 034e96633885aa1a102e09c79d177347fc001b52c64ace73bdd146d73a9907bf25
+relays published ok: 2/3
+relays with fetch-back: yes
+cases: ACCEPT (real publish + real fetch-back) -> PASS
+REFUSE_NOSTR_SIGNATURE (tampered content) -> PASS
+REFUSE_NOSTR_STALE (expired valid_until) -> PASS
+REFUSE_NOSTR_STATE_MISMATCH (event digest != decision digest) -> PASS
+REFUSE_NOSTR_CONFLICT (two valid signed states, same identity/epoch) -> PASS
+REFUSE_NOSTR_UNAVAILABLE (no relay has any evidence) -> PASS
+gate5: PASS
