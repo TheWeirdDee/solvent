@@ -1,0 +1,113 @@
+{
+  "_note": "SOLVENT Live Public Demo — a stable, real, once-published evidence set. Generated/published by npm run live-demo; the browser fetches and re-verifies this live on every run rather than trusting this file directly. A fresh mint identity is minted on every run — a persisted/stable identity was tried and reverted because kind 8181 is deliberately immutable/non-replaceable, so an old event never disappears and would permanently conflict with a newer one for the same identity/epoch (see this script's module header and DECISIONS.md). Re-run this script (or run `npm run verify:live-demo` to check first) if the reserve attestation goes stale — a network-aware ~1 week budget, see maxAttestationAgeBlocks in src/reserve/evaluate.ts and docs/trust-boundaries.md's \"Effective expiry\" section.",
+  "token": "cashuBo2FtdHNvbHZlbnQtZml4dHVyZS1taW50YXVjc2F0YXSBomFpSAAa-Ez_4OtyYXCBpGFhGgABEXBhc3gfc29sdmVudC1saXZlLWRlbW8tMTc5MDE0MDk2Mzg2MWFjWCEDG0b44CpzvOsW6OaERATQ0fFHqNUXYAjbVmutYoJBoj9hZKNhZVggpXCcNxih8E4C-qpZW63J-I8Al_WYRUmG3qy-QJlBiZNhc1gg4QMwZhbbT7jl-vXN24qJLwws6xVL6HZH1Rs6VhtIZbhhclggcZyljTHe74TvvRBw5y2Fdyyot_9JMvvEm6xAgsOrcpM",
+  "bundle": {
+    "proof": {
+      "id": "001af84cffe0eb72",
+      "amount": 70000,
+      "secret": "solvent-live-demo-1790140963861",
+      "C": "031b46f8e02a73bceb16e8e6844404d0d1f147a8d5176008db566bad628241a23f",
+      "dleq": {
+        "e": "a5709c3718a1f04e02faaa595badc9f88f0097f598454986deacbe4099418993",
+        "s": "e103306616db4fb8e5faf5cddb8a892f0c2ceb154be87647d51b3a561b4865b8",
+        "r": "719ca58d31deef84efbd1070e72d85772ca8b7ff4932fbc49bac4082c3ab7293"
+      }
+    },
+    "mint": "solvent-fixture-mint",
+    "keysetId": "001af84cffe0eb72",
+    "amountPublicKeyHex": "03ec17e45c923ca02762d65844b74aa74d4e98300333abea02c6f1d4181dcee122",
+    "receipt": {
+      "target_epoch": 12,
+      "signature": "8be6254b8e52fe5b32410fe6d62d1904cdac4151de976635649d4c7231566a465996609c860fb539b1547c3b539cd4d1c1e19f23d4d1022b2cb1e81ed09955ec"
+    },
+    "manifest": {
+      "keyset_id": "001af84cffe0eb72",
+      "unit": "sat",
+      "epoch_index": 12,
+      "timestamp": "2026-09-23T05:22:43Z",
+      "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "issued_mmr_size": 1,
+      "issued_mmr_root_hash": "b6c8ad535e934e3679047135cefe0b59665ad2d52a7251fda4da88bcf91a6ed7",
+      "issued_mmr_root_sum": 70000,
+      "spent_mmr_size": 0,
+      "spent_mmr_root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "spent_mmr_root_sum": 0,
+      "outstanding_balance": 70000,
+      "active": true,
+      "deactivation_epoch": 999
+    },
+    "manifestSignature": "150f404f5df1b688ef68626d6e8d6fed13af64daee2dc389752494d248f7c7fb1937efaac061fb395fa06019d6ca3b37900e3bb355c2b9c3d4eb659affc6a095",
+    "masterPublicKeyHex": "03d501ffa1ad4689363494bc61a43335ee8c6e17018088a2941ff4f3a41b052580",
+    "issuedMmrSize": 1,
+    "inclusionProof": {
+      "leafIndex": 0,
+      "siblingPath": [],
+      "peaks": [
+        {
+          "hash": "b6c8ad535e934e3679047135cefe0b59665ad2d52a7251fda4da88bcf91a6ed7",
+          "sum": "70000"
+        }
+      ]
+    },
+    "reserveAttestation": {
+      "statement": {
+        "network": "bitcoin-signet-mutinynet",
+        "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+        "outpoints": [
+          {
+            "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+            "vout": 0,
+            "value_sats": 1000000,
+            "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+          }
+        ],
+        "timestamp": "2026-09-23T05:22:44Z",
+        "block_height": 3448829
+      },
+      "statementSignature": "eb3503be9aa532ecf7d9f9d359f8cf4868361b1224c37f7ed54257d9873dd6c4ee08a5ff7671108065396c42c1a8f8b88562bccdfda62b6be839c975f20c5546",
+      "bindingSignature": "cc6d7eab8d09c8fd9494ceb4541f313c822c15fa70a7ae0b9e1bfcb91ea098ca48554453cf9774d12f809b4dab66b8a6e1fb39e18ba302b8151a8be21b741887",
+      "masterPublicKeyHex": "03d501ffa1ad4689363494bc61a43335ee8c6e17018088a2941ff4f3a41b052580"
+    },
+    "nostrEvent": {
+      "kind": 8181,
+      "created_at": 1790140964,
+      "tags": [
+        [
+          "M",
+          "03d501ffa1ad4689363494bc61a43335ee8c6e17018088a2941ff4f3a41b052580"
+        ],
+        [
+          "E",
+          "12"
+        ],
+        [
+          "K",
+          "001af84cffe0eb72"
+        ]
+      ],
+      "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"03d501ffa1ad4689363494bc61a43335ee8c6e17018088a2941ff4f3a41b052580\",\"keyset_id\":\"001af84cffe0eb72\",\"epoch_index\":12,\"manifest_digest\":\"91fdf9cd586e402776ad7db3a1af071a69be76d1d64d7c919a837e19b998aeea\",\"manifest_signature\":\"150f404f5df1b688ef68626d6e8d6fed13af64daee2dc389752494d248f7c7fb1937efaac061fb395fa06019d6ca3b37900e3bb355c2b9c3d4eb659affc6a095\",\"global_digest\":\"4b14a7cf4a2a5fd007692502f51df49d2ef3f18677edcd921030a2dec57840a0\",\"issued_mmr_root_hash\":\"b6c8ad535e934e3679047135cefe0b59665ad2d52a7251fda4da88bcf91a6ed7\",\"issued_mmr_root_sum\":70000,\"spent_mmr_root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"spent_mmr_root_sum\":0,\"outstanding_balance\":70000,\"reserve_digest\":\"3e48984048503e3f85a3137c59eacffdbe66c0a61136ffd247fc7ae69e847229\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790140964,\"valid_until\":1792732964,\"proof_uri\":\"https://github.com/TheWeirdDee/solvent — SOLVENT Live Public Demo\"}",
+      "pubkey": "2e3fedf7259977b7cc4eebe6f6a4ff94233f72f038e628d97f175316e6d0e9e9",
+      "id": "448db2201ce79f798b0bf9a56d646c111b0c51caef91db1b86288f8a58b90b54",
+      "sig": "fb9704ef1934b7e1eee86a9133f6bded727c4710ffcdf706022218ed2075c0f2ed172a17fa6042daccb81ec2284bd5aa11385489567f43ca7cfb2f8b5f25bb2a"
+    }
+  },
+  "publishedAt": "2026-09-23T05:22:44.000Z",
+  "publishResults": [
+    {
+      "relay": "wss://relay.damus.io",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "relay": "wss://nos.lol",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "relay": "wss://relay.nostr.band",
+      "ok": false,
+      "detail": "connection failure: connection timed out"
+    }
+  ],
+  "fetchBackConfirmed": true
+}
