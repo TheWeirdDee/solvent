@@ -1,0 +1,27 @@
+{
+  "attestation": {
+    "statement": {
+      "network": "bitcoin-signet-mutinynet",
+      "reserve_pubkey": "f269da00a25cbe629d55f76d04ed61169d5e2330e85bcbf351fe9663237c6f46",
+      "outpoints": [
+        {
+          "txid": "abababababababababababababababababababababababababababababababab",
+          "vout": 0,
+          "value_sats": 200000,
+          "script_pubkey_hex": "5120f269da00a25cbe629d55f76d04ed61169d5e2330e85bcbf351fe9663237c6f46"
+        }
+      ],
+      "timestamp": "2026-09-21T00:00:00Z",
+      "block_height": 500000
+    },
+    "statementSignature": "a2a65753ba42709ae3e7600a930b0e67766c9b511570243dc12d8e10826b536e52bff22dca8bdb3180782e65c2e8cdc8393e9a3a1ebe6f199fc03a4dba15ba3a",
+    "bindingSignature": "22222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
+    "masterPublicKeyHex": "03554333790b48837cd03e9ec62b70a30be0f7ea47aaa0d5ae312f5f547f007808"
+  },
+  "reserveResult": {
+    "verified": false,
+    "reasonCode": "REFUSE_RESERVE_ATTESTATION_INVALID",
+    "detail": "Mint master-key binding signature does not verify over Solvent_Reserve_Binding_v1:f269da00a25cbe629d55f76d04ed61169d5e2330e85bcbf351fe9663237c6f46:fec048e0557c1248881afaa6fbaf81621221293614f5c974a35d03ebf9483ab8.",
+    "verifiedReserveSats": 0
+  }
+}
