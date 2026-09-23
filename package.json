@@ -1,0 +1,52 @@
+{
+  "name": "solvent",
+  "version": "0.1.0",
+  "description": "SOLVENT — verify a Cashu mint's signed solvency state, and that your ecash was actually counted, before accepting it.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:fixtures": "tsx src/mint/generate-fixtures.ts",
+    "publish:event": "tsx src/nostr/publish.ts",
+    "verify:fixture": "tsx src/cli/verify-fixture.ts",
+    "gate0": "tsx src/cli/gate0.ts",
+    "gate1": "tsx src/cli/gate1.ts",
+    "gate2": "tsx src/cli/gate2-3.ts",
+    "gate4": "tsx src/cli/gate4.ts",
+    "gate5": "tsx src/cli/gate5.ts",
+    "gate6": "tsx src/cli/gate6.ts",
+    "attacks": "tsx src/cli/attacks.ts",
+    "live-demo": "tsx src/cli/live-demo.ts",
+    "live-demo:release": "npm run live-demo && npm run build",
+    "verify:live-demo": "tsx src/cli/verify-live-demo.ts",
+    "verify:submission": "tsx src/cli/verify-submission.ts",
+    "verify:deployed": "tsx src/cli/verify-deployed.ts",
+    "verify:deployed:browser": "tsx src/cli/verify-deployed-browser.ts",
+    "verify:cashu-real": "tsx src/cli/real-cashu/real-cashu-foundation.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TheWeirdDee/solvent.git"
+  },
+  "dependencies": {
+    "@cashu/cashu-ts": "^4.10.2",
+    "@noble/curves": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "@scure/btc-signer": "^2.4.1",
+    "nostr-tools": "^2.25.2"
+  },
+  "devDependencies": {
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^26.6.2",
+    "jsdom": "^30.1.0",
+    "playwright": "^1.63.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  }
+}
