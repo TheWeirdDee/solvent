@@ -365,6 +365,11 @@ jobs:
           CDK_MINT_URL: 'http://127.0.0.1:8085'
         run: npm run verify:pol-retry
 
+      - name: Independently verify signed PoL receipts (no signatory access)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: npm run verify:pol-receipts -- /tmp/regtest/mint/cdk-mintd.sqlite
+
       - name: Reconcile Phase 2 accounting against real CDK state (pre-restart)
         run: |
           set -euo pipefail
