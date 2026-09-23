@@ -1,0 +1,6 @@
+# Patch files must apply cleanly via `git apply` on the Linux CI runner that
+# consumes them (.github/workflows/real-cashu-integration.yml's build-from-source
+# step) — force LF regardless of this repo's own Windows dev-machine checkout
+# behavior, so a local `git add`/checkout can never reintroduce CRLF and break
+# the patch series. See patches/cdk/*.patch and DECISIONS.md's Phase 2 Step 5 entry.
+patches/**/*.patch text eol=lf
