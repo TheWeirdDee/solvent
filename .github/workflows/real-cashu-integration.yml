@@ -193,8 +193,16 @@ jobs:
           cert_file = "/tmp/regtest/lnd-one/tls.cert"
           macaroon_file = "/tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon"
           EOF
-          CDK_MINTD_MNEMONIC="$MNEMONIC" CDK_MINTD_WORK_DIR=/tmp/regtest/mint \
-            cdk-mintd --config /tmp/regtest/mint/config.toml > /tmp/regtest/mint/mintd.log 2>&1 &
+          # cdk-mintd 0.18.x moved to database-backed configuration: `--config`
+          # is a legacy/migration-only flag now (confirmed against the pinned
+          # release's own crates/cdk-mintd/src/cli.rs). A fresh mint's config
+          # must be imported once via `config init --new-mint`, then the
+          # daemon starts with no subcommand, reading from the database in
+          # the same --work-dir.
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            config init --new-mint --file /tmp/regtest/mint/config.toml
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            > /tmp/regtest/mint/mintd.log 2>&1 &
           for i in $(seq 1 60); do
             curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1 && break
             sleep 1
