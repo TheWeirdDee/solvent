@@ -1,0 +1,4 @@
+A04 forged-receipt-signature
+expected: REFUSE_RECEIPT_INVALID
+actual:   REFUSE_RECEIPT_INVALID
+PASS
