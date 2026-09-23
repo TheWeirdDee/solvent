@@ -1,0 +1,13 @@
+{
+  "original_b_prime": "02137d57f5947f854f23f9c0e8fb87e1f99f176fa0e043fcc8a1ba014729fc4540",
+  "reconstructed_b_prime": "02137d57f5947f854f23f9c0e8fb87e1f99f176fa0e043fcc8a1ba014729fc4540",
+  "equal": true,
+  "dleq_valid": true,
+  "reconstructed_c_prime": "0361ba10f765e15aa89d027525aa61c308f0ced8a99b51dfabcfed7b4897bd20fe",
+  "original_c_prime": "0361ba10f765e15aa89d027525aa61c308f0ced8a99b51dfabcfed7b4897bd20fe",
+  "c_prime_equal": true,
+  "cashu_library": "@cashu/cashu-ts",
+  "cashu_library_version": "4.10.2",
+  "transfer_path": "getEncodedToken() -> cashu token string -> getDecodedToken()",
+  "received_proof_contains_r": true
+}
