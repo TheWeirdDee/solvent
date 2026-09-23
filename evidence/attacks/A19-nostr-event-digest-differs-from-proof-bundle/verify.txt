@@ -1,0 +1,4 @@
+A19 nostr-event-digest-differs-from-proof-bundle
+expected: REFUSE_NOSTR_STATE_MISMATCH
+actual:   REFUSE_NOSTR_STATE_MISMATCH
+PASS
