@@ -1,0 +1,14 @@
+SOLVENT hero evidence — independent recomputation
+
+mint: solvent-fixture-mint
+keyset: 000801d494fa9cf3
+epoch: 12
+
+manifest message: 000801d494fa9cf3:sat:12:2026-09-21T12:50:35Z:0000000000000000000000000000000000000000000000000000000000000000:1:bac5512172247fe966c0a141d86ab8bce035a9fad145cf00a1c81308185d1718:30000:1:b1c51e47a77b3636583bb582ff88f9fddd60d966c8f644cf23d05a0ab73b9e02:5000:25000:true:999
+manifest signature valid: true
+
+omitted item receipt message: Cashu_PoL_Receipt_Issued:03e5536b7d17c47115970f377319784d715779aada3b738cd71af930a25f31c1f7:12
+omitted item receipt valid: true
+omitted item inclusion status: MISSING
+decision: REFUSE
+reason_code: REFUSE_ISSUANCE_OMITTED
