@@ -265,6 +265,7 @@ jobs:
             config init --new-mint --file /tmp/regtest/mint/config.toml
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
             > /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
           for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
             sleep 1
@@ -282,6 +283,33 @@ jobs:
           export LND_BACKEND_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon)
           export NODE_TLS_REJECT_UNAUTHORIZED=0  # regtest LND self-signed certs only — see src/cli/real-cashu/lnd-client.ts's module header
           npm run verify:cashu-real
+
+      - name: Restart CDK mint and verify persistence (process-restart check)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: |
+          set -euo pipefail
+          # Kill the mint process the earlier step started, then start a
+          # fresh process against the SAME --work-dir (same sqlite
+          # database) — this is what actually distinguishes durable
+          # on-disk state from an in-memory artifact that a restart would
+          # silently reset. See src/cli/real-cashu/real-cashu-restart-check.ts.
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+          npm run verify:cashu-real:restart
 
       - name: Collect logs
         if: always()
