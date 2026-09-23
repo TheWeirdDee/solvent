@@ -27,7 +27,10 @@
     "verify:deployed": "tsx src/cli/verify-deployed.ts",
     "verify:deployed:browser": "tsx src/cli/verify-deployed-browser.ts",
     "verify:cashu-real": "tsx src/cli/real-cashu/real-cashu-foundation.ts",
-    "verify:cashu-real:restart": "tsx src/cli/real-cashu/real-cashu-restart-check.ts"
+    "verify:cashu-real:restart": "tsx src/cli/real-cashu/real-cashu-restart-check.ts",
+    "verify:pol-atomicity": "tsx src/cli/real-cashu/pol-atomicity-check.ts",
+    "verify:pol-nut04": "tsx src/cli/real-cashu/pol-nut04-reconciliation.ts",
+    "verify:pol-retry": "tsx src/cli/real-cashu/pol-nut04-retry-idempotency.ts"
   },
   "repository": {
     "type": "git",
