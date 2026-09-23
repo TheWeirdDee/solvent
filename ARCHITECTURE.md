@@ -51,7 +51,7 @@ src/
   app/        the browser client + submission/verification orchestration (unchanged)
   cashu/      SOLVENT's own fixture mint crypto — real @cashu/cashu-ts primitives, Lane A only
   cli/        gate0..gate6, attacks, live-demo, verify-submission, verify-deployed(*)
-    **real-cashu/**   **Phase 1: real-cashu-foundation.ts, lnd-client.ts, proof-store.ts, evidence.ts**
+    **real-cashu/**   **Phase 1: real-cashu-foundation.ts, real-cashu-restart-check.ts, lnd-client.ts, proof-store.ts, evidence.ts**
   enforcement/ Gate 4's real accept-function spy boundary (unchanged)
   nostr/      Nostr event schema/signing/relay I/O (unchanged)
   pol/        Proof-of-Liabilities primitives: manifest/receipt/sum-MMR (unchanged — not yet connected to Phase 1)
