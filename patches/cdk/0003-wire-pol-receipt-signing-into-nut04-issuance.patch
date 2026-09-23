@@ -1,0 +1,78 @@
+diff --git a/crates/cdk/src/mint/issue/mod.rs b/crates/cdk/src/mint/issue/mod.rs
+index 466a68f..674790e 100644
+--- a/crates/cdk/src/mint/issue/mod.rs
++++ b/crates/cdk/src/mint/issue/mod.rs
+@@ -930,6 +930,25 @@ impl Mint {
+                 .map(|p| p.blinded_secret)
+                 .collect::<Vec<PublicKey>>();
+ 
++            // SOLVENT Phase 2: sign a PoL receipt for every real output,
++            // alongside blind_sign — same "stateless, safe outside
++            // transaction" property (solvent/docs/cdk-signatory-audit.md).
++            // Message format and epoch-0 convention:
++            // solvent/docs/accounting-model.md. A failure here fails the
++            // whole mint attempt closed rather than silently proceeding
++            // without a receipt.
++            let mut pol_receipt_signatures: Vec<(PublicKey, String)> =
++                Vec::with_capacity(input.outputs().len());
++            for output in input.outputs() {
++                let message =
++                    format!("Cashu_PoL_Receipt_Issued:{}:0", output.blinded_secret.to_hex())
++                        .into_bytes();
++                let signature = self
++                    .sign_pol_receipt(output.keyset_id, output.amount, message)
++                    .await?;
++                pol_receipt_signatures.push((output.blinded_secret, signature.to_string()));
++            }
++
+             // Phase 5: Atomic database transaction
+             let mut tx = self.localstore.begin_transaction().await?;
+ 
+@@ -947,6 +966,10 @@ impl Mint {
+                     .await?;
+                 tx.add_blind_signatures(&blinded_secrets, &all_blind_signatures, None)
+                     .await?;
++                for (blinded_message, signature_hex) in &pol_receipt_signatures {
++                    tx.record_pol_receipt_signature(blinded_message, signature_hex)
++                        .await?;
++                }
+                 let fee_by_keyset = std::collections::HashMap::new();
+                 tx.add_completed_operation(&batch_operation, &fee_by_keyset)
+                     .await?;
+@@ -993,6 +1016,11 @@ impl Mint {
+                         Some(quote_id.clone()),
+                     )
+                     .await?;
++
++                    for (blinded_message, signature_hex) in &pol_receipt_signatures {
++                        tx.record_pol_receipt_signature(blinded_message, signature_hex)
++                            .await?;
++                    }
+                 }
+ 
+                 mint_quote.add_issuance(amount_issued)?;
+diff --git a/crates/cdk/src/mint/mod.rs b/crates/cdk/src/mint/mod.rs
+index 541f6ae..5927456 100644
+--- a/crates/cdk/src/mint/mod.rs
++++ b/crates/cdk/src/mint/mod.rs
+@@ -1342,6 +1342,20 @@ impl Mint {
+         result
+     }
+ 
++    /// SOLVENT Phase 2: signs a Proof-of-Liability receipt message with the
++    /// real per-amount signatory key for `keyset_id`/`amount` — the same
++    /// key `blind_sign` uses. Only the signature crosses back out of the
++    /// signatory boundary; see `solvent/docs/cdk-signatory-audit.md`.
++    #[tracing::instrument(skip_all)]
++    pub async fn sign_pol_receipt(
++        &self,
++        keyset_id: Id,
++        amount: Amount,
++        message: Vec<u8>,
++    ) -> Result<bitcoin::secp256k1::schnorr::Signature, Error> {
++        self.signatory.sign_pol_receipt(keyset_id, amount, message).await
++    }
++
+     /// Verify [`Proof`] meets conditions and is signed
+     #[tracing::instrument(skip_all)]
+     pub async fn verify_proofs(&self, proofs: Proofs) -> Result<(), Error> {
