@@ -1,0 +1,9 @@
+{
+  "_warning": "SIGNET TEST KEY ONLY — controls zero-value Bitcoin Signet (Mutinynet) testnet coins, never mainnet funds. Safe to publish; never reuse this key material for anything of real value.",
+  "internalPrivateKeyHex": "a5ed01ea8a12bb0bbffbd1358abe6cd851d0412973ded86acf66add21907cf3f",
+  "internalPublicKeyXOnlyHex": "cec342e9d39b067b79f976f587f2f57fe104e97e34a5e550eb39479da6f240af",
+  "tweakedPrivateKeyHex": "4e0b0a77b223597ff3ac2adaceb59e835a7bd8d5a7d98b78f14cdf4c2246f6fe",
+  "outputPublicKeyXOnlyHex": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+  "address": "tb1pjudsapt8mtzgxcj8rtfj3esz5x0mn7hwjt58rw2ww73l5que3z2srduxxe",
+  "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+}
