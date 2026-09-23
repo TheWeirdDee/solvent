@@ -52,7 +52,7 @@ CREATE TABLE solvent_issued_liability (
     id                      TEXT PRIMARY KEY,      -- SOLVENT-generated UUID
     blinded_message_hex     TEXT NOT NULL,          -- hex of blind_signature.blinded_message (B_) — the real CDK row this came from
     operation_id            TEXT,                    -- blind_signature.operation_id, when present — FK-equivalent to completed_operations
-    operation_kind          TEXT NOT NULL CHECK (operation_kind IN ('mint', 'swap', 'melt_change')),
+    operation_kind          TEXT NOT NULL CHECK (operation_kind IN ('mint', 'swap', 'melt', 'batch_mint')),
     keyset_id               TEXT NOT NULL,
     amount                  INTEGER NOT NULL CHECK (amount > 0),
     signature_c_hex         TEXT NOT NULL,          -- hex of blind_signature.c (C_) — auxiliary evidence, not the leaf-hash input
@@ -65,6 +65,8 @@ CREATE INDEX idx_issued_liability_keyset ON solvent_issued_liability(keyset_id);
 ```
 
 (SQLite only allows one `INTEGER PRIMARY KEY AUTOINCREMENT` per table and it must be the table's actual rowid alias — the migration file's real DDL uses a separate integer `id` as that autoincrement rowid and a `TEXT` `uuid` column for the idempotency-facing identifier; written informally above for readability, exact DDL is the migration file, not this prose.)
+
+**Real bug found and fixed by the first real CI reconciliation run**: the trigger's first version hardcoded the literal string `'mint'` for every row's `operation_kind`, instead of reading the real `NEW.operation_kind` value CDK's own `blind_signature` row already carries. Real CI caught this immediately and correctly: a single real lifecycle run (mint 1000 sat, swap 1000 sat, melt with ~100 sat change) produced 15 issued-liability rows totalling 2100 sats against a real mint of only 1000 — because the swap's replacement outputs and the melt's change outputs were being mislabeled as `'mint'` too. `crates/cdk-common/src/mint.rs`'s `impl fmt::Display for OperationKind` confirms the real values are `"mint"`, `"swap"`, `"melt"`, `"batch_mint"` — not the guessed `"melt_change"`. Fixed by using `COALESCE(NEW.operation_kind, 'mint')` in both triggers, verified locally against a simulated mint+swap+melt sequence before re-running real CI.
 
 ### `solvent_consumed_liability` (schema defined now; population deferred to swap/melt phases)
 
