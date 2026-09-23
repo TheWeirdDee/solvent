@@ -42,12 +42,24 @@ function main() {
     )
     .get() as { n: number };
 
+  // Real signing, not just a durable pending obligation — see
+  // patches/cdk/0003-wire-pol-receipt-signing-into-nut04-issuance.patch.
+  const signedRow = db
+    .prepare(
+      `SELECT count(*) AS n FROM solvent_pol_receipt r
+       JOIN solvent_issued_liability il ON il.id = r.liability_id
+       WHERE r.liability_kind = 'issued' AND il.operation_kind = 'mint'
+         AND r.status = 'signed' AND r.signature_hex IS NOT NULL`,
+    )
+    .get() as { n: number };
+
   db.close();
 
   const countMatch = cdkRow.n === solventRow.n;
   const amountMatch = cdkRow.total === solventRow.total;
   const receiptMatch = receiptRow.n === solventRow.n;
-  const match = countMatch && amountMatch && receiptMatch;
+  const signedMatch = signedRow.n === solventRow.n;
+  const match = countMatch && amountMatch && receiptMatch && signedMatch;
 
   console.log('SOLVENT — PHASE 2 NUT-04 ACCOUNTING RECONCILIATION\n');
   console.log(`MINTED AMOUNT:\n${cdkRow.total} sats\n`);
@@ -55,11 +67,12 @@ function main() {
   console.log(`SOLVENT ISSUED-LIABILITY RECORDS:\n${solventRow.n}\n`);
   console.log(`SUM OF SOLVENT ISSUED LIABILITIES:\n${solventRow.total} sats\n`);
   console.log(`SOLVENT PoL RECEIPT OUTBOX ROWS:\n${receiptRow.n}\n`);
+  console.log(`SIGNED RECEIPTS:\n${signedRow.n}\n`);
   console.log(`MATCH:\n${match ? 'YES' : 'NO'}`);
 
   if (!match) {
     console.error(
-      `\nPHASE 2 NOT VERIFIED — reconciliation mismatch: count ${cdkRow.n} vs ${solventRow.n} (match=${countMatch}), amount ${cdkRow.total} vs ${solventRow.total} (match=${amountMatch}), receipts ${receiptRow.n} vs issued ${solventRow.n} (match=${receiptMatch})`,
+      `\nPHASE 2 NOT VERIFIED — reconciliation mismatch: count ${cdkRow.n} vs ${solventRow.n} (match=${countMatch}), amount ${cdkRow.total} vs ${solventRow.total} (match=${amountMatch}), receipts ${receiptRow.n} vs issued ${solventRow.n} (match=${receiptMatch}), signed ${signedRow.n} vs issued ${solventRow.n} (match=${signedMatch})`,
     );
     process.exitCode = 1;
     return;
