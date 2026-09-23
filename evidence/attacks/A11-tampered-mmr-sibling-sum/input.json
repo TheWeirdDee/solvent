@@ -1,0 +1,62 @@
+{
+  "proof": {
+    "id": "00ec50c9942f0c3a",
+    "amount": "30000",
+    "secret": "attack-0.21394513040293162",
+    "C": "0270ac7b88ad209bcff6ec515caef194e87ee16c1ed2d7160f8f51848119aa47a0",
+    "dleq": {
+      "e": "bd6bdd301043df41f4de29fd3a23213b43305e3eebf52fcd7b0e38da167917ba",
+      "s": "c58e6d48258fb8f20c4caa5c07eb81ccd15b970eb20caaf6f8ccb49d31605afa",
+      "r": "67085655b6c68a8dffb4cf6c08ae3c3a1a84ee3610629200ee1adc650075c220"
+    }
+  },
+  "mint": "solvent-fixture-mint",
+  "keysetId": "00ec50c9942f0c3a",
+  "amountPublicKeyHex": "027f37c6379978b43b47a4c61ac4b1d9b200ae6c8855150de0bd8624c94985ef43",
+  "receipt": {
+    "target_epoch": 12,
+    "signature": "855b4937a19ff19f0872a44de0eecba0179aadbec08f4c26070b532655367a8fabf42696fe0700e78cba3f7416a48ed6583e6612333aa05cdd38a5f42cf860c4"
+  },
+  "manifest": {
+    "keyset_id": "00ec50c9942f0c3a",
+    "unit": "sat",
+    "epoch_index": 12,
+    "timestamp": "2026-09-21T00:00:00Z",
+    "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "issued_mmr_size": 2,
+    "issued_mmr_root_hash": "b352010380f333f91f07abc9cdc49fe913650814762e8a26640be4dd3c24e396",
+    "issued_mmr_root_sum": 45000,
+    "spent_mmr_size": 1,
+    "spent_mmr_root_hash": "23a56da430063533c91defafbc4289656a04f0190d821a24bb62b2ca43082c3e",
+    "spent_mmr_root_sum": 5000,
+    "outstanding_balance": 40000,
+    "active": true,
+    "deactivation_epoch": 999
+  },
+  "manifestSignature": "65cdba8262fe5d2c9f31776a1a8115c205225bff512687117a1cf2aeb4255b6841d0d56f9a804d34b7ea99aad3f9213e4a4f9fc75f2aed73cf8373ce4f00eed3",
+  "masterPublicKeyHex": "0362cd5f922c49bed5ad523958b7a44d801173d03780ebcd4b919c0406d4539043",
+  "issuedMmrSize": 2,
+  "inclusionProof": {
+    "leafIndex": 0,
+    "siblingPath": [
+      {
+        "hash": "cc618c2eb419ada14a990353aa632dcb10d257fbd69f0012772fc7a984498fbf",
+        "sum": "15001",
+        "isLeft": false
+      }
+    ],
+    "peaks": [
+      {
+        "hash": "b352010380f333f91f07abc9cdc49fe913650814762e8a26640be4dd3c24e396",
+        "sum": "45000"
+      }
+    ]
+  },
+  "reserve": {
+    "verified": true,
+    "reserveSats": 200000
+  },
+  "nostr": {
+    "verified": true
+  }
+}
