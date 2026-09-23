@@ -1,6 +1,6 @@
 # Draft alignment — Cashu PR #388
 
-SOLVENT aligns its liability semantics to **Cashu PR #388 / draft Proof-of-Liabilities proposal** (`github.com/cashubtc/nuts/pull/388`, semantic content pinned from `github.com/a1denvalu3/nuts/blob/pol-spec/pol.md`, fetched 2026-09-21). This is a **draft pull request**, not an assigned, finalized Cashu NUT. Per the draft's own header:
+SOLVENT aligns its liability semantics to **Cashu PR #388 / draft Proof-of-Liabilities proposal** (`github.com/cashubtc/nuts/pull/388`, semantic content pinned from `github.com/a1denvalu3/nuts/blob/pol-spec/pol.md`, fetched 2026-09-21; re-confirmed unchanged 2026-09-23 — head commit `8fc2d3fcd33e1b6ba9b21497c2e71bd8ec60b685` on branch `pol-spec`, base `cashubtc:main@2814335d16c848389c2eb657b08e8548a1a27e22`, PR state `open`/`draft: true`, `merged: false`). This is a **draft pull request**, not an assigned, finalized Cashu NUT. Per the draft's own header:
 
 > Draft identifier: `388` is the proposal's pull-request number and MUST be replaced with the NUT number assigned when the proposal is merged.
 
