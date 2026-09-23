@@ -1,0 +1,24 @@
+{
+  "attack_id": "A08",
+  "decision": "REFUSE",
+  "reasonCode": "REFUSE_MISSING_BLINDING_FACTOR",
+  "reason": "The proof carries no blinding factor r; the holder cannot independently reconstruct the issuance offline.",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": false,
+    "dleqValid": false,
+    "bPrimeReconstructed": false,
+    "receiptValid": false,
+    "targetEpochClosed": false,
+    "manifestValid": false,
+    "inclusionValid": false,
+    "liabilityArithmeticValid": false,
+    "reserveCoverage": true,
+    "nostrEvidence": true
+  },
+  "mint": "solvent-fixture-mint",
+  "amount": 30000,
+  "keyset": "00ec50c9942f0c3a",
+  "timestamp": "2026-09-23T10:10:11.231Z"
+}
