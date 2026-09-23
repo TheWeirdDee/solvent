@@ -16,7 +16,12 @@ CREATE TABLE solvent_issued_liability (
     id                  TEXT NOT NULL UNIQUE,
     blinded_message_hex TEXT NOT NULL UNIQUE,
     operation_id        TEXT,
-    operation_kind      TEXT NOT NULL CHECK (operation_kind IN ('mint', 'swap', 'melt_change')),
+    -- Real values confirmed from crates/cdk-common/src/mint.rs's
+    -- `impl fmt::Display for OperationKind`: "mint", "swap", "melt",
+    -- "batch_mint" — not guessed. A swap's replacement outputs and a
+    -- melt's change outputs are real issued liabilities too, tagged with
+    -- their own real operation kind, not silently relabelled as "mint".
+    operation_kind      TEXT NOT NULL CHECK (operation_kind IN ('mint', 'swap', 'melt', 'batch_mint')),
     keyset_id           TEXT NOT NULL,
     amount              INTEGER NOT NULL CHECK (amount > 0),
     signature_c_hex     TEXT NOT NULL,
@@ -65,7 +70,7 @@ BEGIN
     INSERT INTO solvent_issued_liability
         (id, blinded_message_hex, operation_id, operation_kind, keyset_id, amount, signature_c_hex, created_at)
     VALUES
-        (lower(hex(randomblob(16))), lower(hex(NEW.blinded_message)), NEW.operation_id, 'mint',
+        (lower(hex(randomblob(16))), lower(hex(NEW.blinded_message)), NEW.operation_id, COALESCE(NEW.operation_kind, 'mint'),
          NEW.keyset_id, NEW.amount, lower(hex(NEW.c)), CAST(strftime('%s','now') AS INTEGER));
 
     INSERT INTO solvent_pol_receipt
@@ -91,7 +96,7 @@ BEGIN
     INSERT INTO solvent_issued_liability
         (id, blinded_message_hex, operation_id, operation_kind, keyset_id, amount, signature_c_hex, created_at)
     VALUES
-        (lower(hex(randomblob(16))), lower(hex(NEW.blinded_message)), NEW.operation_id, 'mint',
+        (lower(hex(randomblob(16))), lower(hex(NEW.blinded_message)), NEW.operation_id, COALESCE(NEW.operation_kind, 'mint'),
          NEW.keyset_id, NEW.amount, lower(hex(NEW.c)), CAST(strftime('%s','now') AS INTEGER));
 
     INSERT INTO solvent_pol_receipt
