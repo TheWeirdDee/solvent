@@ -1,0 +1,15 @@
+{
+  "mintIdentity": "mint-a",
+  "label": "t1",
+  "proof": {
+    "id": "solvent-mint-a-keyset-v1",
+    "amount": "30000",
+    "secret": "solvent-fixture-mint-a-t1-secret",
+    "C": "0381cb990f856a2e3f3fa6a92f91db963ad8cd5dc87dcda27d108328ebc58aa3d8",
+    "dleq": {
+      "e": "a22e1a7529e139a5ccf50e9b55bbc7ec9cbf459e3c4df3da958f4a0b74393366",
+      "s": "9a3f00bdc110643fc95487dedb80c20f8811dbc13673a3d399eb070f92ec5af4",
+      "r": "ab6292a1ed38b02caf588c9bd4d086f1e98d02e27afe41b6e5fdd0f3cd11a6d4"
+    }
+  }
+}
