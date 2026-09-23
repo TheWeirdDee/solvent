@@ -1,0 +1,4 @@
+A18 both-relays-unavailable
+expected: REFUSE_NOSTR_UNAVAILABLE
+actual:   REFUSE_NOSTR_UNAVAILABLE
+PASS
