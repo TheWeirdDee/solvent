@@ -28,7 +28,7 @@ Lane A and Lane B are not in tension — Lane A's fixtures remain exactly as use
 
 Lane B is confirmed by real execution, not just by code review: [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23) ran the entire table above for real and printed `REAL CASHU FOUNDATION VERIFIED` and `REAL CASHU FOUNDATION RESTART PERSISTENCE VERIFIED`. See `docs/limitations.md` for exactly what that run proved and where its evidence artifact is attached.
 
-## Phase 2 — mint-native accounting (NUT-04 only so far)
+## Phase 2 — mint-native accounting + PoL receipts (NUT-04 only so far — Step 8 verified)
 
 | Component | Implementation | Simulation? |
 | --- | --- | --- |
@@ -36,8 +36,9 @@ Lane B is confirmed by real execution, not just by code review: [GitHub Actions 
 | Accounting atomicity | A transaction that fails after the trigger fires but before commit leaves both CDK's and SOLVENT's rows absent; a real commit leaves both present — proven against the real database in CI, not asserted | **NO** |
 | Accounting reconciliation | SOLVENT's journal independently queried and compared against CDK's own real `blind_signature` table in the same database — exact match, not compared only against itself | **NO** |
 | Retry idempotency | A genuine second HTTP mint attempt against an already-issued quote, rejected by the real mint | **NO** |
-| Restart persistence (accounting) | Reconciliation re-run after killing and restarting the real mint process reports byte-identical results | **NO** |
-| PoL receipt signing (NUT-04) | Architecture decided and the real signatory source audited (`docs/cdk-signatory-audit.md`) — **NOT YET IMPLEMENTED**. `solvent_pol_receipt` rows are created (durably, atomically) but stay `status = 'pending'`; no signature exists yet. | N/A — not built |
+| Restart persistence (accounting + receipts) | Reconciliation re-run after killing and restarting the real, patched mint process reports byte-identical results, including signed-receipt state | **NO** |
+| PoL receipt signing (NUT-04) | A real, small, checked-in patch to CDK's own source (`patches/cdk/*.patch`) adds `Signatory::sign_pol_receipt()`, using the exact same real per-amount key `blind_sign` uses. `cdk-mintd` is built from the pinned upstream commit plus this patch in CI. Every real output gets a real signed receipt, written in the same transaction as the accounting row. | **NO** |
+| Independent receipt verification | A separate module (`src/cli/real-cashu/pol-receipt-verify.ts`) with no signatory access, no seed, no private key — only the mint's own real `/v1/keys` response — verified all 6 real signatures and correctly refused 4/4 tampered variants | **NO** |
 | NUT-03 (swap) / NUT-05 (melt) accounting | **NOT YET BUILT.** Phase 2 deliberately implemented NUT-04 alone first, per its own build-order instruction. | N/A — not built |
 
-Confirmed by real execution: [GitHub Actions run 35882242998](https://github.com/TheWeirdDee/solvent/actions/runs/35882242998) (2026-09-23).
+Confirmed by real execution: [GitHub Actions run 35924475422](https://github.com/TheWeirdDee/solvent/actions/runs/35924475422) (2026-09-23) — the first run of the source-built, patched `cdk-mintd`, passing completely on the first attempt.
