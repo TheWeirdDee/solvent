@@ -4,6 +4,27 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Step 5: the real CDK patch, implemented and verified to compile
+
+`docs/cdk-signatory-audit.md` and `docs/draft-alignment.md`'s receipt-delivery correction (the draft requires the receipt inline in the same mint/swap/melt HTTP response, not delivered asynchronously) together determined the real patch surface. It is now written, applied to a real clone of the pinned commit, and confirmed to compile `cdk-mintd` successfully — not just designed.
+
+**Files changed, three patches** (`patches/cdk/0001-*.patch` through `0003-*.patch`, 184 lines total across 7 files):
+
+1. `crates/cdk-signatory/src/{signatory.rs,db_signatory.rs,embedded.rs}` — adds `Signatory::sign_pol_receipt(keyset_id, amount, message) -> Signature`. `DbSignatory`'s implementation reuses `blind_sign()`'s exact keyset/amount lookup and active/expired validation, then calls the already-shipped `SecretKey::sign()`. The trait method has a *default* body returning `Error::Custom("...not supported...")`, so the remote/gRPC signatory client (`proto::client::SignatoryRpcClient`) — deliberately not extended in this phase — keeps compiling without any change to it at all.
+2. `crates/cdk-common/src/database/mint/mod.rs` + `crates/cdk-sql-common/src/mint/signatures.rs` — adds `SignaturesTransaction::record_pol_receipt_signature(blinded_message, signature_hex)`, also default-no-op on the trait (so no other backend needs touching), with a real implementation in `cdk-sql-common`'s shared SQLite/Postgres transaction type: one `UPDATE solvent_pol_receipt SET status = 'signed', ...` issued through the exact same pooled connection that transaction already writes `blind_signature` rows through. Errors here (including "no such table" against a vanilla, unpatched-schema database) are deliberately swallowed — this hook must never fail a real mint/swap/melt operation just because SOLVENT's optional schema isn't present.
+3. `crates/cdk/src/mint/mod.rs` + `crates/cdk/src/mint/issue/mod.rs` — adds `Mint::sign_pol_receipt()` (mirrors `blind_sign()` exactly) and wires it into `process_mint_request()`: a receipt is signed for every output, before the transaction opens (same safety property as `blind_sign()` itself — inert until the transaction that references it actually commits), and `record_pol_receipt_signature()` is called once per output inside the transaction, in both the batch and non-batch code paths.
+
+**Verified real, not asserted**: `cargo check -p cdk-mintd --no-default-features --features sqlite,lnd,management-rpc,info-page,bdk` against the patched source succeeds with zero errors (one pre-existing, unrelated warning). `cargo build` produces a real, running `cdk-mintd` binary. The three patch files were then tested against a **completely fresh clone** of the pinned commit (`git clone` + `git checkout a056e0f0f69e94f431b1aeb90d883f18c61ea4c6`, zero relation to the working tree they were authored in) and apply cleanly with `git apply --check` — this is what a clean CI checkout will actually do, not merely assumed to work.
+
+**Checksums** (`sha256sum patches/cdk/*.patch`):
+- `0001-add-sign_pol_receipt-to-signatory.patch`: `ca5a56aa043ff206f071c43776cf0ed442e7b9cbd126bb45c2577d6fdcb7258`
+- `0002-add-record_pol_receipt_signature-db-hook.patch`: `53678967979e746c61eda6ef01b2766edef917f93a2ffbc29f715fadcc40f1`
+- `0003-wire-pol-receipt-signing-into-nut04-issuance.patch`: `8e09865cef962988d873ae786ba83c9295213077138ea110cc24280ae64b1a`
+
+**Local build environment note**: this project's Windows dev machine has no `protoc` or working MSVC toolchain for `aws-lc-sys` (pulled in by CDK's default `grpc-processor` feature) — both real, environment-specific gaps, not code problems. Worked around locally by downloading a real `protoc` release binary and scoping the build to `--no-default-features --features sqlite,lnd,management-rpc,info-page,bdk` (the exact feature set Phase 1/2 actually need; `grpc-processor` is not required and is excluded). CI (Linux, `ubuntu-latest`) does not have either gap — see `docs/reproduce-real-stack.md` for the exact reproducible build commands.
+
+---
+
 ## 2026-09-23 — Phase 2 Steps 6/7/8A: real NUT-04 mint-native accounting, verified
 
 Built and proved, entirely for real, in [run 35882242998](https://github.com/TheWeirdDee/solvent/actions/runs/35882242998): the SQL-trigger architecture from Step 2, applied concretely to NUT-04. `migrations/solvent-accounting/0001_nut04_issued_liability.sql` adds `solvent_issued_liability`/`solvent_consumed_liability`/`solvent_pol_receipt` plus two triggers to CDK's own unmodified SQLite file. Real CDK schema extracted by building `cdk-sqlite` from the pinned source and constructing a real, fully-migrated database (`evidence/real-pol/cdk-schema-v0.18.1.sql`) rather than composed by hand from 47 migrations.
