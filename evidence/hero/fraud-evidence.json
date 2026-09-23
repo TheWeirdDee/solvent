@@ -1,0 +1,31 @@
+{
+  "type": "leaf_omission_or_mismatch",
+  "mint": "solvent-fixture-mint",
+  "keyset_id": "000801d494fa9cf3",
+  "amount": 70000,
+  "reconstructed_b_prime": "03e5536b7d17c47115970f377319784d715779aada3b738cd71af930a25f31c1f7",
+  "pol_receipt": {
+    "target_epoch": 12,
+    "signature": "7e57d64e91159d2558f357d2e430cd5b73fbde1b3bc6afe69fc7dd9dbbc2ad0dbf08aafda9c860ed50555074c2eda0ffd8b26cedaef6d8f65ba784912b52d4e4"
+  },
+  "manifest": {
+    "keyset_id": "000801d494fa9cf3",
+    "unit": "sat",
+    "epoch_index": 12,
+    "timestamp": "2026-09-21T12:50:35Z",
+    "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "issued_mmr_size": 1,
+    "issued_mmr_root_hash": "bac5512172247fe966c0a141d86ab8bce035a9fad145cf00a1c81308185d1718",
+    "issued_mmr_root_sum": 30000,
+    "spent_mmr_size": 1,
+    "spent_mmr_root_hash": "b1c51e47a77b3636583bb582ff88f9fddd60d966c8f644cf23d05a0ab73b9e02",
+    "spent_mmr_root_sum": 5000,
+    "outstanding_balance": 25000,
+    "active": true,
+    "deactivation_epoch": 999,
+    "mint_signature": "f708a11e4430ebfc9b4896ff30a1c6a9e10630dd61a31bf6165a4de13fbb47d7a61ee124cd72fce99bbc6f3ea4218e31aa74843e78adb3fdc7ad3ef5524ac630"
+  },
+  "inclusion_status": "missing",
+  "decision": "REFUSE",
+  "reason_code": "REFUSE_ISSUANCE_OMITTED"
+}
