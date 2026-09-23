@@ -1,0 +1,51 @@
+{
+  "nostrResult": {
+    "verified": false,
+    "reasonCode": "REFUSE_NOSTR_STALE",
+    "detail": "Evidence valid_until=1790154612 is not fresh at now=1790158211.",
+    "matchedEvent": {
+      "kind": 8181,
+      "created_at": 1790154611,
+      "tags": [
+        [
+          "M",
+          "0362cd5f922c49bed5ad523958b7a44d801173d03780ebcd4b919c0406d4539043"
+        ],
+        [
+          "E",
+          "12"
+        ],
+        [
+          "K",
+          "00ec50c9942f0c3a"
+        ]
+      ],
+      "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"0362cd5f922c49bed5ad523958b7a44d801173d03780ebcd4b919c0406d4539043\",\"keyset_id\":\"00ec50c9942f0c3a\",\"epoch_index\":12,\"manifest_digest\":\"96c28819ff846b5f8b9460fd47f5270f49b43c2423abaa73cfa7e0e5dc7f0015\",\"manifest_signature\":\"65cdba8262fe5d2c9f31776a1a8115c205225bff512687117a1cf2aeb4255b6841d0d56f9a804d34b7ea99aad3f9213e4a4f9fc75f2aed73cf8373ce4f00eed3\",\"global_digest\":\"e81eb744acddee3609b092f0ec43d91b1acbfcaed2f82d8cbcb6510db2a17316\",\"issued_mmr_root_hash\":\"b352010380f333f91f07abc9cdc49fe913650814762e8a26640be4dd3c24e396\",\"issued_mmr_root_sum\":45000,\"spent_mmr_root_hash\":\"23a56da430063533c91defafbc4289656a04f0190d821a24bb62b2ca43082c3e\",\"spent_mmr_root_sum\":5000,\"outstanding_balance\":40000,\"reserve_digest\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"reserve_sats\":200000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790154611,\"valid_until\":1790154612,\"proof_uri\":\"local://evidence/attacks\"}",
+      "pubkey": "cdee58efa994a82ca7a5306e92f10ef2f7bfba4c6b7d404429bb6c42b08eeefd",
+      "id": "c3b59709d4a041f9ae3795e58ad7a17c7828d3311e0e58ba1d53d0cee930697a",
+      "sig": "b8c88046af1f5671c527bec12b8f7f958f56f27e3cf210464d3f0dab2e582dd74676b1d0481e38b956552f51778436efb8ac2078b2cea17c4391c1ac7f5f0e08"
+    }
+  },
+  "event": {
+    "kind": 8181,
+    "created_at": 1790154611,
+    "tags": [
+      [
+        "M",
+        "0362cd5f922c49bed5ad523958b7a44d801173d03780ebcd4b919c0406d4539043"
+      ],
+      [
+        "E",
+        "12"
+      ],
+      [
+        "K",
+        "00ec50c9942f0c3a"
+      ]
+    ],
+    "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"0362cd5f922c49bed5ad523958b7a44d801173d03780ebcd4b919c0406d4539043\",\"keyset_id\":\"00ec50c9942f0c3a\",\"epoch_index\":12,\"manifest_digest\":\"96c28819ff846b5f8b9460fd47f5270f49b43c2423abaa73cfa7e0e5dc7f0015\",\"manifest_signature\":\"65cdba8262fe5d2c9f31776a1a8115c205225bff512687117a1cf2aeb4255b6841d0d56f9a804d34b7ea99aad3f9213e4a4f9fc75f2aed73cf8373ce4f00eed3\",\"global_digest\":\"e81eb744acddee3609b092f0ec43d91b1acbfcaed2f82d8cbcb6510db2a17316\",\"issued_mmr_root_hash\":\"b352010380f333f91f07abc9cdc49fe913650814762e8a26640be4dd3c24e396\",\"issued_mmr_root_sum\":45000,\"spent_mmr_root_hash\":\"23a56da430063533c91defafbc4289656a04f0190d821a24bb62b2ca43082c3e\",\"spent_mmr_root_sum\":5000,\"outstanding_balance\":40000,\"reserve_digest\":\"1111111111111111111111111111111111111111111111111111111111111111\",\"reserve_sats\":200000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790154611,\"valid_until\":1790154612,\"proof_uri\":\"local://evidence/attacks\"}",
+    "pubkey": "cdee58efa994a82ca7a5306e92f10ef2f7bfba4c6b7d404429bb6c42b08eeefd",
+    "id": "c3b59709d4a041f9ae3795e58ad7a17c7828d3311e0e58ba1d53d0cee930697a",
+    "sig": "b8c88046af1f5671c527bec12b8f7f958f56f27e3cf210464d3f0dab2e582dd74676b1d0481e38b956552f51778436efb8ac2078b2cea17c4391c1ac7f5f0e08"
+  }
+}
