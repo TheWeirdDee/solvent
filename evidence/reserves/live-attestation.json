@@ -1,0 +1,36 @@
+{
+  "attestation": {
+    "statement": {
+      "network": "bitcoin-signet-mutinynet",
+      "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+      "outpoints": [
+        {
+          "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+          "vout": 0,
+          "value_sats": 1000000,
+          "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+        }
+      ],
+      "timestamp": "2026-09-22T08:05:31Z",
+      "block_height": 3446486
+    },
+    "statementSignature": "7cda22cae2dbd8289d9e40f725632c2a1d304c6a9fa37cf5407626799d825717c1879aa83d5b45e11f3160ba03b1a8dfb5cd888bb65d23a62f681e3d2dd31a29",
+    "bindingSignature": "5b4bf8e365896efbe9e33c8305cce8a6e2b6b7f7133b3f1776ab010541ef4b5ab5fea9d2fc28f9944366495696e10ad4a33c6b6ad9c2ccb606b64e5512defe76",
+    "masterPublicKeyHex": "02037c883c2b51bc09722b2f2ab5c174fc9b87430ffb0e39889ca1213a667cb5b1"
+  },
+  "chainState": {
+    "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0": {
+      "exists": true,
+      "confirmed": true,
+      "value": 1000000,
+      "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+      "spent": false
+    }
+  },
+  "tipHeight": 3446486,
+  "result": {
+    "verified": true,
+    "detail": "Verified reserve 1000000 sats covers outstanding balance 70000 sats.",
+    "verifiedReserveSats": 1000000
+  }
+}
