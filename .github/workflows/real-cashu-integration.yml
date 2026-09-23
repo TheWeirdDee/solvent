@@ -101,7 +101,13 @@ jobs:
           EOF
           bitcoind -datadir=/tmp/regtest/bitcoin -daemon
           for i in $(seq 1 30); do
-            bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest getblockchaininfo >/dev/null 2>&1 && break
+            # `if`'s condition is explicitly exempt from `set -e` — a bare
+            # `cond && break` used as a top-level statement is NOT: if cond
+            # is false on this iteration, the whole line's exit status is
+            # non-zero and `set -e` aborts the script right here, never
+            # reaching `sleep`/the next iteration. Every retry loop in this
+            # workflow uses the `if`/`fi` form for exactly this reason.
+            if bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest getblockchaininfo >/dev/null 2>&1; then break; fi
             sleep 1
           done
           bitcoin-cli -datadir=/tmp/regtest/bitcoin -regtest createwallet miner
@@ -128,8 +134,10 @@ jobs:
             --rpclisten=127.0.0.1:$RPC_TWO --restlisten=127.0.0.1:$REST_TWO --listen=127.0.0.1:$P2P_TWO \
             --noseedbackup --accept-keysend > /tmp/regtest/lnd-two/lnd.log 2>&1 &
           for i in $(seq 1 60); do
-            lncli --lnddir=/tmp/regtest/lnd-one --network=regtest --rpcserver=127.0.0.1:$RPC_ONE getinfo >/dev/null 2>&1 && \
-            lncli --lnddir=/tmp/regtest/lnd-two --network=regtest --rpcserver=127.0.0.1:$RPC_TWO getinfo >/dev/null 2>&1 && break
+            if lncli --lnddir=/tmp/regtest/lnd-one --network=regtest --rpcserver=127.0.0.1:$RPC_ONE getinfo >/dev/null 2>&1 && \
+               lncli --lnddir=/tmp/regtest/lnd-two --network=regtest --rpcserver=127.0.0.1:$RPC_TWO getinfo >/dev/null 2>&1; then
+              break
+            fi
             sleep 1
           done
           echo "RPC_ONE=$RPC_ONE" >> "$GITHUB_ENV"; echo "REST_ONE=$REST_ONE" >> "$GITHUB_ENV"; echo "P2P_ONE=$P2P_ONE" >> "$GITHUB_ENV"
@@ -151,7 +159,7 @@ jobs:
           TWO_ADDR=""
           for i in $(seq 1 30); do
             TWO_ADDR=$($TWO newaddress p2wkh 2>/dev/null | jq -r .address 2>/dev/null || true)
-            [ -n "$TWO_ADDR" ] && [ "$TWO_ADDR" != "null" ] && break
+            if [ -n "$TWO_ADDR" ] && [ "$TWO_ADDR" != "null" ]; then break; fi
             sleep 2
           done
           if [ -z "$TWO_ADDR" ] || [ "$TWO_ADDR" = "null" ]; then
@@ -161,8 +169,8 @@ jobs:
           $BTC generatetoaddress 1 "$TWO_ADDR" >/dev/null
           $BTC generatetoaddress 100 "$MINE_ADDR" >/dev/null   # mature the coinbase output
           for i in $(seq 1 30); do
-            BAL=$($TWO walletbalance | jq -r .confirmed_balance)
-            [ "$BAL" != "0" ] && break
+            BAL=$($TWO walletbalance 2>/dev/null | jq -r .confirmed_balance 2>/dev/null || echo 0)
+            if [ "${BAL:-0}" != "0" ]; then break; fi
             sleep 1
           done
 
@@ -173,8 +181,8 @@ jobs:
           $BTC generatetoaddress 6 "$MINE_ADDR" >/dev/null
 
           for i in $(seq 1 60); do
-            ACTIVE=$($TWO listchannels | jq -r '.channels | map(select(.active==true)) | length')
-            [ "${ACTIVE:-0}" -ge "1" ] && break
+            ACTIVE=$($TWO listchannels 2>/dev/null | jq -r '.channels | map(select(.active==true)) | length' 2>/dev/null || echo 0)
+            if [ "${ACTIVE:-0}" -ge "1" ]; then break; fi
             sleep 2
           done
           $ONE listchannels
@@ -219,7 +227,7 @@ jobs:
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
             > /tmp/regtest/mint/mintd.log 2>&1 &
           for i in $(seq 1 60); do
-            curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1 && break
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
             sleep 1
           done
           curl -s http://127.0.0.1:8085/v1/info | tee /tmp/regtest/mint/info.json
