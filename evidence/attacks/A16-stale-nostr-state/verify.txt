@@ -1,0 +1,4 @@
+A16 stale-nostr-state
+expected: REFUSE_NOSTR_STALE
+actual:   REFUSE_NOSTR_STALE
+PASS
