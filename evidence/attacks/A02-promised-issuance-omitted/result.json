@@ -1,0 +1,25 @@
+{
+  "attack_id": "A02",
+  "decision": "REFUSE",
+  "reasonCode": "REFUSE_ISSUANCE_OMITTED",
+  "reason": "This mint signed a promise to account for this liability in the target epoch, but its signed epoch accounting omits it.",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": true,
+    "dleqValid": true,
+    "bPrimeReconstructed": true,
+    "receiptValid": true,
+    "targetEpochClosed": true,
+    "manifestValid": true,
+    "inclusionValid": false,
+    "liabilityArithmeticValid": true,
+    "reserveCoverage": true,
+    "nostrEvidence": true
+  },
+  "mint": "solvent-fixture-mint",
+  "amount": 70000,
+  "keyset": "00ac880e9ffbd81b",
+  "reconstructedBPrime": "0329f50bc81daac46de4bddb699326dcfb439c478c1b0ebc07b9df92f427aaad3c",
+  "timestamp": "2026-09-23T10:10:11.054Z"
+}
