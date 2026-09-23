@@ -31,11 +31,16 @@ env:
   BITCOIN_CORE_VERSION: '29.4'
   LND_VERSION: '0.21.3-beta'
   CDK_VERSION: '0.18.1'
+  # Phase 2: cdk-mintd is now built from source with SOLVENT's own real,
+  # checked-in patch series (patches/cdk/*.patch) applied — see
+  # docs/cdk-integration-seams.md and DECISIONS.md's Phase 2 Step 5 entry.
+  # Bitcoin Core and LND remain Phase 1's unmodified prebuilt downloads.
+  CDK_COMMIT: 'a056e0f0f69e94f431b1aeb90d883f18c61ea4c6'
 
 jobs:
   real-cashu-foundation:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -70,16 +75,56 @@ jobs:
           tar xzf "lnd-linux-amd64-v${LND_VERSION}.tar.gz"
           echo "/tmp/lnd-linux-amd64-v${LND_VERSION}" >> "$GITHUB_PATH"
 
-      - name: Download + verify CDK ${{ env.CDK_VERSION }} (cdk-mintd, real `lnd` backend compiled in)
+      - name: Install protoc (cdk-signatory's build script requires it)
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
+      - name: Cache Rust build artifacts for the patched CDK source build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            /tmp/cdk-src/target
+          key: cdk-build-${{ env.CDK_COMMIT }}-${{ hashFiles('patches/cdk/*.patch') }}-${{ runner.os }}
+
+      - name: Clone pinned CDK ${{ env.CDK_VERSION }}, apply SOLVENT's real patch series, build cdk-mintd from source
         run: |
           set -euo pipefail
-          mkdir -p /tmp/cdk && cd /tmp/cdk
-          curl -sSL -O "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/cdk-mintd-${CDK_VERSION}-x86_64"
-          curl -sSL -o SHA256SUMS "https://github.com/cashubtc/cdk/releases/download/v${CDK_VERSION}/SHA256SUMS"
-          grep "cdk-mintd-${CDK_VERSION}-x86_64" SHA256SUMS | sha256sum -c -
-          chmod +x "cdk-mintd-${CDK_VERSION}-x86_64"
-          ln -s "cdk-mintd-${CDK_VERSION}-x86_64" cdk-mintd
+          # Real, checked-in patch series — patches/cdk/*.patch — see
+          # docs/cdk-integration-seams.md and DECISIONS.md's Phase 2 Step 5
+          # entry for exactly what each patch does and why. Bitcoin Core and
+          # LND (downloaded elsewhere in this workflow) remain Phase 1's
+          # unmodified prebuilt binaries; only cdk-mintd is now built from
+          # source, and only because real mint-native PoL receipt signing
+          # genuinely requires touching CDK's own signatory/database code —
+          # see docs/cdk-signatory-audit.md for why no smaller seam exists.
+          git clone https://github.com/cashubtc/cdk.git /tmp/cdk-src
+          cd /tmp/cdk-src
+          git checkout "$CDK_COMMIT"
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [ "$ACTUAL_SHA" != "$CDK_COMMIT" ]; then
+            echo "Checked-out commit $ACTUAL_SHA does not match pinned $CDK_COMMIT" >&2
+            exit 1
+          fi
+          echo "UPSTREAM CDK SHA: $ACTUAL_SHA"
+
+          for patch in "$GITHUB_WORKSPACE"/patches/cdk/*.patch; do
+            echo "Applying $(basename "$patch") (sha256 $(sha256sum "$patch" | cut -d' ' -f1))"
+            git apply --check "$patch"
+            git apply "$patch"
+          done
+
+          # Exact feature set Phase 1/2 actually need — matches the prebuilt
+          # binary's real backend (lnd), excludes grpc-processor (pulls in
+          # aws-lc-sys/tonic, not needed since the remote signatory path is
+          # explicitly out of scope this phase).
+          cargo build -p cdk-mintd --no-default-features --features sqlite,lnd,management-rpc,info-page,bdk
+
+          mkdir -p /tmp/cdk
+          cp target/debug/cdk-mintd /tmp/cdk/cdk-mintd
+          chmod +x /tmp/cdk/cdk-mintd
           echo "/tmp/cdk" >> "$GITHUB_PATH"
+          echo "BUILT MINT BINARY SHA256: $(sha256sum /tmp/cdk/cdk-mintd | cut -d' ' -f1)"
 
       - name: Start Bitcoin Core regtest
         run: |
