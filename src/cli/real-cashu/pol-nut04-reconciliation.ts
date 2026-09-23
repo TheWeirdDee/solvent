@@ -26,7 +26,21 @@ function main() {
     .prepare(`SELECT count(*) AS n, COALESCE(sum(amount), 0) AS total FROM solvent_issued_liability WHERE operation_kind = 'mint'`)
     .get() as { n: number; total: number };
 
-  const receiptRow = db.prepare(`SELECT count(*) AS n FROM solvent_pol_receipt WHERE liability_kind = 'issued'`).get() as { n: number };
+  // Scoped to the SAME mint-only liabilities as solventRow — the receipt
+  // outbox also holds rows for swap/melt-change liabilities once those are
+  // implemented, and comparing an unscoped total against a mint-only count
+  // is an apples-to-oranges bug, not a real accounting mismatch (found for
+  // real by this exact reconciliation running in CI: swap/melt liabilities
+  // already existed as soon as the operation_kind fix stopped mislabeling
+  // them as 'mint', correctly producing more total receipts than mint-only
+  // liabilities).
+  const receiptRow = db
+    .prepare(
+      `SELECT count(*) AS n FROM solvent_pol_receipt r
+       JOIN solvent_issued_liability il ON il.id = r.liability_id
+       WHERE r.liability_kind = 'issued' AND il.operation_kind = 'mint'`,
+    )
+    .get() as { n: number };
 
   db.close();
 
