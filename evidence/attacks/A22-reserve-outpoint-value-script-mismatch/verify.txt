@@ -1,0 +1,4 @@
+A22 reserve-outpoint-value-script-mismatch
+expected: REFUSE_RESERVE_STATE_MISMATCH
+actual:   REFUSE_RESERVE_STATE_MISMATCH
+PASS
