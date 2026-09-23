@@ -4,6 +4,22 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-23 — Phase 2 Step 8C: receipt-signing architecture — minimal `Signatory` trait extension
+
+**Problem**: `docs/cdk-signatory-audit.md`'s real source audit confirmed Step 2's "no CDK modification needed" finding does **not** extend to receipt signing. CDK's `Signatory` trait exposes only `blind_sign()` (a BDHKE point-blinding operation), `verify_proofs()`, `keysets()`, `subscribe_keysets()`, and `rotate_keyset()` — no generic "sign this message with the amount key" operation exists. A real PoL receipt needs a BIP-340 Schnorr signature over a specific message string, using the same per-amount private key `blind_sign()` uses, which today only that one narrow BDHKE operation can touch.
+
+**Alternatives considered** (per Phase 2 Step 8C's own list):
+- *(A) Existing signatory API already supports it* — ruled out by direct inspection; no such method exists.
+- *(C) Minimal patch to the embedded signatory implementation only* — insufficient alone; the trait itself has no seam for the mint core to request this signature through, so the implementation change would have nothing to be called from.
+- *(D) Minimal patch to mintd/signatory request flow* — broader than needed; the real gap is one missing trait method, not the request-routing plumbing around it.
+- **(B) Minimal `Signatory` trait extension — chosen.** One new trait method (`sign_pol_receipt(keyset_id, amount, message) -> Signature`), implemented in `DbSignatory` by reusing the *exact same* already-loaded per-amount key `blind_sign()` already reads, calling `SecretKey::sign()` — an already-shipped, already-tested BIP-340 helper in `crates/cashu/src/nuts/nut01/secret_key.rs`, already used elsewhere in CDK for NUT-11/14/20/29 signatures. One matching `Request` variant is added to `embedded.rs`'s existing actor-channel dispatch, following the identical pattern every other method already uses. No new cryptography, no new key material, no new isolation boundary — the new method sits inside the same already-existing isolation `blind_sign()` already relies on.
+
+**This is, honestly, still a real patch to CDK's own source** — unlike Step 2's database seam. It is the smallest one found after actually reading `db_signatory.rs`'s and `embedded.rs`'s real implementations, not chosen for convenience. Reproducibility mechanism (per Phase 2 Step 3's "minimal checked-in patch files applied against pinned CDK v0.18.1" option): the patch is a small, checked-in diff against the exact pinned `v0.18.1` source (commit `a056e0f0f69e94f431b1aeb90d883f18c61ea4c6`), applied and built from source specifically for the signatory crate — CDK's *other* components (`cdk-mintd`'s binary, Bitcoin Core, LND) remain exactly Phase 1's unmodified prebuilt downloads. `crates/cdk-signatory/src/proto/{client,server}.rs` (the remote/gRPC signatory mode) is explicitly out of scope — not touched, not audited beyond confirming it exists.
+
+**Atomicity finding, recorded plainly**: accounting-fact durability (the SQL trigger, Step 2) and receipt-signing durability are two different problems with two different mechanisms. A receipt can safely be *computed* before the CDK transaction commits (mirroring how `blind_sign()`'s own output is only released to the outside world after commit), but the *signed receipt bytes themselves* still need a small transactional outbox (a `pending` → `signed` row written by the same trigger, processed by an idempotent SOLVENT worker) layered on top of the trigger-atomic accounting row — see `docs/cdk-signatory-audit.md`'s "atomicity question, answered" section and `docs/accounting-model.md`'s schema.
+
+---
+
 ## 2026-09-23 — Phase 2 Step 2: integration architecture — SQL triggers, no CDK fork
 
 **Problem**: Phase 2 needs "a real CDK economic transition" and "a durable SOLVENT accounting obligation" to be coupled so a crash cannot leave one committed without the other. `docs/cdk-integration-seams.md`'s source audit found every economically-authoritative CDK commit (NUT-04's `process_mint_request()`, NUT-03's `swap_saga::finalize()`, NUT-05's `melt_saga::finalize()`) goes through one `Box<dyn database::Transaction<Error>>` per operation, provided by a `cdk_common::database::mint::Database<Error>` implementation.
