@@ -1,0 +1,16 @@
+{
+  "transfer_path": "getEncodedToken() -> cashu token string -> getDecodedToken()",
+  "encoded_token": "cashuBo2FteBtodHRwczovL2dhdGUwLnNvbHZlbnQubG9jYWxhdWNzYXRhdIGiYWlIAEhOz0g2W3xhcIGkYWEZA-hhc3gdZ2F0ZTAtc2VjcmV0LTJhYWIzN2VkMDU5ZDMwMGNhY1ghAxTrWOmSoKoCD8Do0_lI726g6Oyik5K8tO8HVOuIyRkzYWSjYWVYIF1j-nyeoWlE3aQGpTJBgpbWywWpQYPT7rCuf0igHQLeYXNYIIG5Y0_jAY6bojO28NfiI5-U5ZvbF5dUP9HyhRD-uWINYXJYIG5NLBdjwgafVzvmN54SvuBzWcSntuu8JPuXJ0FNooh_",
+  "mint": "https://gate0.solvent.local",
+  "received_proof": {
+    "secret": "gate0-secret-2aab37ed059d300c",
+    "C": "0314eb58e992a0aa020fc0e8d3f948ef6ea0e8eca29392bcb4ef0754eb88c91933",
+    "amount": 1000,
+    "id": "00484ecf48365b7c",
+    "dleq": {
+      "r": "6e4d2c1763c2069f573be6379e12bee07359c4a7b6ebbc24fb9727414da2887f",
+      "s": "81b9634fe3018e9ba233b6f0d7e2239f94e59bdb1797543fd1f28510feb9620d",
+      "e": "5d63fa7c9ea16944dda406a532418296d6cb05a94183d3eeb0ae7f48a01d02de"
+    }
+  }
+}
