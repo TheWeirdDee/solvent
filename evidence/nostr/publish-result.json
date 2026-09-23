@@ -1,0 +1,17 @@
+[
+  {
+    "relay": "wss://relay.damus.io",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "relay": "wss://nos.lol",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "relay": "wss://relay.nostr.band",
+    "ok": false,
+    "detail": "connection failure: connection timed out"
+  }
+]
