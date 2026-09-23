@@ -1,0 +1,4 @@
+A03 issuance-included-wrong-value
+expected: REFUSE_MMR_PROOF_INVALID
+actual:   REFUSE_MMR_PROOF_INVALID
+PASS
