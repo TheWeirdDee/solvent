@@ -1,0 +1,47 @@
+{
+  "proof": {
+    "id": "00ac880e9ffbd81b",
+    "amount": "70000",
+    "secret": "a02-0.5521225486143969",
+    "C": "0370555794cfd8eabfcd0755f20970fbb66eb0dcb506d5a212c5f995a7caf56f09",
+    "dleq": {
+      "e": "2e65304f51be670bada933f682b3f98901027663c061539dc888ae58550bcd7c",
+      "s": "96ecd35d2ab451e184daeca6d531568de2c613aee8ac3381c4081e28b45ff5a1",
+      "r": "22ed83288d464f5d2377e7c512b305726cd69e39a1ec3739297a79c3b7c5f786"
+    }
+  },
+  "mint": "solvent-fixture-mint",
+  "keysetId": "00ac880e9ffbd81b",
+  "amountPublicKeyHex": "0342638e27be18b23cf6ed53013dab3a4473039365f33aa8f752359743c1397903",
+  "receipt": {
+    "target_epoch": 12,
+    "signature": "07d8928a34f2667003fc4da162726d0a495c9deafd279059d6c36a32b8d32019e457aee5a4fc299868a4df88f1d563b14fb35b55a730a178e83ba978099114b8"
+  },
+  "manifest": {
+    "keyset_id": "00ac880e9ffbd81b",
+    "unit": "sat",
+    "epoch_index": 12,
+    "timestamp": "2026-09-21T00:00:00Z",
+    "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "issued_mmr_size": 0,
+    "issued_mmr_root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "issued_mmr_root_sum": 0,
+    "spent_mmr_size": 0,
+    "spent_mmr_root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "spent_mmr_root_sum": 0,
+    "outstanding_balance": 0,
+    "active": true,
+    "deactivation_epoch": 999
+  },
+  "manifestSignature": "cd61d71f8b204614cda8ebfe2d2f07ef18ca54d863e58953ebdf478e0ec4280571d0f6245ffd4625ef994ca2638023bc02ae7288eb3e18eaa5b25c47ade4efaf",
+  "masterPublicKeyHex": "02d85e97e208f08bd86eca43cb496d6cb5b7358e990aa89c456bc5552ecf655cdb",
+  "issuedMmrSize": 0,
+  "inclusionProof": null,
+  "reserve": {
+    "verified": true,
+    "reserveSats": 999999
+  },
+  "nostr": {
+    "verified": true
+  }
+}
