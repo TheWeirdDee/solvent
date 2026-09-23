@@ -272,6 +272,37 @@ jobs:
           done
           curl -s http://127.0.0.1:8085/v1/info | tee /tmp/regtest/mint/info.json
 
+      - name: Apply Phase 2 SOLVENT accounting migration and prove atomicity
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: |
+          set -euo pipefail
+          # Stop the mint before touching its database file directly — same
+          # stop/restart pattern as the process-restart check, avoiding any
+          # concurrent-writer risk while the migration and the synthetic
+          # atomicity test run. CDK itself is never modified: this only adds
+          # new tables/triggers to the same sqlite file — see
+          # docs/accounting-model.md and docs/cdk-integration-seams.md.
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          sqlite3 /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0001_nut04_issued_liability.sql
+          npm run verify:pol-atomicity -- /tmp/regtest/mint/cdk-mintd.sqlite
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
       - name: Run the Phase 1 real-Cashu integration test
         env:
           CDK_MINT_URL: 'http://127.0.0.1:8085'
@@ -283,6 +314,32 @@ jobs:
           export LND_BACKEND_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon)
           export NODE_TLS_REJECT_UNAUTHORIZED=0  # regtest LND self-signed certs only — see src/cli/real-cashu/lnd-client.ts's module header
           npm run verify:cashu-real
+
+      - name: Prove NUT-04 retry idempotency (real second mint attempt)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: npm run verify:pol-retry
+
+      - name: Reconcile Phase 2 accounting against real CDK state (pre-restart)
+        run: |
+          set -euo pipefail
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          npm run verify:pol-nut04 -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-nut04-pre-restart.txt
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
 
       - name: Restart CDK mint and verify persistence (process-restart check)
         env:
@@ -311,6 +368,40 @@ jobs:
           curl -sf http://127.0.0.1:8085/v1/info >/dev/null
           npm run verify:cashu-real:restart
 
+      - name: Reconcile Phase 2 accounting against real CDK state (post-restart)
+        run: |
+          set -euo pipefail
+          # Proves P2-I10 (restart cannot lose committed accounting)
+          # specifically for the SOLVENT journal, not just for CDK's own
+          # proof state: the same reconciliation must report the exact same
+          # numbers after this second real process restart as it did before
+          # the first one.
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          npm run verify:pol-nut04 -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-nut04-post-restart.txt
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          if diff -q /tmp/regtest/mint/pol-nut04-pre-restart.txt /tmp/regtest/mint/pol-nut04-post-restart.txt >/dev/null; then
+            echo "Restart persistence               PASS  identical reconciliation before and after restart"
+          else
+            echo "Restart persistence               FAIL  reconciliation differs before vs after restart" >&2
+            diff /tmp/regtest/mint/pol-nut04-pre-restart.txt /tmp/regtest/mint/pol-nut04-post-restart.txt >&2 || true
+            exit 1
+          fi
+
       - name: Collect logs
         if: always()
         run: |
@@ -319,6 +410,8 @@ jobs:
           cp /tmp/regtest/lnd-one/lnd.log /tmp/regtest-logs/lnd-one.log 2>/dev/null || true
           cp /tmp/regtest/lnd-two/lnd.log /tmp/regtest-logs/lnd-two.log 2>/dev/null || true
           cp /tmp/regtest/mint/mintd.log /tmp/regtest-logs/mintd.log 2>/dev/null || true
+          cp /tmp/regtest/mint/pol-nut04-pre-restart.txt /tmp/regtest-logs/pol-nut04-pre-restart.txt 2>/dev/null || true
+          cp /tmp/regtest/mint/pol-nut04-post-restart.txt /tmp/regtest-logs/pol-nut04-post-restart.txt 2>/dev/null || true
 
       - name: Upload Phase 1 evidence
         if: always()
@@ -327,6 +420,7 @@ jobs:
           name: real-cashu-evidence
           path: |
             evidence/real-cashu/
+            evidence/real-pol/
             /tmp/regtest-logs/
           if-no-files-found: warn
           retention-days: 90
