@@ -66,6 +66,38 @@ pub fn sign(&self, msg: &[u8]) -> Result<Signature, Error> {
 
 This is exactly `docs/draft-alignment.md`'s scheme: BIP-340 Schnorr over `SHA256(message)`. It is on the **same `SecretKey` type** `key_pair.secret_key` already is (`crates/cashu/src/nuts/nut01/secret_key.rs`, used elsewhere in the same crate for NUT-11/NUT-14/NUT-20/NUT-29 signatures — an already-shipped, already-tested primitive, not new code to write or a new dependency to add).
 
+## The exact real call chain (Phase 2 continuation — traced one level deeper)
+
+Confirmed by reading the real code at every hop, not assumed:
+
+```
+cdk-axum's router (POST /v1/mint/bolt11)
+    ↓
+Mint::process_mint_request()          crates/cdk/src/mint/issue/mod.rs:677
+    ↓ self.blind_sign(input.outputs().to_vec())
+Mint::blind_sign()                    crates/cdk/src/mint/mod.rs:1321
+    ↓ self.signatory.blind_sign(blinded_message).await
+Arc<dyn Signatory>                     — in cdk-mintd's real deployment, this is embedded::Service
+    ↓ Request::BlindSign over an mpsc channel
+Service::runner()                     crates/cdk-signatory/src/embedded.rs:62
+    ↓ handler.blind_sign(blinded_message).await
+DbSignatory::blind_sign()             crates/cdk-signatory/src/db_signatory.rs:346
+    ↓ keysets.by_id.get(&keyset_id) → key.keys.get(&amount) → key_pair.secret_key
+sign_message(&key_pair.secret_key, &blinded_secret)   crates/cashu/src/dhke.rs:167
+```
+
+`sign_pol_receipt()` would follow the identical chain, one new hop at each layer (`Mint::sign_pol_receipt()` → `Signatory::sign_pol_receipt()` → `Request::SignPolReceipt` → `DbSignatory::sign_pol_receipt()` → `key_pair.secret_key.sign(&message)`), reusing every existing isolation layer as-is.
+
+**Questions answered precisely, from the real source:**
+
+1. **What public information uniquely selects the required private amount key?** `keyset_id: Id` + `amount: Amount` — nothing else.
+2. **Is selection `keyset_id + amount`, or something else?** Confirmed exactly that: `keysets.by_id.get(&keyset_id)` (a `HashMap<Id, (MintKeySetInfo, MintKeySet)>`) then `key.keys.get(&amount)` (`MintKeySet.keys: MintKeys`, a per-amount map — `crates/cashu/src/nuts/nut02.rs:597-609`).
+3. **Can a caller request signing with a nonexistent/inactive/wrong keyset?** The request can be *made*; `DbSignatory` refuses it with typed errors before ever touching key material — see next answer. Applying `blind_sign()`'s identical checks to `sign_pol_receipt()` is not just safe but semantically required: a receipt can only legitimately exist for a keyset/amount that could also have produced a real blind signature, so reusing the exact same gate is correct, not merely convenient.
+4. **What validation must occur before signing?** Real code, `db_signatory.rs:361-366`: keyset must exist (`Error::UnknownKeySet`), must be `active` (`Error::InactiveKeyset`), must not be expired (`Error::ExpiredKeyset`), and the requested amount must exist within that keyset (`Error::UnknownKeySet`). `sign_pol_receipt()` reuses all four checks verbatim.
+5. **Does the signatory already distinguish active/inactive/expired/historical keysets?** Yes — `MintKeySetInfo.active: bool` and `.is_expired()` (via `final_expiry`) are both real, already-tracked fields; inactive-but-not-expired (historical) keysets remain present in `by_id`, just flagged inactive. This is also the real evidence P2-I14 (retired keysets with outstanding proofs remain part of outstanding liabilities) is buildable against later — the signatory itself never forgets a rotated-out keyset.
+6. **What errors are returned?** `Error::UnknownKeySet`, `Error::InactiveKeyset`, `Error::ExpiredKeyset` — real, existing `cdk_common::Error` variants, reused as-is rather than inventing new ones.
+7. **Embedded only, or also remote signatory?** Embedded only. The remote/gRPC mode (`crates/cdk-signatory/src/proto/{client,server}.rs`) has its own separate protobuf-defined request/response surface; supporting it would need a matching new RPC method there too — a distinct, additional patch this phase does not make, since Phase 1/2's deployment (`cdk-mintd --work-dir`, no remote signatory endpoint configured) never uses remote mode. Recorded as a known gap, not silently ignored.
+
 ## Answer: the smallest safe extension
 
 **Chosen: Option B — minimal `Signatory` trait extension**, not a patch to embedded/protocol plumbing, not a fork:
@@ -74,18 +106,21 @@ This is exactly `docs/draft-alignment.md`'s scheme: BIP-340 Schnorr over `SHA256
 2. Implement it in `DbSignatory` (`db_signatory.rs`) — a ~5 line body, identical key lookup to `blind_sign()`'s first two lines, then `key_pair.secret_key.sign(&message)`.
 3. Add one `Request::SignPolReceipt` variant to `embedded.rs`'s existing `Request` enum and one match arm in `Service::runner()` — mechanical, follows the exact existing pattern for every other method.
 4. `proto/{client,server}.rs` (remote signatory mode) is **not** touched — out of scope, since Phase 1/2's deployment uses embedded mode only. Recorded here as a known gap for anyone deploying with a remote signatory.
+5. **(Continuation, once the draft's synchronous-delivery requirement was confirmed — see below)** `process_mint_request()` (`crates/cdk/src/mint/issue/mod.rs`) additionally calls `sign_pol_receipt()` once per output, alongside `blind_sign()`, before the transaction opens; and `add_blind_signatures()` (`crates/cdk-sql-common/src/mint/signatures.rs`) is extended to accept those receipt signatures and write them into `solvent_pol_receipt` inside the same transaction. The patch surface is three files, not one, once real delivery semantics are taken into account.
 
 This is real, minimal, and reuses 100% existing, already-shipped cryptography (`SecretKey::sign`) and 100% of the existing key-isolation architecture (the same `ArcSwap`, the same actor-model channel boundary). It does not touch `blind_sign()`, does not change any existing wire format, and does not expose `key_pair.secret_key` outside `DbSignatory` at any point — the new method returns only a `Signature` (public output), exactly as `blind_sign()` returns only a `BlindSignature`, never the key itself.
 
 **This is still, unambiguously, a patch to CDK's own source** (unlike the Step 2 database seam, which needed none). It is recorded honestly as such — see `DECISIONS.md`'s Phase 2 Step 8C entry for the reproducibility mechanism (a small, checked-in patch file against the pinned `v0.18.1` source, not a fork, not a rebuild of anything beyond the one crate that changes).
 
-## The atomicity question, answered
+## The atomicity question, answered (revised — the draft requires synchronous, in-response delivery)
 
-**Can the signed receipt be generated before the economic DB transaction commits?** Yes, safely, by mirroring how `blind_sign()` itself already works: `process_mint_request()` (`issue/mod.rs`) calls `blind_sign()` *before* `tx.begin_transaction()` — the resulting `BlindSignature`s are held as plain in-process Rust values and are only ever returned to the caller in the final `Ok(MintResponse { signatures, .. })`, which is only reached *after* `tx.commit().await?` succeeds. If commit fails, the function returns early via `?` and the already-computed signatures are simply dropped — never sent over the network, never becoming real proofs anyone can spend. `sign_pol_receipt()` can be called the same way, at the same point, with the same safety property: a receipt computed before commit is inert, in-process-only data until commit succeeds.
+**Correction, Phase 2 continuation**: re-reading `pol.md`'s "Signed Transactional Proof of Liability Receipts" section directly (not the Phase-1 fixture summary) found: *"the mint **MUST** return a signed PoL receipt for every spent input and returned output"*, delivered *nested in `pol_receipt` of each `BlindSignature` inside the same `/v1/mint/{method}` response* (see `docs/draft-alignment.md`'s correction table). An asynchronous, separately-signed-later outbox does not satisfy this — the receipt must exist by the time the mint's own HTTP response is constructed. The design below replaces the earlier async-worker sketch.
 
-**But that only solves "no orphan receipt leaks out before commit." It does not solve "the receipt is safely durable after commit."** This is the distinct problem the accounting-fact SQL trigger does *not* cover, because the trigger only fires on CDK's own table writes — a signed receipt computed in Rust-process memory *after* `tx.commit()` returns is not itself written by that trigger. If the mint process crashes in the narrow window between "commit succeeded" and "the receipt bytes are durably persisted," the issuance is real and durably accounted (the trigger already guaranteed that), but the specific receipt for it could be lost.
+**Can the signed receipt be generated before the economic DB transaction commits?** Yes — by mirroring how `blind_sign()` itself already works: `process_mint_request()` (`issue/mod.rs`) calls `blind_sign()` *before* `tx.begin_transaction()`, and the resulting `BlindSignature`s are inert, in-process-only values until they're returned in the final `Ok(MintResponse { signatures, .. })` *after* `tx.commit().await?` succeeds. `sign_pol_receipt()` is called the same way, at the same point, for the same reason: if commit never happens, the already-computed signature is simply dropped, never sent over the network.
 
-**Resolution — a small, genuine transactional outbox, layered on top of (not replacing) the trigger:** the trigger that fires on a `blind_signature` insert writes a `solvent_pol_receipt` row with `status = 'pending'` (no signature yet) as part of the *same* CDK transaction — this row's existence is trigger-atomic, same as the liability row itself. A separate, idempotent SOLVENT worker later calls the new `sign_pol_receipt()` signatory method for each `pending` row and updates it to `status = 'signed'` with the resulting signature. If the worker crashes between signing and persisting, it simply retries against the same still-`pending` row on next run — re-signing is safe (the signed message is deterministic even though the Schnorr nonce is not, so a retry produces a different but equally valid signature over the identical message, never a duplicate accounting fact). **Accounting-fact atomicity and receipt-signing durability are solved by two different mechanisms** — exactly the distinction Phase 2 Step 8 required not be hidden. Full schema: `docs/accounting-model.md`.
+**The real remaining question is not "before or after commit" (both signatures are computed before commit, exactly like `blind_sign()` already does) — it's "who writes the already-computed receipt signature into `solvent_pol_receipt`, and when."** A passive SQL trigger cannot do this: it only ever sees columns already present on the row that fired it, and by the time `add_blind_signatures()` issues its `INSERT`/`UPDATE` on `blind_signature`, the receipt signature has already been computed in Rust but has nowhere to land in that statement. The patch therefore extends `add_blind_signatures()` itself (`crates/cdk-sql-common/src/mint/signatures.rs`) to accept the already-computed receipt signatures alongside the blind signatures, and — using the exact same already-open `self.inner` connection that function already writes `blind_signature` rows through — issue one additional `UPDATE solvent_pol_receipt SET status = 'signed', signature_hex = ... WHERE liability_id = (SELECT id FROM solvent_issued_liability WHERE blinded_message_hex = ...)` per output, in the exact same transaction. The trigger still creates the `pending` row (unchanged, no CDK-side awareness of SOLVENT's schema needed for that part); the patch's one new statement flips it to `signed` before that same transaction commits. No separate worker, no separate crash window between "signed" and "durable" — signing and durability land in the same commit, because both now happen through the same connection CDK's own write already uses.
+
+**Accounting-fact atomicity (Step 2/7, unchanged) and receipt-signing durability (this section) are still conceptually two different guarantees** — the first from a passive trigger requiring zero CDK awareness, the second from a small, explicit patch that does require CDK's own write path to carry the already-computed signature through — but they now land in the *same* transaction rather than two separate ones. Full schema: `docs/accounting-model.md`.
 
 ## What remains unaudited
 
