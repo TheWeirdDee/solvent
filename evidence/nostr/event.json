@@ -1,0 +1,22 @@
+{
+  "kind": 8181,
+  "created_at": 1790055027,
+  "tags": [
+    [
+      "M",
+      "034e96633885aa1a102e09c79d177347fc001b52c64ace73bdd146d73a9907bf25"
+    ],
+    [
+      "E",
+      "12"
+    ],
+    [
+      "K",
+      "00e2853666373cf7"
+    ]
+  ],
+  "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"034e96633885aa1a102e09c79d177347fc001b52c64ace73bdd146d73a9907bf25\",\"keyset_id\":\"00e2853666373cf7\",\"epoch_index\":12,\"manifest_digest\":\"02712378fa4991e5cb57c65acb838dc71c76231806322a897c2a8ff1bb79be2c\",\"manifest_signature\":\"7d4808b6304610c49ee8e8e68cdfc6b59a0e816c3b1ecbca7437950c5daf760d6fb2107cb8a92aa7d0654b313d08a6734818f62beff6566e0926a941fc8fade2\",\"global_digest\":\"d065b4f530064e704dc878a7c49bb98170e3f07390f99ca8165b33954cd17f96\",\"issued_mmr_root_hash\":\"b6ccfe0f543257b17e0d4de7a1a492f020bf8d2c04fb9b6331f3f0aa5da9e973\",\"issued_mmr_root_sum\":30000,\"spent_mmr_root_hash\":\"289af077a4e53ab12417811659f581d0d1ea82e5e9d7cc09361d9a2b3c59c50a\",\"spent_mmr_root_sum\":5000,\"outstanding_balance\":25000,\"reserve_digest\":\"676174652d362d6e6f742d7965742d696d706c656d656e746564\",\"reserve_sats\":200000,\"reserve_network\":\"not-yet-implemented\",\"issued_at\":1790055027,\"valid_until\":1790058627,\"proof_uri\":\"local://evidence/nostr/event.json\"}",
+  "pubkey": "aa855698df8683882dff9000faf0c0479e44348c706f0c057464337b6bc6b4d9",
+  "id": "0d2ace6c3dd56e8766afac366683cea788b8936a3ac366e10d7750a86f4a2c6f",
+  "sig": "c86082d3f7276ef9cb64a65462f0b7156142ec53393e880637389eb68501cf749f1487100c2af0ee6e775dd8bdfadfc3227f50194b942a9b2c1a3564c5f31a23"
+}
