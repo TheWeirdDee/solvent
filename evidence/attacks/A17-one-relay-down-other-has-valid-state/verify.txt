@@ -1,0 +1,4 @@
+A17 one-relay-down-other-has-valid-state
+expected: ACCEPT_VERIFIED
+actual:   ACCEPT_VERIFIED
+PASS
