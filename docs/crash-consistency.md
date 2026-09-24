@@ -1,0 +1,30 @@
+# Crash consistency — consolidated evidence index
+
+`INVARIANTS.md` and `DECISIONS.md` both point here for where each crash/restart claim is actually exercised. This file is an index into the real evidence, not a restatement of it — each section below names the exact test, the exact CI run, and the doc that has the full detail.
+
+## Phase 1 — Cashu economic lifecycle (mint/melt/swap), real process restart
+
+`docs/reproduce-real-stack.md`'s step 5 ("Process-restart persistence check"): the real `cdk-mintd` process is killed after a real mint→swap→melt sequence completes, then restarted against the same on-disk SQLite database. `npm run verify:cashu-real:restart` confirms already-spent proofs are still SPENT afterward. This is a **restart-persistence** check (state survives a clean stop/start cycle), not a mid-transaction crash drill — Phase 1 did not inject a fault inside an open CDK transaction. Verified for real: `docs/REALITY-MAP.md`'s Lane B table, [run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175).
+
+## Phase 2 — SOLVENT accounting atomicity (NUT-04 issuance)
+
+The accounting-row equivalent of a mid-transaction crash: a transaction deliberately made to fail after the SQL trigger fires (creating the liability row) but before `COMMIT`. Real result, proven against the real database: **both** CDK's own row and SOLVENT's `solvent_issued_liability` row are absent — the trigger's write does not survive a rollback, exactly as SQLite's transaction guarantees promise. A real commit leaves both present. `docs/REALITY-MAP.md`'s Phase 2 table, `npm run verify:pol-atomicity`.
+
+## Phase 2 Step 8 closure — receipt crash windows, recovery, and a genuine kill
+
+This is the deepest crash-consistency work in the project: whether a real process crash can leave a committed Cashu liability permanently without its required PoL receipt. Full analysis, exact source line numbers, and the reasoning behind each conclusion live in **`docs/receipt-lifecycle.md`** — this section only summarizes the three findings and points at the evidence.
+
+1. **Crash-window analysis (traced from source, not assumed).** `record_pol_receipt_signature()` executes inside the *same* open SQL transaction as the trigger that creates the `pending` receipt row — both are statements against one uncommitted transaction, before `tx.commit()`. Three windows were identified (CW-A: before the transaction begins; CW-B: anywhere inside the open transaction, covering signing, the trigger, and the receipt-signature write together; CW-C: after commit, before the HTTP response). CW-A and CW-B both resolve to "nothing survives a crash there" by construction — there is no sub-window inside CW-B where the receipt write could land without the liability write also landing, because they are the same transaction. See `docs/receipt-lifecycle.md`'s crash-window table for the full per-window reasoning.
+
+2. **The real residual risk is error-tolerance, not timing.** `record_pol_receipt_signature()`'s real implementation deliberately swallows its own SQL error (`let _ = query(...)...`), so a hypothetical failure to match the target row (bug, future schema change, unexpected ordering) would let the surrounding transaction commit successfully while leaving the receipt durably `pending` with no crash involved at all. This is named honestly in `docs/receipt-lifecycle.md` as the actual gap, distinct from the crash-timing question, and it is the reason recovery (next item) exists as a real mechanism rather than a formality.
+
+3. **Recovery mechanism, built and proven.** `Mint::recover_pending_pol_receipts()` runs once at real `cdk-mintd` startup, scans for any `pending` row (self-sufficient by construction — `keyset_id`/`amount`/`message` are already durably stored), signs it through the real signatory, verifies locally, and marks it `signed`. Structurally duplicate-safe (`UPDATE`-only, no `INSERT`). Proven in [run 35961052740](https://github.com/TheWeirdDee/solvent/actions/runs/35961052740): 3 synthetic pending receipts seeded directly into the real database, recovered by a real restart, unchanged across a second real restart (idempotency under repetition, not just asserted).
+
+4. **A genuine `kill -9`, not a simulation, in the same run.** A debug-only delay hook (`SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS`, compiled out of release builds via `#[cfg(debug_assertions)]`) holds the real mint inside the open CW-B transaction; CI starts a real background Lightning-paid mint attempt, waits for it to enter the delay window, and sends a real `kill -9` to the real process. Observed: a real settled Lightning payment, the mint call itself failing with a real `fetch failed` (the connection was genuinely severed), and identical `cdk`/`liability`/`signed_receipts` row counts before and after — the interrupted transaction, receipt state included, left nothing behind. Full command sequence and exact observed output: `docs/receipt-lifecycle.md`.
+
+5. **Delivery (closing CW-C for real wallets).** `GET /v1/solvent/pol-receipt/{blinded_message}` gives a wallet a real way to recover from losing the HTTP response itself, without depending on anything except the same public blinded-message value NUT-04 already returns. Proven end to end in [run 35962153613](https://github.com/TheWeirdDee/solvent/actions/runs/35962153613) — real wallet, real mint, 6 receipts retrieved and independently verified. This is a named extension beyond the pinned draft's inline-delivery requirement, not a substitute silently presented as equivalent — see `docs/draft-alignment.md`.
+
+## What has not been drilled
+
+- A crash injected specifically during Phase 1's swap/melt saga transactions (`setup_swap()`/`finalize()`, `setup_melt()`/`finalize()`) — out of scope until NUT-03/NUT-05 accounting is built.
+- Concurrent crash-and-restart (two mint processes racing against the same database) — the recovery scan assumes single-process startup, matching the actual `cdk-mintd --work-dir` deployment topology used throughout.
