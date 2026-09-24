@@ -4,6 +4,26 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-24 — Phase 2 Step 8 closure: real receipt durability, recovery, and delivery
+
+Closes the gap the prior "STEP 8 VERIFIED" report left open: synchronous signing narrows the crash window, it does not by itself prove durability, and the earlier report was right to be pushed back on for treating "the design is synchronous" as a substitute for testing it. This entry records what was actually built and proven in response, all verified for real in CI, not reasoned about in isolation.
+
+**Real finding, from tracing the actual code** (`docs/receipt-lifecycle.md`): `record_pol_receipt_signature()` is called *inside* the same open transaction the SQL trigger uses to create the `pending` row — both land in one commit. A process crash during that transaction loses everything together (liability and receipt alike); a crash after commit means the receipt is already `signed`. The real residual risk is not crash timing but the deliberate error-tolerance in that DB write (`let _ = ...`, so a mint without SOLVENT's schema keeps working) — if that `UPDATE` ever silently fails to match, a row could be left `pending` with no crash required at all.
+
+**Recovery, built and proven** (`patches/cdk/0003-*.patch`'s `Mint::recover_pending_pol_receipts()`, `patches/cdk/0004-*.patch`'s real startup call): a one-shot scan at real `cdk-mintd` startup, self-sufficient by construction (the row's own `message`/`keyset_id`/`amount` are enough to complete it), structurally duplicate-safe (UPDATE-only, no INSERT). Proven in [run 35961052740](https://github.com/TheWeirdDee/solvent/actions/runs/35961052740): 3 synthetic pending receipts seeded directly against the real database, recovered by a real restart, all 3 signed and independently verified; a second real restart with nothing left pending reported the same 3 rows unchanged.
+
+**A genuine SIGKILL, not a simulation**: a debug-only, opt-in delay hook (`SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS`, compiled out entirely in release builds) holds the transaction open immediately before commit. Real CI started a real background Lightning-paid mint attempt, waited for it to enter the delay window, and sent a real `kill -9` to the real mint process. Observed: a real settled payment, the mint call itself failing with a genuine `fetch failed` (the process really died), and identical row counts before and after — the interrupted transaction, receipt state included, left nothing behind. Same run.
+
+**Direct, real negative tests of the new privileged capability** (`patches/cdk/0001-*.patch`'s `cargo test -p cdk-signatory` additions, not simulated via HTTP since the method has no HTTP route at all): `sign_pol_receipt()` tested directly against a real `DbSignatory` — succeeds and independently verifies for a valid keyset/amount, refuses a nonexistent keyset, refuses a valid keyset with an out-of-range amount, refuses an expired keyset. All 4 pass for real (`cargo test` output, not asserted).
+
+**Delivery, resolved as a named extension, not silently substituted**: the pinned draft requires the receipt inline in the same `/v1/mint/{method}` response (`docs/draft-alignment.md`'s correction table) — not implemented, since it would mean extending CDK's core wire types (`BlindSignature`/`MintResponse`). Instead: `GET /v1/solvent/pol-receipt/{blinded_message}` (`patches/cdk/0005-*.patch`), a real, working retrieval endpoint, looked up by the same public value NUT-04 already returns — no wallet identity, no account, no proof secret. Proven end to end by a real minimal wallet path (`src/cli/real-cashu/pol-wallet-consume-receipts.ts`, same run as the wallet-consumption test below): pays a real invoice, mints via the low-level client, retrieves and independently verifies every receipt over real HTTP. Confirmed in [run 35962153613](https://github.com/TheWeirdDee/solvent/actions/runs/35962153613): 6 Cashu proofs received, 6 PoL receipts received, 6/6 independently verified — the cross-layer count invariant, real end to end.
+
+**Signing-oracle audit**: confirmed, not assumed (`docs/cdk-signatory-audit.md`'s new section) — `sign_pol_receipt()` has no HTTP route; the retrieval endpoint is read-only and never triggers signing; the message signed is always constructed by the mint's own code, never from caller-supplied bytes.
+
+**Patch set, final**: five files, `patches/cdk/0001` through `0005`, all verified to apply cleanly against a completely fresh clone of the pinned commit and to build a real, running `cdk-mintd` (confirmed both locally and in CI).
+
+---
+
 ## 2026-09-23 — Phase 2 Step 8: real mint-native PoL receipt signing, verified
 
 [Run 35924475422](https://github.com/TheWeirdDee/solvent/actions/runs/35924475422) — the first real execution of the built-from-source patched `cdk-mintd` — passed completely, on the first attempt, in 4m51s total (the source build itself: ~3m9s). Every check in `DECISIONS.md`'s Phase 2 Step 5 entry's patch is now proven against a real running mint, not just confirmed to compile:
