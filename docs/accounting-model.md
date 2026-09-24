@@ -128,4 +128,4 @@ Both bodies insert one `solvent_issued_liability` row and one `solvent_pol_recei
 
 ## What is intentionally excluded
 
-Per Phase 2 Step 6/17: no wallet identity, no receiver identity, no raw proof secret (only its hash-derived `Y`, which CDK already treats as public/queryable via NUT-07), no IP address, no unrelated quote metadata. Full privacy reasoning is Step 17's job (`docs/privacy.md`, not yet written) — this schema is designed to make that audit easy, not to substitute for it.
+Per Phase 2 Step 6/17: no wallet identity, no receiver identity, no raw proof secret (only its hash-derived `Y`, which CDK already treats as public/queryable via NUT-07), no IP address, no unrelated quote metadata. Full privacy reasoning is `docs/privacy.md`'s job — this schema is designed to make that audit easy, not to substitute for it.
