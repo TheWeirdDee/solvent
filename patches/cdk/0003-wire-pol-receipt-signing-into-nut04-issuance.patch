@@ -79,10 +79,35 @@ index 466a68f..de7ab18 100644
  
              for mint_quote in &issuance_events {
 diff --git a/crates/cdk/src/mint/mod.rs b/crates/cdk/src/mint/mod.rs
-index 541f6ae..c4056aa 100644
+index 541f6ae..e394d5d 100644
 --- a/crates/cdk/src/mint/mod.rs
 +++ b/crates/cdk/src/mint/mod.rs
-@@ -1342,6 +1342,54 @@ impl Mint {
+@@ -54,6 +54,24 @@ const CDK_MINT_CONFIG_SECONDARY_NAMESPACE: &str = "config";
+ const CDK_MINT_CONFIG_KV_KEY: &str = "mint_info";
+ const CDK_MINT_QUOTE_TTL_KV_KEY: &str = "quote_ttl";
+ 
++/// SOLVENT Phase 2 receipt delivery: the wire shape returned by the real
++/// PoL receipt retrieval endpoint. `status` is one of `"unknown"`
++/// (this blinded message has no SOLVENT-tracked receipt at all),
++/// `"pending"` (a durable obligation exists but is not yet signed), or
++/// `"signed"` (matches the pinned draft's real receipt JSON schema —
++/// `target_epoch`/`signature` are only present in this case).
++#[derive(Debug, Clone, serde::Serialize)]
++pub struct PolReceiptStatus {
++    /// "unknown" | "pending" | "signed"
++    pub status: String,
++    /// Present only when `status == "signed"` — matches the pinned draft's
++    /// receipt JSON schema field of the same name.
++    pub target_epoch: Option<u64>,
++    /// Present only when `status == "signed"` — hex-encoded BIP-340
++    /// Schnorr signature, matching the pinned draft's receipt JSON schema.
++    pub signature: Option<String>,
++}
++
+ /// Cashu Mint
+ #[derive(Clone)]
+ pub struct Mint {
+@@ -1342,6 +1360,82 @@ impl Mint {
          result
      }
  
@@ -132,6 +157,34 @@ index 541f6ae..c4056aa 100644
 +            recovered += 1;
 +        }
 +        Ok(recovered)
++    }
++
++    /// SOLVENT Phase 2 receipt delivery: looks up a PoL receipt by the real
++    /// public blinded-message a wallet already has from its own mint
++    /// response. A SOLVENT extension to the pinned draft's inline-response
++    /// delivery — see `solvent/docs/receipt-lifecycle.md` and
++    /// `solvent/docs/pol-extension.md` for why, named explicitly as a
++    /// deviation rather than silently substituted for it. No wallet
++    /// identity, no proof secret, no account — the lookup key is the same
++    /// public value NUT-04 already returns.
++    #[tracing::instrument(skip(self))]
++    pub async fn get_pol_receipt(&self, blinded_message_hex: &str) -> Result<PolReceiptStatus, Error> {
++        match self
++            .localstore
++            .get_pol_receipt_by_blinded_message(blinded_message_hex)
++            .await?
++        {
++            None => Ok(PolReceiptStatus {
++                status: "unknown".to_string(),
++                target_epoch: None,
++                signature: None,
++            }),
++            Some((status, signature)) => Ok(PolReceiptStatus {
++                target_epoch: if status == "signed" { Some(0) } else { None },
++                status,
++                signature,
++            }),
++        }
 +    }
 +
      /// Verify [`Proof`] meets conditions and is signed
