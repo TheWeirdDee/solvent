@@ -69,13 +69,20 @@ function main() {
     verified_by: 'git apply --check against a fresh clone of the pinned commit, in order, each time regenerated',
   });
 
-  const mintIssued = one<{ n: number }>(`SELECT count(*) AS n FROM blind_signature WHERE operation_kind IN ('mint','batch_mint') AND c IS NOT NULL`);
-  const mintLiability = one<{ n: number }>(`SELECT count(*) AS n FROM solvent_issued_liability WHERE operation_kind IN ('mint','batch_mint')`);
+  // Scoped to 'mint' only, matching src/cli/real-cashu/pol-count-mint-rows.ts
+  // and pol-nut04-reconciliation.ts exactly — NOT 'mint','batch_mint'. In
+  // this integration run, 'batch_mint' is the tag pol-seed-pending-receipts.ts
+  // deliberately uses for synthetic test rows precisely so they stay OUT of
+  // the real NUT-04 reconciliation bucket (docs/receipt-lifecycle.md); a
+  // real batch mint would also use this tag, but none occurs in this suite,
+  // so including it here would silently count synthetic rows as real ones.
+  const mintIssued = one<{ n: number }>(`SELECT count(*) AS n FROM blind_signature WHERE operation_kind = 'mint' AND c IS NOT NULL`);
+  const mintLiability = one<{ n: number }>(`SELECT count(*) AS n FROM solvent_issued_liability WHERE operation_kind = 'mint'`);
   const mintSignedReceipts = one<{ n: number }>(
-    `SELECT count(*) AS n FROM solvent_pol_receipt r JOIN solvent_issued_liability il ON il.id = r.liability_id WHERE r.liability_kind = 'issued' AND il.operation_kind IN ('mint','batch_mint') AND r.status = 'signed'`,
+    `SELECT count(*) AS n FROM solvent_pol_receipt r JOIN solvent_issued_liability il ON il.id = r.liability_id WHERE r.liability_kind = 'issued' AND il.operation_kind = 'mint' AND r.status = 'signed'`,
   );
   const mintPendingReceipts = one<{ n: number }>(
-    `SELECT count(*) AS n FROM solvent_pol_receipt r JOIN solvent_issued_liability il ON il.id = r.liability_id WHERE r.liability_kind = 'issued' AND il.operation_kind IN ('mint','batch_mint') AND r.status = 'pending'`,
+    `SELECT count(*) AS n FROM solvent_pol_receipt r JOIN solvent_issued_liability il ON il.id = r.liability_id WHERE r.liability_kind = 'issued' AND il.operation_kind = 'mint' AND r.status = 'pending'`,
   );
 
   write('nut04-operation.json', {
