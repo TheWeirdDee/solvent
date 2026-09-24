@@ -1,5 +1,5 @@
 diff --git a/crates/cdk-signatory/src/db_signatory.rs b/crates/cdk-signatory/src/db_signatory.rs
-index 551d4c0..1cfc29d 100644
+index 551d4c0..c82459c 100644
 --- a/crates/cdk-signatory/src/db_signatory.rs
 +++ b/crates/cdk-signatory/src/db_signatory.rs
 @@ -15,12 +15,13 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -52,6 +52,174 @@ index 551d4c0..1cfc29d 100644
      #[tracing::instrument(skip_all)]
      async fn verify_proofs(&self, proofs: Vec<Proof>) -> Result<(), Error> {
          let keysets = self.keysets.load();
+@@ -502,6 +531,7 @@ impl Signatory for DbSignatory {
+ #[cfg(test)]
+ mod test {
+     use std::collections::HashSet;
++    use std::str::FromStr;
+ 
+     use bitcoin::key::Secp256k1;
+     use bitcoin::Network;
+@@ -728,6 +758,159 @@ mod test {
+         );
+     }
+ 
++    // SOLVENT Phase 2 Step 8 continuation: direct, real tests of
++    // sign_pol_receipt() against a real DbSignatory — the internal
++    // security tests of this new privileged capability, not simulated via
++    // HTTP (the method is not externally reachable at all — see
++    // solvent/docs/cdk-signatory-audit.md's signing-oracle audit).
++
++    #[tokio::test]
++    async fn sign_pol_receipt_succeeds_and_verifies_for_valid_keyset_and_amount() {
++        let store = Arc::new(
++            cdk_sqlite::mint::memory::empty()
++                .await
++                .expect("in-memory db"),
++        );
++        let signatory = DbSignatory::new(
++            store,
++            b"test-seed-pol-receipt-valid",
++            Default::default(),
++            Default::default(),
++        )
++        .await
++        .expect("DbSignatory::new");
++
++        let keyset = signatory
++            .rotate_keyset(RotateKeyArguments {
++                unit: CurrencyUnit::Sat,
++                amounts: vec![1, 2, 4, 8],
++                input_fee_ppk: 0,
++                keyset_id_type: cdk_common::nut02::KeySetVersion::Version00,
++                final_expiry: None,
++            })
++            .await
++            .expect("rotate_keyset");
++
++        let message = b"Cashu_PoL_Receipt_Issued:deadbeef:0".to_vec();
++        let signature = signatory
++            .sign_pol_receipt(keyset.id, Amount::from(4), message.clone())
++            .await
++            .expect("sign_pol_receipt should succeed for a valid, active keyset/amount");
++
++        let pubkey = keyset
++            .keys
++            .amount_key(Amount::from(4))
++            .expect("amount 4 must be present in the rotated keyset");
++        pubkey
++            .verify(&message, &signature)
++            .expect("real signature must verify against the real public key");
++    }
++
++    #[tokio::test]
++    async fn sign_pol_receipt_rejects_nonexistent_keyset() {
++        let store = Arc::new(
++            cdk_sqlite::mint::memory::empty()
++                .await
++                .expect("in-memory db"),
++        );
++        let signatory = DbSignatory::new(
++            store,
++            b"test-seed-pol-receipt-unknown-keyset",
++            Default::default(),
++            Default::default(),
++        )
++        .await
++        .expect("DbSignatory::new");
++
++        let nonexistent = Id::from_str("00ffffffffffffff").expect("well-formed but unknown id");
++        let result = signatory
++            .sign_pol_receipt(nonexistent, Amount::from(1), b"whatever".to_vec())
++            .await;
++
++        assert!(
++            matches!(result, Err(Error::UnknownKeySet)),
++            "expected UnknownKeySet for a nonexistent keyset, got: {:?}",
++            result
++        );
++    }
++
++    #[tokio::test]
++    async fn sign_pol_receipt_rejects_amount_not_in_keyset() {
++        let store = Arc::new(
++            cdk_sqlite::mint::memory::empty()
++                .await
++                .expect("in-memory db"),
++        );
++        let signatory = DbSignatory::new(
++            store,
++            b"test-seed-pol-receipt-wrong-amount",
++            Default::default(),
++            Default::default(),
++        )
++        .await
++        .expect("DbSignatory::new");
++
++        let keyset = signatory
++            .rotate_keyset(RotateKeyArguments {
++                unit: CurrencyUnit::Sat,
++                amounts: vec![1, 2, 4, 8],
++                input_fee_ppk: 0,
++                keyset_id_type: cdk_common::nut02::KeySetVersion::Version00,
++                final_expiry: None,
++            })
++            .await
++            .expect("rotate_keyset");
++
++        // 1024 was never part of this keyset's denomination set.
++        let result = signatory
++            .sign_pol_receipt(keyset.id, Amount::from(1024), b"whatever".to_vec())
++            .await;
++
++        assert!(
++            matches!(result, Err(Error::UnknownKeySet)),
++            "expected UnknownKeySet for a valid keyset but out-of-range amount, got: {:?}",
++            result
++        );
++    }
++
++    #[tokio::test]
++    async fn sign_pol_receipt_rejects_expired_keyset() {
++        let store = Arc::new(
++            cdk_sqlite::mint::memory::empty()
++                .await
++                .expect("in-memory db"),
++        );
++        let signatory = DbSignatory::new(
++            store,
++            b"test-seed-pol-receipt-expired",
++            Default::default(),
++            Default::default(),
++        )
++        .await
++        .expect("DbSignatory::new");
++
++        let expired_keyset = signatory
++            .rotate_keyset(RotateKeyArguments {
++                unit: CurrencyUnit::Sat,
++                amounts: vec![1, 2, 4, 8],
++                input_fee_ppk: 0,
++                keyset_id_type: cdk_common::nut02::KeySetVersion::Version00,
++                final_expiry: Some(unix_time() - 1),
++            })
++            .await
++            .expect("rotate_keyset");
++
++        let result = signatory
++            .sign_pol_receipt(expired_keyset.id, Amount::from(1), b"whatever".to_vec())
++            .await;
++
++        assert!(
++            matches!(result, Err(Error::ExpiredKeyset)),
++            "expected ExpiredKeyset, got: {:?}",
++            result
++        );
++    }
++
+     /// Keyset rows are insert-only today, so the mutated info is handed to
+     /// `publish_snapshot` directly rather than written to storage.
+     #[tokio::test]
 diff --git a/crates/cdk-signatory/src/embedded.rs b/crates/cdk-signatory/src/embedded.rs
 index 44d9e5c..7de588c 100644
 --- a/crates/cdk-signatory/src/embedded.rs
