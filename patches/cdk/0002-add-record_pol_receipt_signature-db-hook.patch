@@ -1,5 +1,5 @@
 diff --git a/crates/cdk-common/src/database/mint/mod.rs b/crates/cdk-common/src/database/mint/mod.rs
-index 5e9871d..3b6b913 100644
+index 5e9871d..874c7da 100644
 --- a/crates/cdk-common/src/database/mint/mod.rs
 +++ b/crates/cdk-common/src/database/mint/mod.rs
 @@ -531,6 +531,20 @@ pub trait SignaturesTransaction {
@@ -23,7 +23,7 @@ index 5e9871d..3b6b913 100644
  }
  
  #[async_trait]
-@@ -565,6 +579,19 @@ pub trait SignaturesDatabase {
+@@ -565,6 +579,33 @@ pub trait SignaturesDatabase {
          &self,
          operation_id: &uuid::Uuid,
      ) -> Result<Vec<PublicKey>, Self::Err>;
@@ -40,11 +40,25 @@ index 5e9871d..3b6b913 100644
 +    async fn mark_pol_receipt_signed(&self, _id: &str, _signature_hex: &str) -> Result<(), Self::Err> {
 +        Ok(())
 +    }
++
++    /// SOLVENT Phase 2 receipt delivery: looks up a PoL receipt by the real
++    /// public `blinded_message` a wallet already has from its own mint
++    /// response — `(status, signature_hex)`, or `None` if this blinded
++    /// message has no SOLVENT-tracked receipt at all. No wallet identity,
++    /// no proof secret, no account: the lookup key is the same public
++    /// value NUT-04 already returns. Default: `None`. See
++    /// `solvent/docs/receipt-lifecycle.md`.
++    async fn get_pol_receipt_by_blinded_message(
++        &self,
++        _blinded_message_hex: &str,
++    ) -> Result<Option<(String, Option<String>)>, Self::Err> {
++        Ok(None)
++    }
  }
  
  #[async_trait]
 diff --git a/crates/cdk-sql-common/src/mint/signatures.rs b/crates/cdk-sql-common/src/mint/signatures.rs
-index 46020c0..8b163d7 100644
+index 46020c0..56ba4b7 100644
 --- a/crates/cdk-sql-common/src/mint/signatures.rs
 +++ b/crates/cdk-sql-common/src/mint/signatures.rs
 @@ -13,7 +13,7 @@ use super::proofs::sql_row_to_hashmap_amount;
@@ -100,7 +114,7 @@ index 46020c0..8b163d7 100644
      async fn get_blind_signatures(
          &mut self,
          blinded_messages: &[PublicKey],
-@@ -436,4 +473,70 @@ where
+@@ -436,4 +473,106 @@ where
          })
          .collect::<Result<Vec<_>, _>>()
      }
@@ -169,5 +183,41 @@ index 46020c0..8b163d7 100644
 +                .await;
 +        }
 +        Ok(())
++    }
++
++    // SOLVENT Phase 2 receipt delivery: real lookup for the retrieval
++    // endpoint (patches/cdk/0005-*.patch). Errors are swallowed the same
++    // way as the other SOLVENT hooks in this file — a database with no
++    // SOLVENT schema simply reports every blinded message as untracked.
++    async fn get_pol_receipt_by_blinded_message(
++        &self,
++        blinded_message_hex: &str,
++    ) -> Result<Option<(String, Option<String>)>, Self::Err> {
++        let conn = match self.pool.get().await {
++            Ok(conn) => conn,
++            Err(_) => return Ok(None),
++        };
++        let rows = match query(
++            r#"
++            SELECT r.status, r.signature_hex
++            FROM solvent_pol_receipt r
++            JOIN solvent_issued_liability il ON il.id = r.liability_id
++            WHERE il.blinded_message_hex = :blinded_message_hex AND r.liability_kind = 'issued'
++            "#,
++        ) {
++            Ok(q) => match q.bind("blinded_message_hex", blinded_message_hex.to_string()).fetch_all(&*conn).await {
++                Ok(rows) => rows,
++                Err(_) => return Ok(None),
++            },
++            Err(_) => return Ok(None),
++        };
++
++        let Some(row) = rows.into_iter().next() else {
++            return Ok(None);
++        };
++        unpack_into!(let (status, signature_hex) = row);
++        let status_str = column_as_string!(status);
++        let signature_str = column_as_nullable_string!(signature_hex);
++        Ok(Some((status_str, signature_str)))
 +    }
  }
