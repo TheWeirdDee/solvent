@@ -1,0 +1,23 @@
+diff --git a/crates/cdk-mintd/src/lib.rs b/crates/cdk-mintd/src/lib.rs
+index 0d16732..0c4067e 100644
+--- a/crates/cdk-mintd/src/lib.rs
++++ b/crates/cdk-mintd/src/lib.rs
+@@ -2402,6 +2402,18 @@ impl PreparedMintd {
+ 
+         self.mint.start().await?;
+ 
++        // SOLVENT Phase 2 receipt recovery (solvent/docs/receipt-lifecycle.md):
++        // a one-shot startup scan for any PoL receipt left durably
++        // `pending` (a real residual risk, distinct from a normal-path
++        // crash — see that doc). Deliberately does not fail startup on
++        // error: recovery is defense-in-depth insurance, not a
++        // precondition for serving real Cashu traffic.
++        match self.mint.recover_pending_pol_receipts().await {
++            Ok(0) => {}
++            Ok(n) => tracing::info!("SOLVENT: recovered {n} pending PoL receipt(s) at startup"),
++            Err(e) => tracing::error!("SOLVENT: PoL receipt recovery scan failed: {e}"),
++        }
++
+         let socket_addr =
+             SocketAddr::from_str(&format!("{}:{}", self.listen_addr, self.listen_port))?;
+ 
