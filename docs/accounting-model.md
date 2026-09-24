@@ -1,6 +1,6 @@
 # Accounting model — Phase 2 durable SOLVENT journal
 
-Schema and migration for SOLVENT's mint-native accounting, coupled to CDK's own SQLite database via triggers (`docs/cdk-integration-seams.md`, `DECISIONS.md`'s Phase 2 Step 2 entry) and to CDK's signatory via a minimal trait extension (`docs/cdk-signatory-audit.md`, Step 8C). First milestone scope: **NUT-04 only** (Phase 2 Step 8) — `solvent_consumed_liability` and swap/melt-specific columns are defined now (so the schema doesn't need a breaking migration later) but are not yet populated by any trigger.
+Schema and migration for SOLVENT's mint-native accounting, coupled to CDK's own SQLite database via triggers (`docs/cdk-integration-seams.md`, `DECISIONS.md`'s Phase 2 Step 2 entry) and to CDK's signatory via a minimal trait extension (`docs/cdk-signatory-audit.md`, Step 8C). First milestone: **NUT-04** (Phase 2 Step 8, complete). Second milestone: **NUT-03** (this continuation) — `solvent_consumed_liability` is now populated by a real trigger (`migrations/solvent-accounting/0002_nut03_consumed_liability.sql`); melt-specific population remains deferred, per the explicit instruction not to start NUT-05 yet.
 
 ## Where this lives
 
@@ -45,7 +45,7 @@ CREATE TABLE completed_operations (
 
 ### `solvent_issued_liability`
 
-One row per Cashu output that became a real, mint-signed liability (NUT-04 issuance now; NUT-03/05 replacement/change outputs later).
+One row per Cashu output that became a real, mint-signed liability — NUT-04 issuance and NUT-03 swap replacement outputs now (the same trigger captures both, since both flow through CDK's real `add_blind_signatures()` write — see `docs/cdk-integration-seams.md`'s NUT-03 transaction map); NUT-05 melt change outputs later.
 
 ```sql
 CREATE TABLE solvent_issued_liability (
@@ -68,7 +68,7 @@ CREATE INDEX idx_issued_liability_keyset ON solvent_issued_liability(keyset_id);
 
 **Real bug found and fixed by the first real CI reconciliation run**: the trigger's first version hardcoded the literal string `'mint'` for every row's `operation_kind`, instead of reading the real `NEW.operation_kind` value CDK's own `blind_signature` row already carries. Real CI caught this immediately and correctly: a single real lifecycle run (mint 1000 sat, swap 1000 sat, melt with ~100 sat change) produced 15 issued-liability rows totalling 2100 sats against a real mint of only 1000 — because the swap's replacement outputs and the melt's change outputs were being mislabeled as `'mint'` too. `crates/cdk-common/src/mint.rs`'s `impl fmt::Display for OperationKind` confirms the real values are `"mint"`, `"swap"`, `"melt"`, `"batch_mint"` — not the guessed `"melt_change"`. Fixed by using `COALESCE(NEW.operation_kind, 'mint')` in both triggers, verified locally against a simulated mint+swap+melt sequence before re-running real CI.
 
-### `solvent_consumed_liability` (schema defined now; population deferred to swap/melt phases)
+### `solvent_consumed_liability` (populated for NUT-03; NUT-05 population still deferred)
 
 ```sql
 CREATE TABLE solvent_consumed_liability (
@@ -85,11 +85,11 @@ CREATE TABLE solvent_consumed_liability (
 CREATE INDEX idx_consumed_liability_keyset ON solvent_consumed_liability(keyset_id);
 ```
 
-Real CDK reference confirmed: `proof` table's primary key is `y BLOB PRIMARY KEY` (`crates/cdk-sql-common`'s migrated schema), with a `state` column constrained to `('SPENT', 'PENDING', 'UNSPENT', 'RESERVED', 'UNKNOWN')` — the consumed-liability trigger (not yet written; swap/melt phase) fires on the transition to `SPENT`.
+Real CDK reference confirmed: `proof` table's primary key is `y BLOB PRIMARY KEY` (`crates/cdk-sql-common`'s migrated schema), with a `state` column constrained to `('SPENT', 'PENDING', 'UNSPENT', 'RESERVED', 'UNKNOWN')`. The consumed-liability trigger (`migrations/solvent-accounting/0002_nut03_consumed_liability.sql`) fires on any transition into `SPENT` (not narrowed to `PENDING`→`SPENT`, since `Unspent`→`Spent` is also a real, valid CDK transition — `crates/cdk-common/src/state.rs`), gated to `operation_kind IN ('swap', 'melt')` so it stays inert for melt until that population is actually built.
 
 ### `solvent_pol_receipt`
 
-The transactional outbox for receipt signing (`docs/cdk-signatory-audit.md`'s "atomicity question, answered"). One row per issued or consumed liability that needs a signed PoL receipt.
+The durable record of each receipt's signing obligation and, once signed, its signature (`docs/cdk-signatory-audit.md`'s "atomicity question, answered"; `docs/receipt-lifecycle.md` for the real same-transaction signing path and the startup recovery scan that handles the residual case). One row per issued or consumed liability that needs a signed PoL receipt — currently populated for issued liabilities only (NUT-04 and NUT-03 replacement outputs); consumed-liability receipts are out of scope for this milestone (`docs/pol-extension.md`).
 
 ```sql
 CREATE TABLE solvent_pol_receipt (
