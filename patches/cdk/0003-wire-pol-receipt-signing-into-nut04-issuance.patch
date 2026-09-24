@@ -1,5 +1,5 @@
 diff --git a/crates/cdk/src/mint/issue/mod.rs b/crates/cdk/src/mint/issue/mod.rs
-index 466a68f..674790e 100644
+index 466a68f..de7ab18 100644
 --- a/crates/cdk/src/mint/issue/mod.rs
 +++ b/crates/cdk/src/mint/issue/mod.rs
 @@ -930,6 +930,25 @@ impl Mint {
@@ -51,6 +51,33 @@ index 466a68f..674790e 100644
                  }
  
                  mint_quote.add_issuance(amount_issued)?;
+@@ -1008,6 +1036,26 @@ impl Mint {
+                 }
+             }
+ 
++            // SOLVENT Phase 2 Step 8 crash drill: a test-only, opt-in delay
++            // immediately before commit — everything (blind_signature
++            // signed, solvent_issued_liability, solvent_pol_receipt
++            // already `signed`) is fully staged in this still-uncommitted
++            // transaction at this exact point. Real CI (never production —
++            // the env var is unset by default and this is a no-op) uses
++            // this window to send a real SIGKILL to the mint process and
++            // verify the entire uncommitted transaction — economic state
++            // AND receipt state together — is genuinely absent afterward,
++            // not merely reasoned about. See solvent/docs/receipt-lifecycle.md.
++            #[cfg(debug_assertions)]
++            if let Ok(delay_ms) = std::env::var("SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS") {
++                if let Ok(ms) = delay_ms.parse::<u64>() {
++                    tracing::warn!(
++                        "SOLVENT TEST HOOK: delaying {ms}ms before commit (SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS set) — never active unless this env var is explicitly set"
++                    );
++                    tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
++                }
++            }
++
+             tx.commit().await?;
+ 
+             for mint_quote in &issuance_events {
 diff --git a/crates/cdk/src/mint/mod.rs b/crates/cdk/src/mint/mod.rs
 index 541f6ae..c4056aa 100644
 --- a/crates/cdk/src/mint/mod.rs
