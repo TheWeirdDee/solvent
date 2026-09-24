@@ -1,5 +1,5 @@
 diff --git a/crates/cdk/src/mint/swap/swap_saga/mod.rs b/crates/cdk/src/mint/swap/swap_saga/mod.rs
-index b77d639..dc89e84 100644
+index b77d639..a1e1baf 100644
 --- a/crates/cdk/src/mint/swap/swap_saga/mod.rs
 +++ b/crates/cdk/src/mint/swap/swap_saga/mod.rs
 @@ -286,36 +286,58 @@ impl<'a> SwapSaga<'a, SetupComplete> {
@@ -110,6 +110,31 @@ index b77d639..dc89e84 100644
          // Mark input proofs as spent
          // TODO: WE should move the should fail to the db so the there is not this extra rollback.
          // This would allow the error to be from the same place in test and prod
+@@ -436,6 +474,24 @@ impl SwapSaga<'_, Signed> {
+             // Don't rollback - swap succeeded, orphaned saga is harmless
+         }
+ 
++        // SOLVENT Phase 2 crash drill: a test-only, opt-in delay immediately
++        // before commit, identical in shape to the NUT-04 issue path's hook
++        // (crates/cdk/src/mint/issue/mod.rs) — everything (spent inputs,
++        // replacement blind_signature rows signed, solvent_consumed_liability,
++        // solvent_issued_liability, solvent_pol_receipt already `signed`) is
++        // fully staged in this still-uncommitted transaction at this exact
++        // point. Compiled out entirely in release builds. See
++        // solvent/docs/receipt-lifecycle.md's NUT-03 section.
++        #[cfg(debug_assertions)]
++        if let Ok(delay_ms) = std::env::var("SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS") {
++            if let Ok(ms) = delay_ms.parse::<u64>() {
++                tracing::warn!(
++                    "SOLVENT TEST HOOK: delaying {ms}ms before swap commit (SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS set) — never active unless this env var is explicitly set"
++                );
++                tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
++            }
++        }
++
+         tx.commit().await?;
+         // Publish proof state changes
+         for pk in &self.state_data.ys {
 diff --git a/crates/cdk/src/mint/swap/swap_saga/state.rs b/crates/cdk/src/mint/swap/swap_saga/state.rs
 index 17e2498..4ab9b8d 100644
 --- a/crates/cdk/src/mint/swap/swap_saga/state.rs
