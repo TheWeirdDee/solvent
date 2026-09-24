@@ -122,6 +122,16 @@ This is real, minimal, and reuses 100% existing, already-shipped cryptography (`
 
 **Accounting-fact atomicity (Step 2/7, unchanged) and receipt-signing durability (this section) are still conceptually two different guarantees** — the first from a passive trigger requiring zero CDK awareness, the second from a small, explicit patch that does require CDK's own write path to carry the already-computed signature through — but they now land in the *same* transaction rather than two separate ones. Full schema: `docs/accounting-model.md`.
 
+## Signing-oracle audit (Phase 2 Step 8 closure)
+
+Confirmed by re-reading the final patch set as a whole, not assumed:
+
+- **`sign_pol_receipt()` is never reachable via any public HTTP route.** `crates/cdk-axum`'s router (`crates/cdk-axum/src/lib.rs`) has exactly one new route, `GET /v1/solvent/pol-receipt/{blinded_message}` (`patches/cdk/0005-*.patch`), and its handler (`get_solvent_pol_receipt`) calls `Mint::get_pol_receipt()` — a **read-only lookup** of an already-signed row. Nothing in the new route ever calls `sign_pol_receipt()`, `Mint::sign_pol_receipt()`, or the signatory. Signing happens in exactly two places, both entirely server-side, both unreachable from any request body a caller controls: `process_mint_request()` (`crates/cdk/src/mint/issue/mod.rs`, called only from CDK's own existing `/v1/mint/{method}` handlers) and `recover_pending_pol_receipts()` (`crates/cdk/src/mint/mod.rs`, called only from `cdk-mintd`'s own startup sequence).
+- **The message being signed is never caller-supplied.** Both call sites construct it themselves — `format!("Cashu_PoL_Receipt_Issued:{}:0", output.blinded_secret.to_hex())` in `process_mint_request()`, and the exact bytes already durably stored in `solvent_pol_receipt.message` (itself written only by the SQL trigger, from `NEW.blinded_message`) in the recovery path. There is no code path, anywhere in this patch set, where a `POST` body's bytes flow into the `message` argument of `sign_pol_receipt()`. This is not a generic "sign this Schnorr message for me" oracle; the message shape is fixed by the mint's own code, not the caller's.
+- **The retrieval endpoint cannot be used to request signing of anything.** It takes one path parameter (a blinded-message hex string) and performs a `SELECT`, never an `INSERT`/`UPDATE`. Querying an unknown or not-yet-signed blinded message returns `{"status": "unknown"}` or `{"status": "pending"}` — it never triggers signing as a side effect.
+
+**Conclusion**: the patch set does not turn the mint into a generic Schnorr signing oracle. The only two callers of `sign_pol_receipt()` are internal, and both construct the message themselves from data the mint's own real NUT-04 operation (or its own durable receipt table) already produced.
+
 ## What remains unaudited
 
 `crates/cdk-signatory/src/proto/{client,server}.rs` (the remote/gRPC signatory mode) — not read in this pass, since Phase 1/2's deployment topology never uses it. If a future phase deploys the signatory as a separate process, this trait extension would need a matching protobuf message/RPC added there too; not designed here.
