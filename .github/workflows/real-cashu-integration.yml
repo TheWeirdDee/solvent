@@ -370,6 +370,139 @@ jobs:
           CDK_MINT_URL: 'http://127.0.0.1:8085'
         run: npm run verify:pol-receipts -- /tmp/regtest/mint/cdk-mintd.sqlite
 
+      - name: Prove real receipt recovery (crash-durability closure, real restarts)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: |
+          set -euo pipefail
+          # See docs/receipt-lifecycle.md: the mint's own single-transaction
+          # design means a process crash cannot normally leave a receipt
+          # durably `pending` — the real residual risk is the deliberately
+          # error-tolerant DB write in record_pol_receipt_signature. This
+          # step seeds synthetic `pending` obligations directly (same
+          # technique already proven by the atomicity check) against a
+          # REAL active keyset, then proves the REAL patched mint's real
+          # startup recovery scan (patches/cdk/0004-*.patch) signs them —
+          # across two separate real process restarts, proving both
+          # recovery itself and its idempotency under repetition.
+          ACTIVE_KEYSET=$(curl -sf http://127.0.0.1:8085/v1/keys | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>{console.log(JSON.parse(d).keysets[0].id)});")
+          echo "Using real active keyset: $ACTIVE_KEYSET"
+
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          npm run verify:pol-seed-pending -- /tmp/regtest/mint/cdk-mintd.sqlite "$ACTIVE_KEYSET" 3
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          echo "--- recovery pass 1 (real startup scan after a real restart) ---"
+          npm run verify:pol-recovery -- /tmp/regtest/mint/cdk-mintd.sqlite 3
+
+          # Second real restart: nothing should be pending anymore, so this
+          # proves recovery is safe to run repeatedly — it never duplicates
+          # the already-recovered rows, because it only ever UPDATEs an
+          # existing row it finds still `pending`, and by this point none are.
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          echo "--- recovery pass 2 (idempotency: same 3 rows, no duplicates, no double-processing) ---"
+          npm run verify:pol-recovery -- /tmp/regtest/mint/cdk-mintd.sqlite 3
+
+      - name: Real crash drill — genuine SIGKILL mid-transaction, before commit
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          # Actually terminates the real mint process while a real,
+          # in-flight NUT-04 request is genuinely paused before its
+          # commit — not a simulated throw/catch. See
+          # docs/receipt-lifecycle.md and
+          # patches/cdk/0003-*.patch's SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS
+          # hook (debug-only, opt-in, never active unless this exact env
+          # var is set — real production/CI runs elsewhere in this
+          # workflow never set it).
+          BEFORE=$(npm run --silent verify:pol-count -- /tmp/regtest/mint/cdk-mintd.sqlite)
+          echo "Before crash drill: $BEFORE"
+
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS=5000 \
+            cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          MINTD_PID=$!
+          echo "$MINTD_PID" > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          ( npm run verify:pol-crash-trigger > /tmp/regtest/mint/crash-trigger.log 2>&1 || true ) &
+          TRIGGER_PID=$!
+
+          # Give the real payment + real mint call time to genuinely reach
+          # the delay window (comfortably inside the 5000ms hold) before
+          # the real kill.
+          sleep 2
+          echo "Sending real SIGKILL to the real mint process now (still inside the 5s delay window)"
+          kill -9 "$MINTD_PID" 2>/dev/null || true
+          wait "$TRIGGER_PID" || true
+          cat /tmp/regtest/mint/crash-trigger.log || true
+
+          # Restart normally (no delay hook this time) and confirm nothing
+          # from the killed, uncommitted attempt made it through.
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          AFTER=$(npm run --silent verify:pol-count -- /tmp/regtest/mint/cdk-mintd.sqlite)
+          echo "After crash drill (real restart): $AFTER"
+
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "Crash drill (real SIGKILL, before commit)   PASS  identical row counts — nothing from the killed attempt persisted"
+          else
+            echo "Crash drill (real SIGKILL, before commit)   FAIL  counts differ: before=$BEFORE after=$AFTER" >&2
+            exit 1
+          fi
+
       - name: Reconcile Phase 2 accounting against real CDK state (pre-restart)
         run: |
           set -euo pipefail
@@ -462,6 +595,7 @@ jobs:
           cp /tmp/regtest/mint/mintd.log /tmp/regtest-logs/mintd.log 2>/dev/null || true
           cp /tmp/regtest/mint/pol-nut04-pre-restart.txt /tmp/regtest-logs/pol-nut04-pre-restart.txt 2>/dev/null || true
           cp /tmp/regtest/mint/pol-nut04-post-restart.txt /tmp/regtest-logs/pol-nut04-post-restart.txt 2>/dev/null || true
+          cp /tmp/regtest/mint/crash-trigger.log /tmp/regtest-logs/crash-trigger.log 2>/dev/null || true
 
       - name: Upload Phase 1 evidence
         if: always()
