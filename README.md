@@ -45,7 +45,9 @@ Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic t
 - **direct, real negative tests of the signing capability itself** (`cargo test`, not HTTP-simulated, since it has no HTTP route): refuses a nonexistent keyset, an out-of-range amount, and an expired keyset — 4/4 real tests pass
 - real atomicity, real reconciliation, real retry idempotency, real restart persistence — all unchanged and still passing
 
-**Not yet built**: NUT-03 (swap) and NUT-05 (melt) accounting — Phase 2 deliberately did NUT-04 alone first, per its own build-order instruction.
+**NUT-03 (swap) — real accounting built, real CI verification in progress**: a real patch (`patches/cdk/0006-*.patch`) wires consumed-liability, replacement issued-liability, and PoL receipt signing into CDK's real `SwapSaga::finalize()` transaction, reusing the existing NUT-04 issued-liability trigger and adding a new consumed-liability trigger (`migrations/solvent-accounting/0002_*.sql`). Real swap execution, conservation, failed-swap/double-spend, a genuine `kill -9` crash drill, NUT-09 restore-based response-loss recovery, and multi-swap conservation are all wired into CI — see `docs/receipt-lifecycle.md`'s NUT-03 section and `DECISIONS.md` for the architecture; results land in the CI run this work's commits trigger.
+
+**Not yet built**: NUT-05 (melt) accounting — Phase 2's explicit build-order instruction is NUT-04, then NUT-03, then NUT-05, one milestone reviewed at a time.
 
 ## Why SOLVENT exists
 
