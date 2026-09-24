@@ -77,7 +77,6 @@ async function main() {
   const swapOutputs: SerializedBlindedMessage[] = swapOutputData.map((o) => o.blindedMessage);
   const swapPayload: SwapRequest = { inputs: inputProofs, outputs: swapOutputs };
 
-  const countsBeforeRestore = swapRowCounts(dbPath);
   // The swap really commits on the mint here — this is the real "committed
   // but client discards the response" case, not a simulation of the swap
   // itself.
@@ -87,6 +86,13 @@ async function main() {
   const postOriginalStates = await mint.check({ Ys: inputProofs.map(proofY) });
   const allSpent = postOriginalStates.states.every((s) => s.state === CheckStateEnum.SPENT);
   console.log(line('Original inputs SPENT (swap really committed)', allSpent));
+
+  // Snapshot counts AFTER the real swap has already created its own real
+  // accounting rows, and BEFORE restore() — restore() is read-only
+  // (crates/cdk-axum's post_restore handler calls Mint::restore(), which
+  // never writes to proof/blind_signature), so this is the correct
+  // boundary for asserting it creates no new/duplicate rows.
+  const countsBeforeRestore = swapRowCounts(dbPath);
 
   const restorePayload: PostRestorePayload = { outputs: swapOutputs };
   const restoreResponse = await mint.restore(restorePayload);
