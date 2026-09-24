@@ -34,7 +34,8 @@
     "verify:pol-receipts": "tsx src/cli/real-cashu/pol-receipt-verify.ts",
     "verify:pol-seed-pending": "tsx src/cli/real-cashu/pol-seed-pending-receipts.ts",
     "verify:pol-recovery": "tsx src/cli/real-cashu/pol-recovery-verify.ts",
-    "verify:pol-count": "tsx src/cli/real-cashu/pol-count-mint-rows.ts"
+    "verify:pol-count": "tsx src/cli/real-cashu/pol-count-mint-rows.ts",
+    "verify:pol-crash-trigger": "tsx src/cli/real-cashu/pol-trigger-mint-for-crash-drill.ts"
   },
   "repository": {
     "type": "git",
