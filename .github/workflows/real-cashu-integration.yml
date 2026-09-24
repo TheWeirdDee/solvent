@@ -497,9 +497,9 @@ jobs:
           echo "After crash drill (real restart): $AFTER"
 
           if [ "$BEFORE" = "$AFTER" ]; then
-            echo "Crash drill (real SIGKILL, before commit)   PASS  identical row counts — nothing from the killed attempt persisted"
+            echo "CRASH_BEFORE_COMMIT_ROLLBACK: PASS  identical row counts — nothing from the killed attempt persisted"
           else
-            echo "Crash drill (real SIGKILL, before commit)   FAIL  counts differ: before=$BEFORE after=$AFTER" >&2
+            echo "CRASH_BEFORE_COMMIT_ROLLBACK: FAIL  counts differ: before=$BEFORE after=$AFTER" >&2
             exit 1
           fi
 
