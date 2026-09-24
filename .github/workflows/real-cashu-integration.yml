@@ -98,6 +98,7 @@ jobs:
           # source, and only because real mint-native PoL receipt signing
           # genuinely requires touching CDK's own signatory/database code —
           # see docs/cdk-signatory-audit.md for why no smaller seam exists.
+          rm -rf /tmp/cdk-src
           git clone https://github.com/cashubtc/cdk.git /tmp/cdk-src
           cd /tmp/cdk-src
           git checkout "$CDK_COMMIT"
