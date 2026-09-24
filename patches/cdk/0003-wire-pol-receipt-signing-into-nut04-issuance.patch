@@ -52,10 +52,10 @@ index 466a68f..674790e 100644
  
                  mint_quote.add_issuance(amount_issued)?;
 diff --git a/crates/cdk/src/mint/mod.rs b/crates/cdk/src/mint/mod.rs
-index 541f6ae..5927456 100644
+index 541f6ae..c4056aa 100644
 --- a/crates/cdk/src/mint/mod.rs
 +++ b/crates/cdk/src/mint/mod.rs
-@@ -1342,6 +1342,20 @@ impl Mint {
+@@ -1342,6 +1342,54 @@ impl Mint {
          result
      }
  
@@ -71,6 +71,40 @@ index 541f6ae..5927456 100644
 +        message: Vec<u8>,
 +    ) -> Result<bitcoin::secp256k1::schnorr::Signature, Error> {
 +        self.signatory.sign_pol_receipt(keyset_id, amount, message).await
++    }
++
++    /// SOLVENT Phase 2 receipt recovery: signs and durably persists any PoL
++    /// receipt obligations left `pending` — see
++    /// `solvent/docs/receipt-lifecycle.md` for why this can happen despite
++    /// the mint's own single-transaction design, and for why `pending` is a
++    /// durable, self-sufficient, recoverable obligation, never an error.
++    /// Safe to call more than once: an already-`signed` row is absent from
++    /// the next scan, and re-signing an unresolved row twice produces two
++    /// equally-valid signatures over the identical message, never a
++    /// duplicate accounting fact.
++    #[tracing::instrument(skip(self))]
++    pub async fn recover_pending_pol_receipts(&self) -> Result<usize, Error> {
++        let pending = self.localstore.list_pending_pol_receipts().await?;
++        let mut recovered = 0usize;
++        for (id, keyset_id, amount, message) in pending {
++            let signature = self
++                .sign_pol_receipt(keyset_id, amount, message.clone())
++                .await?;
++            // Verify locally before persisting — defense in depth, never
++            // trust the signatory's own claim of success without checking.
++            let pubkey = self
++                .keyset_pubkeys(&keyset_id)?
++                .keysets
++                .first()
++                .and_then(|k| k.keys.amount_key(amount))
++                .ok_or(Error::UnknownKeySet)?;
++            pubkey.verify(&message, &signature)?;
++            self.localstore
++                .mark_pol_receipt_signed(&id, &signature.to_string())
++                .await?;
++            recovered += 1;
++        }
++        Ok(recovered)
 +    }
 +
      /// Verify [`Proof`] meets conditions and is signed
