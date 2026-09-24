@@ -503,6 +503,16 @@ jobs:
             exit 1
           fi
 
+      - name: Real wallet receipt consumption (real retrieval endpoint, end to end)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-wallet
+
       - name: Reconcile Phase 2 accounting against real CDK state (pre-restart)
         run: |
           set -euo pipefail
