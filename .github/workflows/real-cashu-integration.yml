@@ -336,6 +336,7 @@ jobs:
           done
 
           sqlite3 /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0001_nut04_issued_liability.sql
+          sqlite3 /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0002_nut03_consumed_liability.sql
           npm run verify:pol-atomicity -- /tmp/regtest/mint/cdk-mintd.sqlite
 
           MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
@@ -513,6 +514,120 @@ jobs:
           export NODE_TLS_REJECT_UNAUTHORIZED=0
           npm run verify:pol-wallet
 
+      - name: Generate Step 8 machine-readable evidence (NUT-04 closure)
+        run: npm run verify:pol-evidence -- /tmp/regtest/mint/cdk-mintd.sqlite "${{ github.run_id }}"
+
+      - name: Real NUT-03 swap accounting (real swap, real receipts, real conservation)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap
+
+      - name: Real failed swap and double-spend-after-swap
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap-double-spend -- /tmp/regtest/mint/cdk-mintd.sqlite
+
+      - name: Real swap response-loss recovery (NUT-09 restore)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap-restore -- /tmp/regtest/mint/cdk-mintd.sqlite
+
+      - name: Real swap crash drill — genuine SIGKILL inside finalize(), before commit
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          # Mint the crash-drill's own dedicated proofs FIRST, against a
+          # mint running WITHOUT the delay hook, so only the later swap
+          # attempt (not this minting) hits
+          # SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS. See
+          # patches/cdk/0006-*.patch and docs/receipt-lifecycle.md's NUT-03
+          # section.
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap-crash-mint -- /tmp/regtest/mint/swap-crash-drill-proofs.json
+
+          BEFORE=$(npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite)
+          echo "Before swap crash drill: $BEFORE"
+
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS=5000 \
+            cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          MINTD_PID=$!
+          echo "$MINTD_PID" > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          ( npm run verify:pol-swap-crash-trigger -- /tmp/regtest/mint/swap-crash-drill-proofs.json > /tmp/regtest/mint/swap-crash-trigger.log 2>&1 || true ) &
+          TRIGGER_PID=$!
+
+          sleep 2
+          echo "Sending real SIGKILL to the real mint process now (still inside the 5s swap delay window)"
+          kill -9 "$MINTD_PID" 2>/dev/null || true
+          wait "$TRIGGER_PID" || true
+          cat /tmp/regtest/mint/swap-crash-trigger.log || true
+
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+
+          # recover_from_incomplete_sagas() runs automatically at this
+          # startup (crates/cdk/src/mint/mod.rs, called from Mint::start())
+          # — real CDK code, not a SOLVENT patch — and will compensate the
+          # interrupted swap's setup (input proofs never reached SPENT, so
+          # it removes the reserved-pending state entirely).
+          AFTER=$(npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite)
+          echo "After swap crash drill (real restart): $AFTER"
+
+          if [ "$BEFORE" = "$AFTER" ]; then
+            echo "SWAP_CRASH_BEFORE_COMMIT_ROLLBACK: PASS  identical row counts — nothing from the killed attempt persisted"
+          else
+            echo "SWAP_CRASH_BEFORE_COMMIT_ROLLBACK: FAIL  counts differ: before=$BEFORE after=$AFTER" >&2
+            exit 1
+          fi
+
+      - name: Real multiple consecutive swaps (conservation across ownership transitions)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap-multi -- /tmp/regtest/mint/cdk-mintd.sqlite
+
       - name: Reconcile Phase 2 accounting against real CDK state (pre-restart)
         run: |
           set -euo pipefail
@@ -523,6 +638,7 @@ jobs:
             sleep 1
           done
           npm run verify:pol-nut04 -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-nut04-pre-restart.txt
+          npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-swap-pre-restart.txt
 
           MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
@@ -576,6 +692,7 @@ jobs:
             sleep 1
           done
           npm run verify:pol-nut04 -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-nut04-post-restart.txt
+          npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite | tee /tmp/regtest/mint/pol-swap-post-restart.txt
 
           MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
@@ -595,6 +712,31 @@ jobs:
             exit 1
           fi
 
+          if diff -q /tmp/regtest/mint/pol-swap-pre-restart.txt /tmp/regtest/mint/pol-swap-post-restart.txt >/dev/null; then
+            echo "Swap restart persistence          PASS  identical swap row counts before and after restart"
+          else
+            echo "Swap restart persistence          FAIL  swap row counts differ before vs after restart" >&2
+            diff /tmp/regtest/mint/pol-swap-pre-restart.txt /tmp/regtest/mint/pol-swap-post-restart.txt >&2 || true
+            exit 1
+          fi
+
+      - name: Real swap after restart (sequence/idempotency continues correctly)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          # Step 17's own explicit requirement: don't just prove state
+          # survived a restart, prove the mint keeps working correctly
+          # afterward — a real new swap, post-restart, must still produce
+          # correct accounting.
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0
+          npm run verify:pol-swap
+
+      - name: Generate NUT-03 machine-readable evidence
+        run: npm run verify:pol-evidence -- /tmp/regtest/mint/cdk-mintd.sqlite "${{ github.run_id }}"
+
       - name: Collect logs
         if: always()
         run: |
@@ -605,7 +747,10 @@ jobs:
           cp /tmp/regtest/mint/mintd.log /tmp/regtest-logs/mintd.log 2>/dev/null || true
           cp /tmp/regtest/mint/pol-nut04-pre-restart.txt /tmp/regtest-logs/pol-nut04-pre-restart.txt 2>/dev/null || true
           cp /tmp/regtest/mint/pol-nut04-post-restart.txt /tmp/regtest-logs/pol-nut04-post-restart.txt 2>/dev/null || true
+          cp /tmp/regtest/mint/pol-swap-pre-restart.txt /tmp/regtest-logs/pol-swap-pre-restart.txt 2>/dev/null || true
+          cp /tmp/regtest/mint/pol-swap-post-restart.txt /tmp/regtest-logs/pol-swap-post-restart.txt 2>/dev/null || true
           cp /tmp/regtest/mint/crash-trigger.log /tmp/regtest-logs/crash-trigger.log 2>/dev/null || true
+          cp /tmp/regtest/mint/swap-crash-trigger.log /tmp/regtest-logs/swap-crash-trigger.log 2>/dev/null || true
 
       - name: Upload Phase 1 evidence
         if: always()
