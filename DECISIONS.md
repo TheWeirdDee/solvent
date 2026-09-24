@@ -22,6 +22,15 @@ Closes the gap the prior "STEP 8 VERIFIED" report left open: synchronous signing
 
 **Patch set, final**: five files, `patches/cdk/0001` through `0005`, all verified to apply cleanly against a completely fresh clone of the pinned commit and to build a real, running `cdk-mintd` (confirmed both locally and in CI).
 
+**Patch reproducibility (Step 19)** — recomputed against the final 5-patch set, and independently cross-checked against the exact hashes CI itself printed in [run 35962153613](https://github.com/TheWeirdDee/solvent/actions/runs/35962153613)'s "Clone pinned CDK 0.18.1..." step (identical, not merely recomputed once and trusted):
+- `0001-add-sign_pol_receipt-to-signatory.patch` — `71daa4d2063c2e012bc5ffe7ad86e9488a00f55042c476109f8ae529586a5f15`
+- `0002-add-record_pol_receipt_signature-db-hook.patch` — `ece26ec63b07cac1660789eaebeb5a8a53fdb706884643c28cac3275d8078cd9`
+- `0003-wire-pol-receipt-signing-into-nut04-issuance.patch` — `7f3f621b06312e04bf8c84944e16deb28f3f092bd1a0371f7ee5c6bbd4de3e96`
+- `0004-recover-pending-pol-receipts-at-mint-startup.patch` — `584530ab912756a1823bbd3de4405f88ba82db42d5a26bfc12de899928bde081`
+- `0005-add-pol-receipt-retrieval-endpoint.patch` — `a66ceb869eb77c0be78135717317467ba8100dda5120c28d6bbb3ee6a4c1040d`
+- Aggregate (`sha256sum` of the five files concatenated in order 0001→0005) — `38b353275e9b85d9934ed863a511b1dbaa7cc55ed644eabbb77dd2c5c0b8989a`
+- Built `cdk-mintd` binary, from the pinned upstream commit `a056e0f0f69e94f431b1aeb90d883f18c61ea4c6` plus this patch series, `--no-default-features --features sqlite,lnd,management-rpc,info-page,bdk` — `5a0506019ef605b6cb4e49e8b28e841b8e52cc3236bad99549bfeaa4f1159bda` (same run)
+
 ---
 
 ## 2026-09-23 — Phase 2 Step 8: real mint-native PoL receipt signing, verified
