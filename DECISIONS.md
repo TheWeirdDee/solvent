@@ -14,6 +14,11 @@ Extends Step 8's NUT-04 architecture to real NUT-03 swaps, plus two Step 8 clean
 
 **Patch**: `patches/cdk/0006-wire-pol-receipt-signing-into-nut03-swap.patch` — `crates/cdk/src/mint/swap/swap_saga/{mod.rs,state.rs}` only. Adds `sign_pol_receipt()`/`record_pol_receipt_signature()` calls mirroring the NUT-04 pattern exactly, plus the same debug-only `SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS` crash-drill hook in `finalize()`. Verified to apply cleanly against a fresh clone of the pinned commit (all 6 patches, in order) and to type-check cleanly (`cargo check -p cdk`, zero errors).
 
+**Patch reproducibility, final 6-patch set** — `0006`'s hash independently cross-checked against CI's own printed value in [run 36008787769](https://github.com/TheWeirdDee/solvent/actions/runs/36008787769), identical:
+- `0006-wire-pol-receipt-signing-into-nut03-swap.patch` — `270e8c8d8b3942279e35fd6c3d5b52b225cad6d296741c727ad6dc73102cec03`
+- Aggregate (`sha256sum` of all six files concatenated in order 0001→0006) — `cede16708c201515f4303f263b6f8dda1245b67d1cd822f7087910e26c1f6436`
+- Built `cdk-mintd` binary, from the pinned upstream commit plus all six patches — `adc8922fe25425dedde0d33c55745136afcca3b24b0a069ff02ad7fa0b4023f6` (same run)
+
 **Consumed-liability trigger** (`migrations/solvent-accounting/0002_*.sql`): fires on `proof.state` transitioning to `SPENT` from any non-`SPENT` state (not narrowed to `PENDING`→`SPENT`, since `cdk-common`'s own state machine allows `UNSPENT`→`SPENT` too), gated to `operation_kind IN ('swap','melt')` so an unexpected `NULL` operation_kind silently doesn't fire rather than violating a CHECK constraint and failing CDK's own real transaction. Stores only the proof's public `Y` value, never the raw secret — see `docs/privacy.md`'s NUT-03 linkage audit.
 
 **Privacy**: `solvent_consumed_liability.operation_id` and `solvent_issued_liability.operation_id` do carry a real, correlatable input↔output relation for a swap — but this mirrors CDK's own existing `operation_id` columns exactly (not a new correlation SOLVENT invented), never reaches the signed receipt message, and no public manifest is built from real data in Phase 2. Recorded as a forward-looking constraint for whenever a public epoch manifest is eventually built.
