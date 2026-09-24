@@ -36,7 +36,15 @@
     "verify:pol-recovery": "tsx src/cli/real-cashu/pol-recovery-verify.ts",
     "verify:pol-count": "tsx src/cli/real-cashu/pol-count-mint-rows.ts",
     "verify:pol-crash-trigger": "tsx src/cli/real-cashu/pol-trigger-mint-for-crash-drill.ts",
-    "verify:pol-wallet": "tsx src/cli/real-cashu/pol-wallet-consume-receipts.ts"
+    "verify:pol-wallet": "tsx src/cli/real-cashu/pol-wallet-consume-receipts.ts",
+    "verify:pol-swap": "tsx src/cli/real-cashu/pol-swap-verify.ts",
+    "verify:pol-count-swap": "tsx src/cli/real-cashu/pol-count-swap-rows.ts",
+    "verify:pol-swap-double-spend": "tsx src/cli/real-cashu/pol-swap-double-spend.ts",
+    "verify:pol-swap-multi": "tsx src/cli/real-cashu/pol-swap-multi.ts",
+    "verify:pol-swap-restore": "tsx src/cli/real-cashu/pol-swap-restore.ts",
+    "verify:pol-swap-crash-mint": "tsx src/cli/real-cashu/pol-swap-crash-mint-proofs.ts",
+    "verify:pol-swap-crash-trigger": "tsx src/cli/real-cashu/pol-swap-crash-trigger.ts",
+    "verify:pol-evidence": "tsx src/cli/real-cashu/pol-generate-evidence.ts"
   },
   "repository": {
     "type": "git",
