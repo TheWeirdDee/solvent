@@ -1,0 +1,50 @@
+diff --git a/crates/cdk-axum/src/lib.rs b/crates/cdk-axum/src/lib.rs
+index 7f8409c..81251e7 100644
+--- a/crates/cdk-axum/src/lib.rs
++++ b/crates/cdk-axum/src/lib.rs
+@@ -107,7 +107,10 @@ pub async fn create_mint_router_with_custom_cache(
+         .route("/ws", get(ws_handler))
+         .route("/checkstate", post(post_check))
+         .route("/info", get(get_mint_info))
+-        .route("/restore", post(post_restore));
++        .route("/restore", post(post_restore))
++        // SOLVENT Phase 2 receipt delivery — see
++        // router_handlers::get_solvent_pol_receipt's own doc comment.
++        .route("/solvent/pol-receipt/{blinded_message}", get(get_solvent_pol_receipt));
+ 
+     let mut mint_router = Router::new().nest("/v1", v1_router);
+ 
+diff --git a/crates/cdk-axum/src/router_handlers.rs b/crates/cdk-axum/src/router_handlers.rs
+index c583739..72c1fc1 100644
+--- a/crates/cdk-axum/src/router_handlers.rs
++++ b/crates/cdk-axum/src/router_handlers.rs
+@@ -123,6 +123,29 @@ pub(crate) async fn get_keysets(
+     Ok(Json(state.mint.keysets()))
+ }
+ 
++/// SOLVENT Phase 2 receipt delivery — retrieve a real PoL receipt
++///
++/// Looks up a signed (or still-pending) Proof-of-Liability receipt by the
++/// real, public `blinded_message` a wallet already received from a real
++/// NUT-04/NUT-03/NUT-05 response. A SOLVENT extension beyond the pinned
++/// draft's inline-response delivery — see docs/receipt-lifecycle.md in the
++/// SOLVENT repository for why, and docs/pol-extension.md for the
++/// classification of this as a named deviation. No wallet identity, no
++/// account, no proof secret: the lookup key is the same public value
++/// NUT-04 already returns to every caller.
++#[instrument(skip_all, fields(blinded_message = ?blinded_message))]
++pub(crate) async fn get_solvent_pol_receipt(
++    State(state): State<MintState>,
++    Path(blinded_message): Path<String>,
++) -> Result<Json<cdk::mint::PolReceiptStatus>, Response> {
++    let receipt = state.mint.get_pol_receipt(&blinded_message).await.map_err(|err| {
++        tracing::error!("Could not get PoL receipt: {}", err);
++        into_response(err)
++    })?;
++
++    Ok(Json(receipt))
++}
++
+ #[instrument(skip_all)]
+ pub(crate) async fn ws_handler(
+     auth: AuthHeader,
