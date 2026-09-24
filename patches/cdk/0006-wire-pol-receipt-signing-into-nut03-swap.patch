@@ -1,0 +1,127 @@
+diff --git a/crates/cdk/src/mint/swap/swap_saga/mod.rs b/crates/cdk/src/mint/swap/swap_saga/mod.rs
+index b77d639..dc89e84 100644
+--- a/crates/cdk/src/mint/swap/swap_saga/mod.rs
++++ b/crates/cdk/src/mint/swap/swap_saga/mod.rs
+@@ -286,36 +286,58 @@ impl<'a> SwapSaga<'a, SetupComplete> {
+     /// - Propagates any errors from the blind signing operation
+     #[instrument(skip_all)]
+     pub async fn sign_outputs(self) -> Result<SwapSaga<'a, Signed>, Error> {
+-        match self
+-            .mint
+-            .blind_sign(self.state_data.blinded_messages.clone())
+-            .await
+-        {
+-            Ok(signatures) => {
+-                // Transition to Signed state
+-                // Note: We don't update saga state here because the "signed" state
+-                // is not used by recovery logic - saga state remains "SetupComplete"
+-                // until the swap is finalized or compensated
+-                Ok(SwapSaga {
+-                    mint: self.mint,
+-                    db: self.db,
+-                    pubsub: self.pubsub,
+-                    compensations: self.compensations,
+-                    operation_id: self.operation_id,
+-                    state_data: Signed {
+-                        blinded_messages: self.state_data.blinded_messages,
+-                        ys: self.state_data.ys,
+-                        signatures,
+-                        operation: self.state_data.operation,
+-                        fee_breakdown: self.state_data.fee_breakdown,
+-                    },
+-                })
+-            }
++        let blinded_messages = self.state_data.blinded_messages.clone();
++
++        let signatures = match self.mint.blind_sign(blinded_messages.clone()).await {
++            Ok(signatures) => signatures,
+             Err(err) => {
+                 self.compensate_all().await?;
+-                Err(err)
++                return Err(err);
+             }
++        };
++
++        // SOLVENT Phase 2: sign a PoL receipt for every replacement output,
++        // mirroring the NUT-04 issue path exactly — stateless, safe outside
++        // any transaction, computed here alongside blind_sign (see
++        // solvent/docs/cdk-signatory-audit.md,
++        // solvent/docs/receipt-lifecycle.md's NUT-03 section). A failure
++        // here fails the whole swap closed via the same compensation path
++        // blind_sign failure already uses, rather than silently proceeding
++        // without a receipt.
++        let mut pol_receipt_signatures: Vec<(PublicKey, String)> =
++            Vec::with_capacity(blinded_messages.len());
++        for bm in &blinded_messages {
++            let message =
++                format!("Cashu_PoL_Receipt_Issued:{}:0", bm.blinded_secret.to_hex()).into_bytes();
++            let signature = match self.mint.sign_pol_receipt(bm.keyset_id, bm.amount, message).await {
++                Ok(signature) => signature,
++                Err(err) => {
++                    self.compensate_all().await?;
++                    return Err(err);
++                }
++            };
++            pol_receipt_signatures.push((bm.blinded_secret, signature.to_string()));
+         }
++
++        // Transition to Signed state
++        // Note: We don't update saga state here because the "signed" state
++        // is not used by recovery logic - saga state remains "SetupComplete"
++        // until the swap is finalized or compensated
++        Ok(SwapSaga {
++            mint: self.mint,
++            db: self.db,
++            pubsub: self.pubsub,
++            compensations: self.compensations,
++            operation_id: self.operation_id,
++            state_data: Signed {
++                blinded_messages: self.state_data.blinded_messages,
++                ys: self.state_data.ys,
++                signatures,
++                pol_receipt_signatures,
++                operation: self.state_data.operation,
++                fee_breakdown: self.state_data.fee_breakdown,
++            },
++        })
+     }
+ }
+ 
+@@ -384,6 +406,22 @@ impl SwapSaga<'_, Signed> {
+             return Err(err.into());
+         }
+ 
++        // SOLVENT Phase 2: persist each already-computed PoL receipt
++        // signature inside this same transaction, immediately after the
++        // write that makes the replacement outputs durable — mirrors the
++        // NUT-04 issue path exactly, closing the same crash window (see
++        // solvent/docs/receipt-lifecycle.md's NUT-03 section).
++        for (blinded_message, signature_hex) in &self.state_data.pol_receipt_signatures {
++            if let Err(err) = tx
++                .record_pol_receipt_signature(blinded_message, signature_hex)
++                .await
++            {
++                tx.rollback().await?;
++                self.compensate_all().await?;
++                return Err(err.into());
++            }
++        }
++
+         // Mark input proofs as spent
+         // TODO: WE should move the should fail to the db so the there is not this extra rollback.
+         // This would allow the error to be from the same place in test and prod
+diff --git a/crates/cdk/src/mint/swap/swap_saga/state.rs b/crates/cdk/src/mint/swap/swap_saga/state.rs
+index 17e2498..4ab9b8d 100644
+--- a/crates/cdk/src/mint/swap/swap_saga/state.rs
++++ b/crates/cdk/src/mint/swap/swap_saga/state.rs
+@@ -30,6 +30,10 @@ pub struct Signed {
+     pub blinded_messages: Vec<BlindedMessage>,
+     pub ys: Vec<PublicKey>,
+     pub signatures: Vec<BlindSignature>,
++    /// SOLVENT Phase 2: PoL receipt signatures, one per replacement output,
++    /// computed alongside `signatures` and persisted in the same
++    /// transaction as `finalize()` — see solvent/docs/receipt-lifecycle.md.
++    pub pol_receipt_signatures: Vec<(PublicKey, String)>,
+     pub operation: Operation,
+     pub fee_breakdown: crate::fees::ProofsFeeBreakdown,
+ }
