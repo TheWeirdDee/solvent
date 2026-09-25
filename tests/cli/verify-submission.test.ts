@@ -15,13 +15,24 @@ const FULL_EXTERNAL: ExternalEvidenceStatus = {
   canonicalLiveDemo: { ok: true, reasonCode: 'ACCEPT_VERIFIED', detail: 'ACCEPT_VERIFIED' },
 };
 
-describe('verify-submission-core — runSubmissionChecks', () => {
+// Every test here calls runSubmissionChecks(), which synchronously
+// re-derives Gate 0-6 with real cryptography (fresh random keys and
+// secrets each call). It has no network, filesystem, process, clock-race
+// or module-level-state dependency. Measured over 300 back-to-back calls in
+// one otherwise-idle process: 0 logic failures, p50 ~1.0s, p95 ~2.0s, max
+// ~5.2s. That max already exceeds Vitest's 5s default before the full
+// suite's parallel workers add CPU contention, which is what made this file
+// fail intermittently. The fix is an explicit per-call budget, not weaker
+// assertions.
+const PER_CALL_TIMEOUT_MS = 15_000;
+
+describe('verify-submission-core — runSubmissionChecks', { timeout: PER_CALL_TIMEOUT_MS }, () => {
   it('is ready (failures=0, exit-code-worthy 0) when every required item is real and passing', () => {
     const { failures, ready, lines } = runSubmissionChecks(FULL_EXTERNAL);
     expect(failures).toBe(0);
     expect(ready).toBe(true);
     expect(lines.every((l) => l.ok)).toBe(true);
-  }, 15_000); // re-derives Gate 0-6 with real cryptography; can exceed the 5s default under load, see the sweep test below
+  });
 
   it('re-derives Gate 0-6 mechanism checks with real cryptography, not stubs (all PASS independent of the external status)', () => {
     const { lines } = runSubmissionChecks(FULL_EXTERNAL);
@@ -111,5 +122,5 @@ describe('verify-submission-core — runSubmissionChecks', () => {
       const { ready } = runSubmissionChecks({ ...FULL_EXTERNAL, ...variant });
       expect(ready, `expected NOT ready for variant ${JSON.stringify(variant)}`).toBe(false);
     }
-  }, 20_000); // each iteration re-derives Gate 0-6 with real cryptography; four of them can exceed the 5s default
+  }, 4 * PER_CALL_TIMEOUT_MS); // four runSubmissionChecks() calls; the old 20s was below 4 x the measured 5.2s max
 });

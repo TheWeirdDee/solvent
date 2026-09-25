@@ -11,27 +11,16 @@
 // refuses it, and that the failed attempt created zero new accounting
 // rows (consumed, issued, or receipt) beyond what the first, successful
 // swap created.
-import { DatabaseSync } from 'node:sqlite';
-import { Mint, OutputData, type MintRequest, type SerializedBlindedMessage, type SwapRequest } from '@cashu/cashu-ts';
+import { Mint, OutputData, hashToCurve, CheckStateEnum, type MintRequest, type Proof, type SerializedBlindedMessage, type SwapRequest } from '@cashu/cashu-ts';
 import { LndClient } from './lnd-client.js';
+import { nut07Block, swapRowCounts, writeNut03Evidence } from './nut03-evidence.js';
 
 function line(label: string, ok: boolean, detail?: string): string {
   return `${label.padEnd(38)}${ok ? 'PASS' : 'FAIL'}${detail ? '  ' + detail : ''}`;
 }
 
-function swapRowCounts(dbPath: string): { consumed: number; issued: number; signed: number } {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  const consumed = db.prepare(`SELECT count(*) AS n FROM solvent_consumed_liability WHERE operation_kind = 'swap'`).get() as { n: number };
-  const issued = db.prepare(`SELECT count(*) AS n FROM solvent_issued_liability WHERE operation_kind = 'swap'`).get() as { n: number };
-  const signed = db
-    .prepare(
-      `SELECT count(*) AS n FROM solvent_pol_receipt r
-       JOIN solvent_issued_liability il ON il.id = r.liability_id
-       WHERE r.liability_kind = 'issued' AND il.operation_kind = 'swap' AND r.status = 'signed'`,
-    )
-    .get() as { n: number };
-  db.close();
-  return { consumed: consumed.n, issued: issued.n, signed: signed.n };
+function proofY(proof: Proof): string {
+  return hashToCurve(new TextEncoder().encode(proof.secret)).toHex(true);
 }
 
 async function main() {
@@ -66,8 +55,19 @@ async function main() {
   const firstOutputData = OutputData.createRandomData(amountSat, keyset);
   const firstOutputs: SerializedBlindedMessage[] = firstOutputData.map((o) => o.blindedMessage);
   const firstSwap: SwapRequest = { inputs: originalProofs, outputs: firstOutputs };
-  await mint.swap(firstSwap);
+  const firstSwapResponse = await mint.swap(firstSwap);
+  const firstReplacementProofs = firstOutputData.map((o, i) => o.toProof(firstSwapResponse.signatures[i]!, keyset));
   console.log(line('Real first swap (spends original inputs)', true));
+
+  // Real NUT-07 reconciliation: confirm the originals are genuinely SPENT
+  // and the first swap's replacements genuinely UNSPENT via /v1/checkstate,
+  // not merely inferred from the swap call succeeding.
+  const statesAfterFirstSwap = await mint.check({ Ys: originalProofs.map(proofY) });
+  const originalsSpentAfterFirstSwap = statesAfterFirstSwap.states.every((s) => s.state === CheckStateEnum.SPENT);
+  console.log(line('Real NUT-07: originals SPENT after first swap', originalsSpentAfterFirstSwap));
+  const firstReplacementStates = await mint.check({ Ys: firstReplacementProofs.map(proofY) });
+  const firstReplacementsUnspent = firstReplacementStates.states.every((s) => s.state === CheckStateEnum.UNSPENT);
+  console.log(line('Real NUT-07: first swap replacements UNSPENT', firstReplacementsUnspent));
 
   const countsAfterFirstSwap = swapRowCounts(dbPath);
   console.log(`Rows after the real, successful swap: consumed=${countsAfterFirstSwap.consumed} issued=${countsAfterFirstSwap.issued} signed=${countsAfterFirstSwap.signed}`);
@@ -101,7 +101,58 @@ async function main() {
     ),
   );
 
-  const allPass = refused && noNewRows;
+  // Real NUT-07: the refused attempt must not have changed the originals'
+  // state either (still SPENT, not reverted or duplicated).
+  const statesAfterRefusal = await mint.check({ Ys: originalProofs.map(proofY) });
+  const originalsStillSpentAfterRefusal = statesAfterRefusal.states.every((s) => s.state === CheckStateEnum.SPENT);
+  console.log(line('Real NUT-07: originals still SPENT after refusal', originalsStillSpentAfterRefusal));
+
+  const allPass = refused && noNewRows && originalsSpentAfterFirstSwap && firstReplacementsUnspent && originalsStillSpentAfterRefusal;
+
+  const nut07 = nut07Block({
+    originals: { expected: 'SPENT', actual: statesAfterRefusal.states.map((s) => s.state) },
+    replacements: { expected: 'UNSPENT', actual: firstReplacementStates.states.map((s) => s.state) },
+    note: 'originals checked after the first (successful) swap and again after the refused reuse attempt; "replacements" are the first swap\'s outputs — the refused attempt produced none',
+  });
+
+  writeNut03Evidence({
+    filename: 'nut03-failed-swap.json',
+    operation: 'nut03_failed_swap',
+    pass: refused && noNewRows,
+    data: {
+      real_mint_request_attempted: true,
+      mint_response: mintResponseMessage,
+      consumed_rows_before: countsAfterFirstSwap.consumed,
+      consumed_rows_after: countsAfterDoubleSpendAttempt.consumed,
+      issued_rows_before: countsAfterFirstSwap.issued,
+      issued_rows_after: countsAfterDoubleSpendAttempt.issued,
+      receipt_rows_before: countsAfterFirstSwap.signed,
+      receipt_rows_after: countsAfterDoubleSpendAttempt.signed,
+      new_consumed_rows: countsAfterDoubleSpendAttempt.consumed - countsAfterFirstSwap.consumed,
+      new_issued_rows: countsAfterDoubleSpendAttempt.issued - countsAfterFirstSwap.issued,
+      new_receipt_rows: countsAfterDoubleSpendAttempt.signed - countsAfterFirstSwap.signed,
+      expected: { new_consumed_rows: 0, new_issued_rows: 0, new_receipt_rows: 0 },
+      nut07,
+      invariant: 'P2-S4 (INVARIANTS.md)',
+    },
+  });
+
+  writeNut03Evidence({
+    filename: 'nut03-double-spend.json',
+    operation: 'nut03_double_spend',
+    pass: refused && originalsSpentAfterFirstSwap && firstReplacementsUnspent && originalsStillSpentAfterRefusal,
+    data: {
+      real_mint_request_attempted: true,
+      mint_response: mintResponseMessage,
+      originals_spent_after_first_swap: originalsSpentAfterFirstSwap,
+      originals_still_spent_after_refusal: originalsStillSpentAfterRefusal,
+      first_swap_replacements_unspent: firstReplacementsUnspent,
+      nut07,
+      note: 'the same real event as nut03-failed-swap.json — reusing already-spent swap inputs is both the failed-swap and the double-spend-after-swap case here, not two different code paths',
+      invariant: 'P2-S4, P2-S11 (INVARIANTS.md)',
+    },
+  });
+
   console.log('');
   if (allPass) {
     console.log('REAL FAILED SWAP / DOUBLE-SPEND-AFTER-SWAP VERIFIED');

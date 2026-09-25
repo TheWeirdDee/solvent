@@ -25,8 +25,8 @@ import {
   type PostRestorePayload,
 } from '@cashu/cashu-ts';
 import { sha256 } from '@noble/hashes/sha2.js';
-import { DatabaseSync } from 'node:sqlite';
 import { LndClient } from './lnd-client.js';
+import { nut07Block, swapRowCounts, writeNut03Evidence } from './nut03-evidence.js';
 
 function line(label: string, ok: boolean, detail?: string): string {
   return `${label.padEnd(38)}${ok ? 'PASS' : 'FAIL'}${detail ? '  ' + detail : ''}`;
@@ -34,14 +34,6 @@ function line(label: string, ok: boolean, detail?: string): string {
 
 function proofY(proof: Proof): string {
   return hashToCurve(new TextEncoder().encode(proof.secret)).toHex(true);
-}
-
-function swapRowCounts(dbPath: string): { consumed: number; issued: number } {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  const consumed = db.prepare(`SELECT count(*) AS n FROM solvent_consumed_liability WHERE operation_kind = 'swap'`).get() as { n: number };
-  const issued = db.prepare(`SELECT count(*) AS n FROM solvent_issued_liability WHERE operation_kind = 'swap'`).get() as { n: number };
-  db.close();
-  return { consumed: consumed.n, issued: issued.n };
 }
 
 async function main() {
@@ -134,6 +126,34 @@ async function main() {
   );
 
   const allPass = allSpent && restoredProofs.length === swapOutputData.length && allUnspent && noDuplicateAccounting && receiptsVerified === swapOutputData.length;
+
+  writeNut03Evidence({
+    filename: 'nut03-response-loss.json',
+    operation: 'nut03_response_loss_recovery',
+    pass: allPass,
+    data: {
+      swap_committed: true,
+      client_response_deliberately_lost: true,
+      nut09_restore_called: true,
+      replacement_proofs_recovered: restoredProofs.length,
+      expected_replacement_proofs: swapOutputData.length,
+      original_proof_states: postOriginalStates.states.map((s) => s.state),
+      restored_proof_states: restoredStates.states.map((s) => s.state),
+      receipts_recovered: receiptsVerified,
+      expected_receipts: swapOutputData.length,
+      accounting_rows_before_restore: countsBeforeRestore,
+      accounting_rows_after_restore: countsAfterRestore,
+      duplicates_created: (countsAfterRestore.consumed - countsBeforeRestore.consumed) + (countsAfterRestore.issued - countsBeforeRestore.issued),
+      expected_duplicates_created: 0,
+      restore_endpoint: 'POST /v1/restore (crates/cdk-axum, real CDK NUT-09 endpoint, not a SOLVENT addition)',
+      nut07: nut07Block({
+        originals: { expected: 'SPENT', actual: postOriginalStates.states.map((s) => s.state) },
+        replacements: { expected: 'UNSPENT', actual: restoredStates.states.map((s) => s.state) },
+        note: 'replacements are the proofs rebuilt from the NUT-09 restore response, not from the discarded swap response',
+      }),
+      invariant: 'P2-S9, P2-S10 (INVARIANTS.md)',
+    },
+  });
 
   console.log('');
   if (allPass) {

@@ -46,8 +46,10 @@ function main() {
     .update(Buffer.concat(patchFiles.map((p) => readFileSync(p))))
     .digest('hex');
 
+  let written = 0;
   const write = (name: string, data: unknown) => {
     writeFileSync(join(outDir, name), JSON.stringify(data, null, 2) + '\n');
+    written++;
   };
 
   write('versions.json', {
@@ -163,7 +165,7 @@ function main() {
   });
 
   db.close();
-  console.log(`Wrote 13 machine-readable evidence files to ${outDir}/`);
+  console.log(`Wrote ${written} NUT-04 (Step 8) machine-readable evidence files to ${outDir}/ — NUT-03 evidence is written separately, as nut03-*.json, by the NUT-03 scripts themselves`);
 }
 
 main();

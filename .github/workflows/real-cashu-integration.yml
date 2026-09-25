@@ -1,21 +1,34 @@
-# SOLVENT Phase 1 — Real Cashu Foundation.
+# SOLVENT — Real Cashu Integration: Phase 1 foundation + Phase 2
+# mint-native accounting (NUT-04 and NUT-03).
 #
 # Brings up a REAL regtest stack (Bitcoin Core + 2 real `lnd` nodes + a real
-# CDK mint, backend `lnd` — no fakewallet) and runs
-# src/cli/real-cashu/real-cashu-foundation.ts against it: real invoice
-# payment, real NUT-04 issuance, real NUT-03 swap, real double-spend
-# rejection, real NUT-05 melt. See docs/real-cashu-stack.md for the full
-# architecture and docs/reproduce-real-stack.md to run this exact sequence
-# yourself outside CI.
+# CDK mint, backend `lnd` — no fakewallet) and runs against it:
+#   - Phase 1: src/cli/real-cashu/real-cashu-foundation.ts — real invoice
+#     payment, real NUT-04 issuance, real NUT-03 swap, real double-spend
+#     rejection, real NUT-05 melt, plus the process-restart check.
+#   - Phase 2, NUT-04 (Step 8): SOLVENT accounting triggers and atomicity,
+#     real mint-native PoL receipt signing and independent verification,
+#     receipt recovery, a real SIGKILL crash drill, receipt retrieval and
+#     wallet consumption, and reconciliation before/after restart.
+#   - Phase 2, NUT-03: real swap accounting, conservation, failed swap /
+#     double-spend, NUT-09 restore after response loss, a real SIGKILL crash
+#     drill inside the swap transaction, multiple consecutive swaps, restart
+#     persistence, and the machine-readable NUT-03 evidence package
+#     (evidence/real-pol/<run-id>/nut03-*.json) checked by
+#     `npm run verify:nut03-evidence`.
+# NUT-05 (melt) accounting is not implemented and not exercised here. See
+# docs/real-cashu-stack.md, docs/receipt-lifecycle.md and
+# docs/reproduce-real-stack.md.
 #
-# Every binary is a pinned, checksum-verified prebuilt release — see
-# docs/dependencies.md for exactly which versions and why. Nothing here
-# builds Bitcoin Core, LND, or CDK from source.
+# Bitcoin Core and LND are pinned, checksum-verified prebuilt releases (see
+# docs/dependencies.md). cdk-mintd is NOT prebuilt: it is built from source
+# at the pinned upstream commit (CDK_COMMIT below) with SOLVENT's checked-in
+# patch series (patches/cdk/*.patch) applied.
 #
 # Fails closed: any step failing stops the job before the ones after it —
 # there is no fallback path that reports success without the real stack
 # actually running.
-name: Real Cashu Integration (Phase 1)
+name: Real Cashu Integration (Phase 1 + Phase 2)
 
 on:
   workflow_dispatch: {}
@@ -36,6 +49,10 @@ env:
   # docs/cdk-integration-seams.md and DECISIONS.md's Phase 2 Step 5 entry.
   # Bitcoin Core and LND remain Phase 1's unmodified prebuilt downloads.
   CDK_COMMIT: 'a056e0f0f69e94f431b1aeb90d883f18c61ea4c6'
+  # Every NUT-03 evidence file (src/cli/real-cashu/nut03-evidence.ts) is
+  # written under evidence/real-pol/<this run id>/, so the uploaded artifact
+  # and the evidence verifier refer to exactly this real run.
+  SOLVENT_RUN_ID: ${{ github.run_id }}
 
 jobs:
   real-cashu-foundation:
@@ -526,7 +543,11 @@ jobs:
           set -euo pipefail
           export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
           export NODE_TLS_REJECT_UNAUTHORIZED=0
-          npm run verify:pol-swap
+          # The database path lets the script snapshot real swap-scoped row
+          # counts around the real swap call and write nut03-swap.json,
+          # nut03-conservation.json, nut03-accounting-rows.json and
+          # nut03-receipts.json from those same real values.
+          npm run verify:pol-swap -- /tmp/regtest/mint/cdk-mintd.sqlite
 
       - name: Real failed swap and double-spend-after-swap
         env:
@@ -591,9 +612,19 @@ jobs:
 
           sleep 2
           echo "Sending real SIGKILL to the real mint process now (still inside the 5s swap delay window)"
-          kill -9 "$MINTD_PID" 2>/dev/null || true
+          # Record whether the real SIGKILL was actually delivered, rather
+          # than assuming it — a kill that found no process is written to
+          # the evidence as sigkill_sent=false and fails the check.
+          if kill -9 "$MINTD_PID" 2>/dev/null; then SIGKILL_SENT=1; else SIGKILL_SENT=0; fi
+          wait "$MINTD_PID" 2>/dev/null || true
           wait "$TRIGGER_PID" || true
           cat /tmp/regtest/mint/swap-crash-trigger.log || true
+
+          # Row counts while the mint is dead, before any restart/recovery.
+          # Read-only; if the kill left a journal a read-only open can't
+          # read through, record "unreadable" rather than a guessed number.
+          BETWEEN=$(npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite 2>/dev/null || echo "unreadable")
+          echo "After real SIGKILL, before restart: $BETWEEN"
 
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
             >> /tmp/regtest/mint/mintd.log 2>&1 &
@@ -612,10 +643,20 @@ jobs:
           AFTER=$(npm run --silent verify:pol-count-swap -- /tmp/regtest/mint/cdk-mintd.sqlite)
           echo "After swap crash drill (real restart): $AFTER"
 
-          if [ "$BEFORE" = "$AFTER" ]; then
+          # Write nut03-crash-before-commit.json from these same real values,
+          # plus a real NUT-07 check of the drill's original proofs against
+          # the restarted mint. Written before the pass/fail decision below
+          # so the evidence exists even if the drill fails.
+          if npm run --silent verify:pol-swap-crash-evidence -- "$BEFORE" "$AFTER" "$SIGKILL_SENT" /tmp/regtest/mint/swap-crash-drill-proofs.json "$BETWEEN"; then
+            EVIDENCE_OK=1
+          else
+            EVIDENCE_OK=0
+          fi
+
+          if [ "$BEFORE" = "$AFTER" ] && [ "$SIGKILL_SENT" = "1" ] && [ "$EVIDENCE_OK" = "1" ]; then
             echo "SWAP_CRASH_BEFORE_COMMIT_ROLLBACK: PASS  identical row counts — nothing from the killed attempt persisted"
           else
-            echo "SWAP_CRASH_BEFORE_COMMIT_ROLLBACK: FAIL  counts differ: before=$BEFORE after=$AFTER" >&2
+            echo "SWAP_CRASH_BEFORE_COMMIT_ROLLBACK: FAIL  before=$BEFORE after=$AFTER sigkill_sent=$SIGKILL_SENT evidence_ok=$EVIDENCE_OK" >&2
             exit 1
           fi
 
@@ -733,10 +774,29 @@ jobs:
           # correct accounting.
           export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
           export NODE_TLS_REJECT_UNAUTHORIZED=0
-          npm run verify:pol-swap
+          # Variant "post-restart" writes nut03-swap-post-restart.json (and
+          # its -post-restart siblings) as its own files, instead of
+          # overwriting the first swap's evidence.
+          if npm run verify:pol-swap -- /tmp/regtest/mint/cdk-mintd.sqlite post-restart; then
+            POST_RESTART_SWAP_PASS=1
+          else
+            POST_RESTART_SWAP_PASS=0
+          fi
 
-      - name: Generate NUT-03 machine-readable evidence
-        run: npm run verify:pol-evidence -- /tmp/regtest/mint/cdk-mintd.sqlite "${{ github.run_id }}"
+          # nut03-restart.json, from the same real before/after row-count
+          # snapshots the previous two steps took around the real restart.
+          npm run --silent verify:pol-swap-restart-evidence -- \
+            "$(cat /tmp/regtest/mint/pol-swap-pre-restart.txt)" \
+            "$(cat /tmp/regtest/mint/pol-swap-post-restart.txt)" \
+            "$POST_RESTART_SWAP_PASS"
+
+          [ "$POST_RESTART_SWAP_PASS" = "1" ]
+
+      - name: Collate real NUT-07 reconciliation across NUT-03 scenarios
+        run: npm run verify:pol-nut03-nut07-summary
+
+      - name: Verify the NUT-03 machine-readable evidence package
+        run: npm run verify:nut03-evidence -- "$SOLVENT_RUN_ID"
 
       - name: Collect logs
         if: always()
@@ -753,7 +813,7 @@ jobs:
           cp /tmp/regtest/mint/crash-trigger.log /tmp/regtest-logs/crash-trigger.log 2>/dev/null || true
           cp /tmp/regtest/mint/swap-crash-trigger.log /tmp/regtest-logs/swap-crash-trigger.log 2>/dev/null || true
 
-      - name: Upload Phase 1 evidence
+      - name: Upload Phase 1 + Phase 2 evidence (real-cashu, real-pol incl. nut03-*.json, logs)
         if: always()
         uses: actions/upload-artifact@v4
         with:

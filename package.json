@@ -44,7 +44,11 @@
     "verify:pol-swap-restore": "tsx src/cli/real-cashu/pol-swap-restore.ts",
     "verify:pol-swap-crash-mint": "tsx src/cli/real-cashu/pol-swap-crash-mint-proofs.ts",
     "verify:pol-swap-crash-trigger": "tsx src/cli/real-cashu/pol-swap-crash-trigger.ts",
-    "verify:pol-evidence": "tsx src/cli/real-cashu/pol-generate-evidence.ts"
+    "verify:pol-evidence": "tsx src/cli/real-cashu/pol-generate-evidence.ts",
+    "verify:pol-swap-crash-evidence": "tsx src/cli/real-cashu/pol-swap-crash-evidence.ts",
+    "verify:pol-swap-restart-evidence": "tsx src/cli/real-cashu/pol-swap-restart-evidence.ts",
+    "verify:pol-nut03-nut07-summary": "tsx src/cli/real-cashu/pol-nut03-nut07-summary.ts",
+    "verify:nut03-evidence": "tsx src/cli/real-cashu/pol-verify-nut03-evidence.ts"
   },
   "repository": {
     "type": "git",

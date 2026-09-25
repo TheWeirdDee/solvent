@@ -6,27 +6,33 @@
 // swap's own replacement outputs), tracking cumulative issued/consumed
 // totals and outstanding liability after each step. Outstanding must stay
 // constant at the original minted amount throughout.
-import { DatabaseSync } from 'node:sqlite';
-import { Mint, OutputData, type MintRequest, type Proof, type SerializedBlindedMessage, type SwapRequest, type MintKeys } from '@cashu/cashu-ts';
+import {
+  Mint,
+  OutputData,
+  CheckStateEnum,
+  hashToCurve,
+  type MintRequest,
+  type Proof,
+  type SerializedBlindedMessage,
+  type SwapRequest,
+  type MintKeys,
+} from '@cashu/cashu-ts';
 import { LndClient } from './lnd-client.js';
+import { nut07Block, outstandingTotals, writeNut03Evidence } from './nut03-evidence.js';
 
 function line(label: string, ok: boolean, detail?: string): string {
   return `${label.padEnd(38)}${ok ? 'PASS' : 'FAIL'}${detail ? '  ' + detail : ''}`;
 }
 
-// Whole-database totals (not scoped to this test's own rows), because
-// "outstanding liability" is a property of the mint's entire accounting
-// state, not one operation. Other CI steps mint/swap in the same
-// database before this one runs, so the assertion below compares
-// before/after *within this script's own run* (a pure swap must not
-// change the global outstanding total), not against a hardcoded absolute
-// value — a more general, order-independent form of the same invariant.
-function outstandingTotals(dbPath: string): { issuedSat: number; consumedSat: number } {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  const issued = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS n FROM solvent_issued_liability`).get() as { n: number };
-  const consumed = db.prepare(`SELECT COALESCE(SUM(amount), 0) AS n FROM solvent_consumed_liability`).get() as { n: number };
-  db.close();
-  return { issuedSat: issued.n, consumedSat: consumed.n };
+function proofY(proof: Proof): string {
+  return hashToCurve(new TextEncoder().encode(proof.secret)).toHex(true);
+}
+
+async function realStates(mint: Mint, proofs: Proof[]): Promise<string[]> {
+  const ys = proofs.map(proofY);
+  const res = await mint.check({ Ys: ys });
+  const byY = new Map(res.states.map((s) => [s.Y, s.state as string]));
+  return ys.map((y) => byY.get(y) ?? 'UNKNOWN');
 }
 
 async function swapOnce(mint: Mint, keyset: MintKeys, inputProofs: Proof[]): Promise<Proof[]> {
@@ -72,20 +78,65 @@ async function main() {
   console.log(`Before any swap:  issued=${before.issuedSat} consumed=${before.consumedSat} outstanding=${baselineOutstanding}`);
 
   let allPass = true;
+  const steps: Array<{
+    label: string;
+    issued_sat: number;
+    consumed_sat: number;
+    outstanding_sat: number;
+    outstanding_unchanged: boolean;
+    nut07: Record<string, unknown>;
+    pass: boolean;
+  }> = [];
   for (const label of ['A', 'B']) {
-    proofs = await swapOnce(mint, keyset, proofs);
+    const previousProofs = proofs;
+    proofs = await swapOnce(mint, keyset, previousProofs);
     const totals = outstandingTotals(dbPath);
     const outstanding = totals.issuedSat - totals.consumedSat;
-    const ok = outstanding === baselineOutstanding;
+    const outstandingOk = outstanding === baselineOutstanding;
+
+    // Real NUT-07 per step: the proofs this swap consumed must now be SPENT,
+    // and the proofs it issued must be UNSPENT.
+    const nut07 = nut07Block({
+      originals: { expected: CheckStateEnum.SPENT, actual: await realStates(mint, previousProofs) },
+      replacements: { expected: CheckStateEnum.UNSPENT, actual: await realStates(mint, proofs) },
+    });
+    const ok = outstandingOk && nut07.pass === true;
     allPass = allPass && ok;
+    steps.push({
+      label,
+      issued_sat: totals.issuedSat,
+      consumed_sat: totals.consumedSat,
+      outstanding_sat: outstanding,
+      outstanding_unchanged: outstandingOk,
+      nut07,
+      pass: ok,
+    });
     console.log(
       line(
         `After swap ${label}`,
         ok,
-        `issued=${totals.issuedSat} consumed=${totals.consumedSat} outstanding=${outstanding} (expected unchanged at ${baselineOutstanding})`,
+        `issued=${totals.issuedSat} consumed=${totals.consumedSat} outstanding=${outstanding} (expected unchanged at ${baselineOutstanding}); NUT-07 ${nut07.pass ? 'PASS' : 'FAIL'}`,
       ),
     );
   }
+
+  writeNut03Evidence({
+    filename: 'nut03-multi-swap.json',
+    operation: 'nut03_multi_swap',
+    pass: allPass,
+    data: {
+      before: { issued_sat: before.issuedSat, consumed_sat: before.consumedSat, outstanding_sat: baselineOutstanding },
+      swaps: steps,
+      expected_outstanding_sat: baselineOutstanding,
+      nut07: nut07Block({
+        originals: { expected: CheckStateEnum.SPENT, actual: steps.flatMap((s) => ((s.nut07.originals as { actual: string[] }).actual)) },
+        replacements: { expected: CheckStateEnum.UNSPENT, actual: steps.flatMap((s) => ((s.nut07.replacements as { actual: string[] }).actual)) },
+        note: 'per-step detail is in swaps[].nut07; this is the union across both swaps',
+      }),
+      measurement_method: 'whole-database SUM(amount) over solvent_issued_liability/solvent_consumed_liability, not row counts — a delta relative to this script\'s own baseline, since other CI steps mint/swap in the same database',
+      invariant: 'P2-S9 extended to consecutive swaps (INVARIANTS.md)',
+    },
+  });
 
   console.log('');
   if (allPass) {
