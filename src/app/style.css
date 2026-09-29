@@ -1833,14 +1833,15 @@ select {
 
 .publish-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* minmax(0, …): long unbreakable values must wrap, never widen the card. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 22px;
   align-items: start;
 }
 
 .publisher-summary dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 9px 18px;
   margin: 18px 0 0;
   font-size: 0.95rem;
@@ -1852,6 +1853,8 @@ select {
 
 .publisher-summary dd {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-weight: 700;
   text-align: right;
   font-family: var(--font-mono);
@@ -1952,7 +1955,7 @@ select {
   }
 
   .publish-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
