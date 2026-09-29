@@ -1,5 +1,7 @@
 # SOLVENT — Real Cashu Integration: Phase 1 foundation + Phase 2
-# mint-native accounting (NUT-04 and NUT-03) + Phase 3A real PoL epochs.
+# mint-native accounting (NUT-04 and NUT-03) + Phase 3A real PoL epochs +
+# Phase 3B real public solvency evidence (mint-identity delegation, live
+# Mutinynet reserve, public Nostr publication and fetch-back).
 #
 # Brings up a REAL regtest stack (Bitcoin Core + 2 real `lnd` nodes + a real
 # CDK mint, backend `lnd` — no fakewallet) and runs against it:
@@ -28,7 +30,7 @@
 # Fails closed: any step failing stops the job before the ones after it —
 # there is no fallback path that reports success without the real stack
 # actually running.
-name: Real Cashu Integration (Phase 1 + Phase 2)
+name: Real Cashu + SOLVENT Integration
 
 on:
   workflow_dispatch: {}
@@ -873,6 +875,83 @@ jobs:
           npm run pol:epoch-close -- "$DB" --json-out "$EV/phase3-post-restart-close.json"
           npm run verify:pol-epoch -- "$DB" --audit-only --evidence-out "$EV/phase3-post-restart-audit.json"
 
+      # Phase 3B — real public solvency evidence on this same real-LND stack
+      # (docs/phase3b-public-evidence.md). The mint identity is the running
+      # mint's own NUT-06 key; the manifest key is the one this run's Phase 3A
+      # epochs were signed with; the delegation is produced here by the real
+      # operator CLI (patches/cdk/0008) — never a checked-in fixture.
+      - name: Phase 3B — mint identity delegates this run's manifest key (real operator CLI)
+        run: |
+          set -euo pipefail
+          DB=/tmp/regtest/mint/cdk-mintd.sqlite
+          MANIFEST_KEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key)
+          PUB=$(node -e "const c=require('@cashu/cashu-ts');process.stdout.write(Buffer.from(c.getPubKeyFromPrivKey(Buffer.from(process.argv[1],'hex'))).toString('hex'))" "$MANIFEST_KEY")
+          FIRST=$(sqlite3 "$DB" "SELECT MIN(epoch_index) FROM solvent_pol_epoch WHERE state = 'CLOSED' AND manifest_pubkey = '$PUB';")
+          echo "manifest pubkey $PUB — first epoch it signed: $FIRST"
+          test -n "$FIRST"
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            solvent delegate-manifest-key --manifest-pubkey "$PUB" --valid-from-epoch "$FIRST" \
+            > /tmp/regtest/mint/delegation.json
+          cat /tmp/regtest/mint/delegation.json
+          # The delegation's signer must be the LIVE mint's NUT-06 identity
+          # (phase3b:live re-verifies the signature and records it as well).
+          LIVE_ID=$(curl -sf http://127.0.0.1:8085/v1/info | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).pubkey))")
+          DELEGATION_ID=$(node -e "process.stdout.write(require('/tmp/regtest/mint/delegation.json').mint_identity_pubkey)")
+          echo "live NUT-06 identity $LIVE_ID — delegation signer $DELEGATION_ID"
+          [ "$LIVE_ID" = "$DELEGATION_ID" ]
+
+      - name: Phase 3B — honest + broken promise over real LND, live Mutinynet reserve, public Nostr
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export SOLVENT_MANIFEST_PRIVKEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key)
+          export SOLVENT_MANIFEST_DELEGATION=/tmp/regtest/mint/delegation.json
+          # Separate directory: Phase 3A already wrote phase3-*.json for this run.
+          export SOLVENT_RUN_ID="${SOLVENT_RUN_ID}-phase3b"
+          export SOLVENT_LIGHTNING_BACKEND=lnd
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          # Trust exactly LND-2's self-signed certificate — NOT a global TLS
+          # bypass: the Mutinynet reserve query and the Nostr relays keep full
+          # certificate verification.
+          export NODE_EXTRA_CA_CERTS=/tmp/regtest/lnd-two/tls.cert
+          npm run phase3b:live -- /tmp/regtest/mint/cdk-mintd.sqlite
+
+      - name: Phase 3B — verify the real-LND evidence offline (replay + recompute)
+        run: npm run verify:phase3b-evidence -- "evidence/real-pol/${SOLVENT_RUN_ID}-phase3b"
+
+      # Runs even if an earlier step failed, and before upload: any evidence
+      # directory containing secret material is deleted and the job fails.
+      - name: Secret scan of all evidence before upload
+        if: always()
+        run: |
+          set -uo pipefail
+          FOUND=0
+          MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon 2>/dev/null || true)
+          MACAROON_ONE=$(xxd -p -c 10000 /tmp/regtest/lnd-one/data/chain/bitcoin/regtest/admin.macaroon 2>/dev/null || true)
+          MANIFEST_KEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key 2>/dev/null || true)
+          RESERVE_TWEAKED=$(node -e "process.stdout.write(require('./evidence/reserves/reserve-key.json').tweakedPrivateKeyHex)")
+          RESERVE_INTERNAL=$(node -e "process.stdout.write(require('./evidence/reserves/reserve-key.json').internalPrivateKeyHex)")
+          for DIR in "evidence/real-pol/${SOLVENT_RUN_ID}" "evidence/real-pol/${SOLVENT_RUN_ID}-phase3b" evidence/real-cashu; do
+            [ -d "$DIR" ] || continue
+            HIT=0
+            for SECRET in "$MACAROON_HEX" "$MACAROON_ONE" "$MANIFEST_KEY" "$RESERVE_TWEAKED" "$RESERVE_INTERNAL"; do
+              [ -n "$SECRET" ] || continue
+              if grep -rqF "$SECRET" "$DIR"; then HIT=1; fi
+            done
+            if grep -rqE 'xprv[1-9A-HJ-NP-Za-km-z]{20,}|nsec1[0-9a-z]{20,}|abandon abandon abandon|ghp_[A-Za-z0-9]{20,}|github_pat_' "$DIR"; then HIT=1; fi
+            if [ "$HIT" = "1" ]; then
+              echo "SECRET MATERIAL FOUND in $DIR — deleting it before upload"
+              rm -rf "$DIR"
+              FOUND=1
+            else
+              echo "$DIR: no secret material"
+            fi
+          done
+          [ "$FOUND" = "0" ]
+
       - name: Collect logs
         if: always()
         run: |
@@ -889,7 +968,7 @@ jobs:
           cp /tmp/regtest/mint/swap-crash-trigger.log /tmp/regtest-logs/swap-crash-trigger.log 2>/dev/null || true
           cp /tmp/regtest/mint/epoch-close-crash.log /tmp/regtest-logs/epoch-close-crash.log 2>/dev/null || true
 
-      - name: Upload Phase 1 + Phase 2 evidence (real-cashu, real-pol incl. nut03-*.json, logs)
+      - name: Upload evidence (real-cashu, real-pol incl. nut03-*.json, Phase 3A/3B, logs)
         if: always()
         uses: actions/upload-artifact@v4
         with:
