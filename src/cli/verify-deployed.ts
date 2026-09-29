@@ -41,52 +41,56 @@ async function main(): Promise<boolean> {
   console.log(`Expected published at:        ${liveDemo.publishedAt}\n`);
 
   const base = url.endsWith('/') ? url : `${url}/`;
+  // GitHub Pages' CDN can keep serving the previous build for a short while
+  // after deploy-pages reports success. Poll (bounded) instead of checking
+  // once: a genuinely stale deployment still fails after the last attempt.
+  const attempts = Number(process.env.VERIFY_DEPLOYED_ATTEMPTS ?? '10');
+  const intervalMs = Number(process.env.VERIFY_DEPLOYED_INTERVAL_MS ?? '20000');
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const outcome = await checkOnce(base, expectedEventId);
+    if (outcome === 'found') {
+      console.log('');
+      console.log(`DEPLOYED SITE VERIFIED — serving the current canonical Live Public Demo evidence (attempt ${attempt}/${attempts}).`);
+      return true;
+    }
+    if (attempt < attempts) {
+      console.log(`  attempt ${attempt}/${attempts}: ${outcome} — retrying in ${intervalMs / 1000}s (CDN propagation)`);
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+  }
+  console.log('');
+  console.log(`DEPLOYED SITE STALE OR MISMATCHED — after ${attempts} attempts the deployed bundle still does not contain the current canonical live-demo event id. It picked up a build from before the last \`npm run live-demo\` regeneration, or the deployment never propagated.`);
+  return false;
+}
 
+/** One pass: fetch index.html (cache-busted), then its scripts, looking for the expected event id. */
+async function checkOnce(base: string, expectedEventId: string): Promise<'found' | string> {
+  const bust = `v=${Date.now()}`;
   let indexRes: Response;
   try {
-    indexRes = await fetch(base);
+    indexRes = await fetch(`${base}?${bust}`, { cache: 'no-store' });
   } catch (err) {
-    console.log(`FAIL — could not reach deployed index: ${(err as Error).message}`);
-    return false;
+    return `could not reach deployed index: ${(err as Error).message}`;
   }
-  if (!indexRes.ok) {
-    console.log(`FAIL — deployed index returned HTTP ${indexRes.status}`);
-    return false;
-  }
+  if (!indexRes.ok) return `deployed index returned HTTP ${indexRes.status}`;
   const html = await indexRes.text();
   const scriptSrcs = [...html.matchAll(/<script[^>]+src="([^"]+)"/g)].map((m) => m[1]!);
-  if (scriptSrcs.length === 0) {
-    console.log('FAIL — no <script src> tags found in the deployed index.html (unexpected build output shape)');
-    return false;
-  }
-
-  let found = false;
+  if (scriptSrcs.length === 0) return 'no <script src> tags in the deployed index.html';
   for (const src of scriptSrcs) {
     const scriptUrl = new URL(src, base).toString();
     console.log(`Checking deployed bundle: ${scriptUrl}`);
     try {
-      const res = await fetch(scriptUrl);
+      const res = await fetch(`${scriptUrl}?${bust}`, { cache: 'no-store' });
       if (!res.ok) {
         console.log(`  HTTP ${res.status} — skipping`);
         continue;
       }
-      const body = await res.text();
-      if (body.includes(expectedEventId)) {
-        found = true;
-        break;
-      }
+      if ((await res.text()).includes(expectedEventId)) return 'found';
     } catch (err) {
       console.log(`  fetch failed: ${(err as Error).message} — skipping`);
     }
   }
-
-  console.log('');
-  if (found) {
-    console.log('DEPLOYED SITE VERIFIED — serving the current canonical Live Public Demo evidence.');
-    return true;
-  }
-  console.log('DEPLOYED SITE STALE OR MISMATCHED — the deployed bundle does not contain the current canonical live-demo event id. Either the deployment has not propagated yet, or it picked up a build from before the last `npm run live-demo` regeneration.');
-  return false;
+  return 'bundle does not yet contain the expected event id';
 }
 
 main()
