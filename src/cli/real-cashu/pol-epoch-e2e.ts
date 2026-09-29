@@ -25,6 +25,12 @@
 // Environment:
 //   CDK_MINT_URL               the running mint
 //   SOLVENT_MANIFEST_PRIVKEY   32-byte hex manifest key
+//   SOLVENT_MANIFEST_DELEGATION
+//                              path to the `cdk-mintd solvent delegate-manifest-key`
+//                              output for that key. Required: the central verifier
+//                              only treats a real (URL) mint's manifest as
+//                              authoritative with the mint identity's delegation,
+//                              checked against the mint's live NUT-06 pubkey.
 //   SOLVENT_RUN_ID             evidence directory name (default local-<time>)
 //   LND_SOURCE_REST_URL, LND_SOURCE_MACAROON_HEX
 //                              when set, invoices are paid over real
@@ -32,12 +38,14 @@
 //                              must run the fakewallet backend, which
 //                              self-settles its invoices — recorded as such.
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { getEncodedToken, Mint, Wallet, type Proof } from '@cashu/cashu-ts';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { schnorrVerifyDigest } from '@cashu/cashu-ts';
 import { reconstruct } from '../../cashu/reconstruct.js';
+import { fetchMintIdentity } from '../../app/submission.js';
+import type { ManifestKeyDelegation } from '../../epoch/delegation.js';
 import { auditClosedEpoch, closeEpoch, issuanceEvidence, loadClosedEpoch, openEpoch, type ClosedEpoch } from '../../epoch/closer.js';
 import { ZERO_DIGEST_HEX } from '../../pol/manifest.js';
 import { issuedLeaf, verifyInclusionProof, hexToBytes } from '../../pol/mmr.js';
@@ -72,6 +80,9 @@ interface Ctx {
   keysetId: string;
   lnd: LndClient | null;
   evidenceDir: string;
+  /** The mint's NUT-06 identity, fetched live from /v1/info. */
+  mintIdentityPubkey: string;
+  delegation: ManifestKeyDelegation;
 }
 
 function writeEvidence(ctx: Ctx, name: string, body: unknown): void {
@@ -136,6 +147,11 @@ function verifierInput(ctx: Ctx, proof: Proof, bm: string): VerifyInput {
     masterPublicKeyHex: ev.masterPublicKeyHex,
     issuedMmrSize: ev.issuedMmrSize,
     inclusionProof: ev.inclusionProof,
+    // Authority chain (required for a URL mint): live NUT-06 identity, the
+    // real delegation, and the closed epoch's actual keyset count.
+    mintIdentityPubkey: ctx.mintIdentityPubkey,
+    delegation: ctx.delegation,
+    epochKeysetCount: loadClosedEpoch(ctx.db, ev.receipt.target_epoch)!.keysets.length,
     // reserve and nostr deliberately omitted — Phase 3B.
   };
 }
@@ -204,8 +220,10 @@ async function honestCase(ctx: Ctx): Promise<ClosedEpoch> {
       verifyInclusionProof(issuedLeaf(heldBm, Number(held.amount)), input.inclusionProof, input.issuedMmrSize, hexToBytes(input.manifest.issued_mmr_root_hash), BigInt(input.manifest.issued_mmr_root_sum)),
   );
   const result = verify(input);
-  const polPassed = result.checks.receiptValid && result.checks.targetEpochClosed && result.checks.manifestValid && result.checks.liabilityArithmeticValid && result.checks.inclusionValid;
-  check('Central verifier: every PoL check passes', polPassed);
+  const polPassed =
+    result.checks.receiptValid && result.checks.targetEpochClosed && result.checks.manifestValid && result.checks.delegationValid === true &&
+    result.checks.liabilityArithmeticValid && result.checks.inclusionValid;
+  check('Central verifier: every PoL and authority check passes (incl. delegation)', polPassed);
   check('Central verifier fails closed without Phase 3B evidence (REFUSE_UNVERIFIABLE)', result.reasonCode === 'REFUSE_UNVERIFIABLE', result.reasonCode);
 
   const next = await payAndMint(ctx, 8);
@@ -243,7 +261,10 @@ async function brokenPromiseCase(ctx: Ctx): Promise<void> {
   const input = verifierInput(ctx, victim, victimBm);
   check('No inclusion proof can be produced for the promised issuance', input.inclusionProof === null);
   const result = verify(input);
-  check('Receipt, epoch closure, manifest signature and arithmetic all verify', result.checks.receiptValid && result.checks.targetEpochClosed && result.checks.manifestValid && result.checks.liabilityArithmeticValid);
+  check(
+    'Receipt, epoch closure, manifest, delegation and arithmetic all verify',
+    result.checks.receiptValid && result.checks.targetEpochClosed && result.checks.manifestValid && result.checks.delegationValid === true && result.checks.liabilityArithmeticValid,
+  );
   check('Central verifier: REFUSE_ISSUANCE_OMITTED', result.reasonCode === 'REFUSE_ISSUANCE_OMITTED', result.reasonCode);
 
   const sibling = minted.proofs[1];
@@ -330,7 +351,13 @@ async function main() {
         process.env.LND_SOURCE_REST_URL && process.env.LND_SOURCE_MACAROON_HEX
           ? new LndClient({ restUrl: process.env.LND_SOURCE_REST_URL, macaroonHex: process.env.LND_SOURCE_MACAROON_HEX })
           : null;
-      const ctx: Ctx = { mintUrl, db, key, wallet, keys: active.keys, keysetId: active.id, lnd, evidenceDir };
+      const delegationFile = process.env.SOLVENT_MANIFEST_DELEGATION;
+      if (!delegationFile) throw new Error('SOLVENT_MANIFEST_DELEGATION is required (output of `cdk-mintd solvent delegate-manifest-key` for this manifest key)');
+      const delegation = JSON.parse(readFileSync(delegationFile, 'utf8')) as ManifestKeyDelegation;
+      const identity = await fetchMintIdentity(mintUrl);
+      if (!identity.ok) throw new Error(`could not observe the mint's NUT-06 identity: ${identity.detail}`);
+      check("Delegation signer is the mint's live NUT-06 identity", delegation.mint_identity_pubkey === identity.pubkey, identity.pubkey);
+      const ctx: Ctx = { mintUrl, db, key, wallet, keys: active.keys, keysetId: active.id, lnd, evidenceDir, mintIdentityPubkey: identity.pubkey, delegation };
       await honestCase(ctx);
       await brokenPromiseCase(ctx);
       console.log('\n— ALL CLOSED EPOCHS —');

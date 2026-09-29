@@ -817,9 +817,20 @@ jobs:
           LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
         run: |
           set -euo pipefail
-          # A fresh manifest key per run, kept for the restart audit below.
+          # A fresh manifest key per run, kept for the restart audit and Phase 3B below.
           openssl rand -hex 32 > /tmp/regtest/mint/manifest.key
-          export SOLVENT_MANIFEST_PRIVKEY=$(cat /tmp/regtest/mint/manifest.key)
+          export SOLVENT_MANIFEST_PRIVKEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key)
+          # The central verifier only treats a real mint's manifest as
+          # authoritative with the mint identity's delegation (patches/cdk/0008).
+          # The running mint's own NUT-06 identity delegates this key from
+          # epoch 1 — the first epoch it will sign — via the real operator CLI.
+          PUB=$(node -e "const c=require('@cashu/cashu-ts');process.stdout.write(Buffer.from(c.getPubKeyFromPrivKey(Buffer.from(process.argv[1],'hex'))).toString('hex'))" "$SOLVENT_MANIFEST_PRIVKEY")
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            solvent delegate-manifest-key --manifest-pubkey "$PUB" --valid-from-epoch 1 \
+            > /tmp/regtest/mint/delegation.json
+          cat /tmp/regtest/mint/delegation.json
+          export SOLVENT_MANIFEST_DELEGATION=/tmp/regtest/mint/delegation.json
           export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
           export NODE_TLS_REJECT_UNAUTHORIZED=0  # regtest LND self-signed certs only
           npm run verify:pol-epoch -- /tmp/regtest/mint/cdk-mintd.sqlite
@@ -880,21 +891,20 @@ jobs:
       # mint's own NUT-06 key; the manifest key is the one this run's Phase 3A
       # epochs were signed with; the delegation is produced here by the real
       # operator CLI (patches/cdk/0008) — never a checked-in fixture.
-      - name: Phase 3B — mint identity delegates this run's manifest key (real operator CLI)
+      - name: Phase 3B — the Phase 3A delegation covers every epoch this key signed
         run: |
           set -euo pipefail
           DB=/tmp/regtest/mint/cdk-mintd.sqlite
           MANIFEST_KEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key)
           PUB=$(node -e "const c=require('@cashu/cashu-ts');process.stdout.write(Buffer.from(c.getPubKeyFromPrivKey(Buffer.from(process.argv[1],'hex'))).toString('hex'))" "$MANIFEST_KEY")
           FIRST=$(sqlite3 "$DB" "SELECT MIN(epoch_index) FROM solvent_pol_epoch WHERE state = 'CLOSED' AND manifest_pubkey = '$PUB';")
-          echo "manifest pubkey $PUB — first epoch it signed: $FIRST"
-          test -n "$FIRST"
-          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
-            solvent delegate-manifest-key --manifest-pubkey "$PUB" --valid-from-epoch "$FIRST" \
-            > /tmp/regtest/mint/delegation.json
-          cat /tmp/regtest/mint/delegation.json
-          # The delegation's signer must be the LIVE mint's NUT-06 identity
+          node -e "
+            const d = require('/tmp/regtest/mint/delegation.json');
+            if (d.manifest_pubkey !== process.argv[1]) throw new Error('delegation is for a different manifest key');
+            if (d.valid_from_epoch !== Number(process.argv[2])) throw new Error('valid_from_epoch ' + d.valid_from_epoch + ' is not the first epoch the key signed (' + process.argv[2] + ')');
+            console.log('reusing the Phase 3A delegation: manifest key', d.manifest_pubkey, 'valid from epoch', d.valid_from_epoch);
+          " "$PUB" "$FIRST"
+          # The delegation's signer must still be the LIVE mint's NUT-06 identity
           # (phase3b:live re-verifies the signature and records it as well).
           LIVE_ID=$(curl -sf http://127.0.0.1:8085/v1/info | node -e "let d='';process.stdin.on('data',c=>d+=c).on('end',()=>process.stdout.write(JSON.parse(d).pubkey))")
           DELEGATION_ID=$(node -e "process.stdout.write(require('/tmp/regtest/mint/delegation.json').mint_identity_pubkey)")
