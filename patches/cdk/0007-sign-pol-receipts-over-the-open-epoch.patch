@@ -1,0 +1,387 @@
+diff --git a/crates/cdk-common/src/database/mint/mod.rs b/crates/cdk-common/src/database/mint/mod.rs
+index 874c7da7..dc4bc4d4 100644
+--- a/crates/cdk-common/src/database/mint/mod.rs
++++ b/crates/cdk-common/src/database/mint/mod.rs
+@@ -545,6 +545,18 @@ pub trait SignaturesTransaction {
+     ) -> Result<(), Self::Err> {
+         Ok(())
+     }
++
++    /// SOLVENT Phase 3A: reads, inside this transaction, the PoL receipt
++    /// message SOLVENT's accounting trigger created for `blinded_message` —
++    /// already stamped with the currently OPEN epoch. `None` when the
++    /// database carries no SOLVENT receipt for it. Default: `None`. See
++    /// `solvent/docs/epoch-lifecycle.md`.
++    async fn get_pol_receipt_message(
++        &mut self,
++        _blinded_message: &PublicKey,
++    ) -> Result<Option<Vec<u8>>, Self::Err> {
++        Ok(None)
++    }
+ }
+ 
+ #[async_trait]
+@@ -595,15 +607,16 @@ pub trait SignaturesDatabase {
+ 
+     /// SOLVENT Phase 2 receipt delivery: looks up a PoL receipt by the real
+     /// public `blinded_message` a wallet already has from its own mint
+-    /// response — `(status, signature_hex)`, or `None` if this blinded
+-    /// message has no SOLVENT-tracked receipt at all. No wallet identity,
+-    /// no proof secret, no account: the lookup key is the same public
+-    /// value NUT-04 already returns. Default: `None`. See
+-    /// `solvent/docs/receipt-lifecycle.md`.
++    /// response — `(status, signature_hex, target_epoch)`, or `None` if this
++    /// blinded message has no SOLVENT-tracked receipt at all. No wallet
++    /// identity, no proof secret, no account: the lookup key is the same
++    /// public value NUT-04 already returns. Default: `None`. See
++    /// `solvent/docs/receipt-lifecycle.md` and
++    /// `solvent/docs/epoch-lifecycle.md`.
+     async fn get_pol_receipt_by_blinded_message(
+         &self,
+         _blinded_message_hex: &str,
+-    ) -> Result<Option<(String, Option<String>)>, Self::Err> {
++    ) -> Result<Option<(String, Option<String>, Option<u64>)>, Self::Err> {
+         Ok(None)
+     }
+ }
+diff --git a/crates/cdk-sql-common/src/mint/signatures.rs b/crates/cdk-sql-common/src/mint/signatures.rs
+index 56ba4b76..c9226baf 100644
+--- a/crates/cdk-sql-common/src/mint/signatures.rs
++++ b/crates/cdk-sql-common/src/mint/signatures.rs
+@@ -13,7 +13,10 @@ use super::proofs::sql_row_to_hashmap_amount;
+ use super::{SQLMintDatabase, SQLTransaction};
+ use crate::pool::DatabasePool;
+ use crate::stmt::{query, Column};
+-use crate::{column_as_binary, column_as_nullable_string, column_as_number, column_as_string, unpack_into};
++use crate::{
++    column_as_binary, column_as_nullable_number, column_as_nullable_string, column_as_number,
++    column_as_string, unpack_into,
++};
+ 
+ pub(crate) fn sql_row_to_blind_signature(row: Vec<Column>) -> Result<BlindSignature, Error> {
+     unpack_into!(
+@@ -253,6 +256,42 @@ where
+         Ok(())
+     }
+ 
++    // SOLVENT Phase 3A: reads the receipt message SOLVENT's trigger
++    // (migrations/solvent-accounting/0003_pol_epoch_lifecycle.sql) created
++    // for this blinded message, through this transaction's own connection —
++    // so the epoch it carries is the one stamped inside this still-open
++    // BEGIN IMMEDIATE transaction. Errors (e.g. no SOLVENT schema) read as
++    // "no receipt", matching the other SOLVENT hooks in this file.
++    async fn get_pol_receipt_message(
++        &mut self,
++        blinded_message: &PublicKey,
++    ) -> Result<Option<Vec<u8>>, Self::Err> {
++        let rows = match query(
++            r#"
++            SELECT r.message
++            FROM solvent_pol_receipt r
++            JOIN solvent_issued_liability il ON il.id = r.liability_id
++            WHERE il.blinded_message_hex = :blinded_message_hex AND r.liability_kind = 'issued'
++            "#,
++        ) {
++            Ok(q) => match q
++                .bind("blinded_message_hex", blinded_message.to_hex())
++                .fetch_all(&self.inner)
++                .await
++            {
++                Ok(rows) => rows,
++                Err(_) => return Ok(None),
++            },
++            Err(_) => return Ok(None),
++        };
++
++        let Some(row) = rows.into_iter().next() else {
++            return Ok(None);
++        };
++        unpack_into!(let (message) = row);
++        Ok(Some(column_as_binary!(message)))
++    }
++
+     async fn get_blind_signatures(
+         &mut self,
+         blinded_messages: &[PublicKey],
+@@ -547,14 +586,14 @@ where
+     async fn get_pol_receipt_by_blinded_message(
+         &self,
+         blinded_message_hex: &str,
+-    ) -> Result<Option<(String, Option<String>)>, Self::Err> {
++    ) -> Result<Option<(String, Option<String>, Option<u64>)>, Self::Err> {
+         let conn = match self.pool.get().await {
+             Ok(conn) => conn,
+             Err(_) => return Ok(None),
+         };
+         let rows = match query(
+             r#"
+-            SELECT r.status, r.signature_hex
++            SELECT r.status, r.signature_hex, il.target_epoch
+             FROM solvent_pol_receipt r
+             JOIN solvent_issued_liability il ON il.id = r.liability_id
+             WHERE il.blinded_message_hex = :blinded_message_hex AND r.liability_kind = 'issued'
+@@ -570,9 +609,10 @@ where
+         let Some(row) = rows.into_iter().next() else {
+             return Ok(None);
+         };
+-        unpack_into!(let (status, signature_hex) = row);
++        unpack_into!(let (status, signature_hex, target_epoch) = row);
+         let status_str = column_as_string!(status);
+         let signature_str = column_as_nullable_string!(signature_hex);
+-        Ok(Some((status_str, signature_str)))
++        let target_epoch: Option<u64> = column_as_nullable_number!(target_epoch);
++        Ok(Some((status_str, signature_str, target_epoch)))
+     }
+ }
+diff --git a/crates/cdk/src/mint/issue/mod.rs b/crates/cdk/src/mint/issue/mod.rs
+index de7ab18f..2b47cb04 100644
+--- a/crates/cdk/src/mint/issue/mod.rs
++++ b/crates/cdk/src/mint/issue/mod.rs
+@@ -930,25 +930,6 @@ impl Mint {
+                 .map(|p| p.blinded_secret)
+                 .collect::<Vec<PublicKey>>();
+ 
+-            // SOLVENT Phase 2: sign a PoL receipt for every real output,
+-            // alongside blind_sign — same "stateless, safe outside
+-            // transaction" property (solvent/docs/cdk-signatory-audit.md).
+-            // Message format and epoch-0 convention:
+-            // solvent/docs/accounting-model.md. A failure here fails the
+-            // whole mint attempt closed rather than silently proceeding
+-            // without a receipt.
+-            let mut pol_receipt_signatures: Vec<(PublicKey, String)> =
+-                Vec::with_capacity(input.outputs().len());
+-            for output in input.outputs() {
+-                let message =
+-                    format!("Cashu_PoL_Receipt_Issued:{}:0", output.blinded_secret.to_hex())
+-                        .into_bytes();
+-                let signature = self
+-                    .sign_pol_receipt(output.keyset_id, output.amount, message)
+-                    .await?;
+-                pol_receipt_signatures.push((output.blinded_secret, signature.to_string()));
+-            }
+-
+             // Phase 5: Atomic database transaction
+             let mut tx = self.localstore.begin_transaction().await?;
+ 
+@@ -966,10 +947,9 @@ impl Mint {
+                     .await?;
+                 tx.add_blind_signatures(&blinded_secrets, &all_blind_signatures, None)
+                     .await?;
+-                for (blinded_message, signature_hex) in &pol_receipt_signatures {
+-                    tx.record_pol_receipt_signature(blinded_message, signature_hex)
+-                        .await?;
+-                }
++                // SOLVENT Phase 3A: sign each receipt over its DB-stamped
++                // open epoch, inside this transaction.
++                self.sign_pol_receipts_in_tx(&mut tx, input.outputs()).await?;
+                 let fee_by_keyset = std::collections::HashMap::new();
+                 tx.add_completed_operation(&batch_operation, &fee_by_keyset)
+                     .await?;
+@@ -1017,10 +997,9 @@ impl Mint {
+                     )
+                     .await?;
+ 
+-                    for (blinded_message, signature_hex) in &pol_receipt_signatures {
+-                        tx.record_pol_receipt_signature(blinded_message, signature_hex)
+-                            .await?;
+-                    }
++                    // SOLVENT Phase 3A: sign each receipt over its DB-stamped
++                    // open epoch, inside this transaction.
++                    self.sign_pol_receipts_in_tx(&mut tx, input.outputs()).await?;
+                 }
+ 
+                 mint_quote.add_issuance(amount_issued)?;
+diff --git a/crates/cdk/src/mint/mod.rs b/crates/cdk/src/mint/mod.rs
+index e394d5dd..a75a2c50 100644
+--- a/crates/cdk/src/mint/mod.rs
++++ b/crates/cdk/src/mint/mod.rs
+@@ -1428,14 +1428,48 @@ impl Mint {
+                 target_epoch: None,
+                 signature: None,
+             }),
+-            Some((status, signature)) => Ok(PolReceiptStatus {
+-                target_epoch: if status == "signed" { Some(0) } else { None },
++            Some((status, signature, target_epoch)) => Ok(PolReceiptStatus {
++                // SOLVENT Phase 3A: the real epoch stamped on the liability
++                // row, replacing Phase 2's constant 0.
++                target_epoch: if status == "signed" { target_epoch } else { None },
+                 status,
+                 signature,
+             }),
+         }
+     }
+ 
++    /// SOLVENT Phase 3A: signs each output's PoL receipt INSIDE the caller's
++    /// still-open write transaction, over the exact message SOLVENT's
++    /// accounting trigger stamped with the currently OPEN epoch
++    /// (`solvent/migrations/solvent-accounting/0003_pol_epoch_lifecycle.sql`).
++    /// Replaces Phase 2's pre-transaction signing over a hardcoded epoch 0:
++    /// the promised epoch only exists once the trigger has run, and because
++    /// CDK's SQLite transactions are `BEGIN IMMEDIATE`, no epoch close can
++    /// commit between that stamp and this transaction's commit — so a
++    /// receipt can never promise an already-closed epoch. Must be called
++    /// after `add_blind_signatures` for `outputs`. Outputs with no SOLVENT
++    /// receipt row (a database without SOLVENT's schema) are skipped. A
++    /// signing failure fails the whole operation closed. See
++    /// `solvent/docs/epoch-lifecycle.md`.
++    #[tracing::instrument(skip_all)]
++    pub async fn sign_pol_receipts_in_tx(
++        &self,
++        tx: &mut database::DynMintTransaction,
++        outputs: &[BlindedMessage],
++    ) -> Result<(), Error> {
++        for output in outputs {
++            let Some(message) = tx.get_pol_receipt_message(&output.blinded_secret).await? else {
++                continue;
++            };
++            let signature = self
++                .sign_pol_receipt(output.keyset_id, output.amount, message)
++                .await?;
++            tx.record_pol_receipt_signature(&output.blinded_secret, &signature.to_string())
++                .await?;
++        }
++        Ok(())
++    }
++
+     /// Verify [`Proof`] meets conditions and is signed
+     #[tracing::instrument(skip_all)]
+     pub async fn verify_proofs(&self, proofs: Proofs) -> Result<(), Error> {
+diff --git a/crates/cdk/src/mint/swap/swap_saga/mod.rs b/crates/cdk/src/mint/swap/swap_saga/mod.rs
+index a1e1baf5..25fe5cd2 100644
+--- a/crates/cdk/src/mint/swap/swap_saga/mod.rs
++++ b/crates/cdk/src/mint/swap/swap_saga/mod.rs
+@@ -286,58 +286,36 @@ impl<'a> SwapSaga<'a, SetupComplete> {
+     /// - Propagates any errors from the blind signing operation
+     #[instrument(skip_all)]
+     pub async fn sign_outputs(self) -> Result<SwapSaga<'a, Signed>, Error> {
+-        let blinded_messages = self.state_data.blinded_messages.clone();
+-
+-        let signatures = match self.mint.blind_sign(blinded_messages.clone()).await {
+-            Ok(signatures) => signatures,
++        match self
++            .mint
++            .blind_sign(self.state_data.blinded_messages.clone())
++            .await
++        {
++            Ok(signatures) => {
++                // Transition to Signed state
++                // Note: We don't update saga state here because the "signed" state
++                // is not used by recovery logic - saga state remains "SetupComplete"
++                // until the swap is finalized or compensated
++                Ok(SwapSaga {
++                    mint: self.mint,
++                    db: self.db,
++                    pubsub: self.pubsub,
++                    compensations: self.compensations,
++                    operation_id: self.operation_id,
++                    state_data: Signed {
++                        blinded_messages: self.state_data.blinded_messages,
++                        ys: self.state_data.ys,
++                        signatures,
++                        operation: self.state_data.operation,
++                        fee_breakdown: self.state_data.fee_breakdown,
++                    },
++                })
++            }
+             Err(err) => {
+                 self.compensate_all().await?;
+-                return Err(err);
++                Err(err)
+             }
+-        };
+-
+-        // SOLVENT Phase 2: sign a PoL receipt for every replacement output,
+-        // mirroring the NUT-04 issue path exactly — stateless, safe outside
+-        // any transaction, computed here alongside blind_sign (see
+-        // solvent/docs/cdk-signatory-audit.md,
+-        // solvent/docs/receipt-lifecycle.md's NUT-03 section). A failure
+-        // here fails the whole swap closed via the same compensation path
+-        // blind_sign failure already uses, rather than silently proceeding
+-        // without a receipt.
+-        let mut pol_receipt_signatures: Vec<(PublicKey, String)> =
+-            Vec::with_capacity(blinded_messages.len());
+-        for bm in &blinded_messages {
+-            let message =
+-                format!("Cashu_PoL_Receipt_Issued:{}:0", bm.blinded_secret.to_hex()).into_bytes();
+-            let signature = match self.mint.sign_pol_receipt(bm.keyset_id, bm.amount, message).await {
+-                Ok(signature) => signature,
+-                Err(err) => {
+-                    self.compensate_all().await?;
+-                    return Err(err);
+-                }
+-            };
+-            pol_receipt_signatures.push((bm.blinded_secret, signature.to_string()));
+         }
+-
+-        // Transition to Signed state
+-        // Note: We don't update saga state here because the "signed" state
+-        // is not used by recovery logic - saga state remains "SetupComplete"
+-        // until the swap is finalized or compensated
+-        Ok(SwapSaga {
+-            mint: self.mint,
+-            db: self.db,
+-            pubsub: self.pubsub,
+-            compensations: self.compensations,
+-            operation_id: self.operation_id,
+-            state_data: Signed {
+-                blinded_messages: self.state_data.blinded_messages,
+-                ys: self.state_data.ys,
+-                signatures,
+-                pol_receipt_signatures,
+-                operation: self.state_data.operation,
+-                fee_breakdown: self.state_data.fee_breakdown,
+-            },
+-        })
+     }
+ }
+ 
+@@ -406,20 +384,20 @@ impl SwapSaga<'_, Signed> {
+             return Err(err.into());
+         }
+ 
+-        // SOLVENT Phase 2: persist each already-computed PoL receipt
+-        // signature inside this same transaction, immediately after the
+-        // write that makes the replacement outputs durable — mirrors the
+-        // NUT-04 issue path exactly, closing the same crash window (see
+-        // solvent/docs/receipt-lifecycle.md's NUT-03 section).
+-        for (blinded_message, signature_hex) in &self.state_data.pol_receipt_signatures {
+-            if let Err(err) = tx
+-                .record_pol_receipt_signature(blinded_message, signature_hex)
+-                .await
+-            {
+-                tx.rollback().await?;
+-                self.compensate_all().await?;
+-                return Err(err.into());
+-            }
++        // SOLVENT Phase 3A: sign each replacement output's PoL receipt inside
++        // this same transaction, over the message SOLVENT's trigger just
++        // stamped with the currently OPEN epoch — mirrors the NUT-04 issue
++        // path (Mint::sign_pol_receipts_in_tx; solvent/docs/epoch-lifecycle.md).
++        // A failure rolls back and compensates exactly like a failed
++        // add_blind_signatures.
++        if let Err(err) = self
++            .mint
++            .sign_pol_receipts_in_tx(&mut tx, &self.state_data.blinded_messages)
++            .await
++        {
++            tx.rollback().await?;
++            self.compensate_all().await?;
++            return Err(err);
+         }
+ 
+         // Mark input proofs as spent
+diff --git a/crates/cdk/src/mint/swap/swap_saga/state.rs b/crates/cdk/src/mint/swap/swap_saga/state.rs
+index 4ab9b8db..17e24989 100644
+--- a/crates/cdk/src/mint/swap/swap_saga/state.rs
++++ b/crates/cdk/src/mint/swap/swap_saga/state.rs
+@@ -30,10 +30,6 @@ pub struct Signed {
+     pub blinded_messages: Vec<BlindedMessage>,
+     pub ys: Vec<PublicKey>,
+     pub signatures: Vec<BlindSignature>,
+-    /// SOLVENT Phase 2: PoL receipt signatures, one per replacement output,
+-    /// computed alongside `signatures` and persisted in the same
+-    /// transaction as `finalize()` — see solvent/docs/receipt-lifecycle.md.
+-    pub pol_receipt_signatures: Vec<(PublicKey, String)>,
+     pub operation: Operation,
+     pub fee_breakdown: crate::fees::ProofsFeeBreakdown,
+ }

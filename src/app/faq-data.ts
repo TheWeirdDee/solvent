@@ -32,16 +32,22 @@ export const FAQ: FaqEntry[] = [
     linkHref: '#/docs?doc=nostr-schema',
   },
   {
-    q: "Why can't Create Test Ecash reach ACCEPT?",
-    a: "It genuinely can't — on purpose. Create Test Ecash mints a fresh identity every run, so its evidence has never been published anywhere; a mint handing you a validly signed promise privately isn't the same as that promise being publicly checkable, which is what SOLVENT actually verifies. SOLVENT still genuinely queries public relays for it and correctly finds nothing — relays reachable, event absent (reason code REFUSE_NOSTR_EVENT_NOT_FOUND, badge \"PUBLICATION NOT FOUND\"), a different, more specific fact than a relay being unreachable. Try SOLVENT's Live Public Demo uses evidence that really was published once, and reaches a real ACCEPT.",
+    q: 'What does the live check actually check?',
+    a: "A real published reference case: a signed receipt, a closed epoch manifest with an inclusion proof, a kind 8181 Nostr event and a Signet reserve attestation. Every run fetches that Nostr event from public relays again and re-queries the reserve UTXO, then runs the real verifier. If a relay or the reserve can't be reached, the result is a REFUSE that says so — nothing is filled in from bundled data.",
+    linkLabel: 'Run the live check',
+    linkHref: '#/verify?mode=live',
+  },
+  {
+    q: 'Why is a validly signed bundle refused as PUBLIC EVIDENCE NOT FOUND?',
+    a: "Because SOLVENT requires the mint's accounting event to be independently retrievable from public relays, not just handed to you. A bundle whose event was never published — for example one generated locally in the developer reference lab — can pass every cryptographic check and still refuse (reason code REFUSE_NOSTR_EVENT_NOT_FOUND). Relays that can't be reached at all are reported separately, as PUBLIC EVIDENCE UNAVAILABLE.",
     linkLabel: 'Trust boundaries',
     linkHref: '#/docs?doc=trust-boundaries',
   },
   {
-    q: 'Is the test ecash real — can I spend it in a wallet?',
-    a: "The token is a real, standards-compliant encoded Cashu proof (the same getEncodedToken() a real wallet uses), so a wallet can parse it. But it's issued by SOLVENT's own test mint, not a reachable production mint — there's nothing to redeem it against. The cryptography is real; the mint behind it is a test fixture.",
-    linkLabel: 'Verification bundle schema',
-    linkHref: '#/docs?doc=verification-bundle',
+    q: 'Is the reference case issued by a real mint?',
+    a: "It is issued by SOLVENT's reference mint implementation: real blind signatures, real signed receipts and manifests, a real public Nostr event and a real Signet reserve — but not a production mint, so its token parses in a Cashu wallet with nothing to redeem it against. SOLVENT's accounting also runs inside a real CDK mint (NUT-04 minting and NUT-03 swaps, proven in CI), but that mint is not yet the backend behind this web page.",
+    linkLabel: 'Trust boundaries',
+    linkHref: '#/docs?doc=trust-boundaries',
   },
   {
     q: 'Is the Bitcoin reserve real?',

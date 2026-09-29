@@ -1,16 +1,15 @@
-// The v2 protocol, run for real, live, in the browser. One builder
-// (buildSolventEcash) performs genuine secp256k1 blind signing, BIP-340
-// Schnorr signing/verification, sum-MMR construction, a real encoded-token
-// round trip, and a real live reserve re-query — and every /verify surface
-// is a thin wrapper around it: `runScenario()` (Try SOLVENT's curated
-// cases), `createTestEcash()` (the user-driven Create Test Ecash journey),
-// and the pasted-bundle path in "Verify your evidence" (which consumes
-// exactly the `submissionBundle` this builder produces — a SubmissionBundle
-// of raw evidence, independently re-verified by verifySubmission() before
-// it ever reaches the locked verify()). There is deliberately only one
-// implementation of "build a real SOLVENT-compatible issuance." See
-// submission.ts for why raw evidence, not pre-evaluated booleans, is what
-// crosses this boundary.
+// The v2 protocol, run for real, live, in the browser. `runScenario('honest')`
+// is /verify's Live check: it loads the genuinely published reference case
+// (evidence/nostr/live-demo.json) and re-verifies it live. The other
+// builder here (buildSolventEcash) performs genuine secp256k1 blind
+// signing, BIP-340 Schnorr signing/verification, sum-MMR construction, a
+// real encoded-token round trip, and a real live reserve re-query for a
+// throwaway reference identity — used by the landing hero's broken-promise
+// illustration and by the test suite, never offered as a product flow
+// (its evidence is never published). The /lab reference mint
+// (reference-mint.ts) is the persistent-identity version of the same
+// cryptography. See submission.ts for why raw evidence, not pre-evaluated
+// booleans, is what crosses the verification boundary.
 //
 // The reserve leg is a REAL, LIVE network re-query on every run: the txid
 // this build's reserve address received is fixed (from the last `npm run
@@ -211,8 +210,12 @@ export async function fetchLiveReserveState(): Promise<LiveReserveQuery> {
   return live;
 }
 
-/** Signs a fresh reserve statement bound to THIS scenario's own outstanding balance, then evaluates it against the live-queried chain state passed in (see fetchLiveReserveState) — never the static bundled snapshot. */
-function buildReserveEvidence(e: ReturnType<typeof buildEpoch>, live: LiveReserveQuery): { attestation: ReserveAttestation; result: ReserveEvaluationResult; reserveDigestHex: string } {
+/**
+ * Signs a fresh reserve statement over the real Signet reserve outpoint, at
+ * the live chain tip, bound to the given mint master key. Shared by the
+ * reference builders here and the /lab reference mint (reference-mint.ts).
+ */
+export function signReserveAttestation(masterPrivHex: string, masterPubHex: string, live: LiveReserveQuery): { attestation: ReserveAttestation; reserveDigestHex: string } {
   const outpoint = liveAttestationEvidence.attestation.statement.outpoints[0]!;
   const statement: ReserveStatement = {
     network: liveAttestationEvidence.attestation.statement.network,
@@ -223,8 +226,13 @@ function buildReserveEvidence(e: ReturnType<typeof buildEpoch>, live: LiveReserv
   };
   const statementSignature = signReserveStatement(statement, reserveKeyFixture.tweakedPrivateKeyHex);
   const reserveDigestHex = reserveStatementDigestHex(statement);
-  const bindingSignature = signReserveBinding(statement.reserve_pubkey, reserveDigestHex, e.masterPrivHex);
-  const attestation: ReserveAttestation = { statement, statementSignature, bindingSignature, masterPublicKeyHex: e.masterPubHex };
+  const bindingSignature = signReserveBinding(statement.reserve_pubkey, reserveDigestHex, masterPrivHex);
+  return { attestation: { statement, statementSignature, bindingSignature, masterPublicKeyHex: masterPubHex }, reserveDigestHex };
+}
+
+/** Signs a fresh reserve statement bound to THIS scenario's own outstanding balance, then evaluates it against the live-queried chain state passed in (see fetchLiveReserveState) — never the static bundled snapshot. */
+function buildReserveEvidence(e: ReturnType<typeof buildEpoch>, live: LiveReserveQuery): { attestation: ReserveAttestation; result: ReserveEvaluationResult; reserveDigestHex: string } {
+  const { attestation, reserveDigestHex } = signReserveAttestation(e.masterPrivHex, e.masterPubHex, live);
 
   if (!live.ok) {
     // Fail closed: no live chain state means no coverage claim of any kind.
@@ -360,11 +368,10 @@ function loadLivePublicDemo(): SolventEcash {
 }
 
 /**
- * The user-driven "Create test ecash" journey: issues one real,
- * SOLVENT-compatible token using the same honest/healthy parameters as
- * the "Try SOLVENT" HEALTHY scenario. Does not verify it — that's a
- * separate, explicit step (see verifyEcash), matching the UI's
- * create → inspect → verify flow.
+ * Issues one real, SOLVENT-compatible token from a throwaway reference
+ * identity with honest parameters. Its evidence is never published, so it
+ * can pass every local check but never public retrieval — the test suite
+ * uses it to prove exactly that. Does not verify it (see verifyEcash).
  */
 export async function createTestEcash(): Promise<SolventEcash> {
   return buildSolventEcash(HONEST_AMOUNT, true);
@@ -388,14 +395,14 @@ export interface ScenarioResult extends SolventEcash {
 }
 
 /**
- * The curated "Try SOLVENT" scenarios. `'honest'` (HEALTHY / Live Public
- * Demo) loads and independently re-verifies SOLVENT's one genuinely
- * publicly-published identity (see loadLivePublicDemo()) — its ACCEPT
- * rests on a real live relay fetch, not a privately-supplied copy.
- * `'omitted'`/`'reserve-short'` still build a fresh random identity each
- * run: both REFUSE earlier in the decision chain (inclusion / reserve
- * coverage, respectively) than the Nostr publication check ever runs, so
- * they remain valid, real demonstrations without needing public evidence.
+ * `'honest'` is /verify's Live check: it loads and independently
+ * re-verifies SOLVENT's one genuinely publicly-published reference case
+ * (see loadLivePublicDemo()) — its ACCEPT rests on a real live relay
+ * fetch, not a privately-supplied copy. `'omitted'`/`'reserve-short'`
+ * build a throwaway reference identity each run (the landing hero and the
+ * test suite use them): both REFUSE earlier in the decision chain
+ * (inclusion / reserve coverage) than the Nostr publication check, so they
+ * are real demonstrations without needing public evidence.
  */
 export async function runScenario(id: ScenarioId): Promise<ScenarioResult> {
   if (id === 'honest') {

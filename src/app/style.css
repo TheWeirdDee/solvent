@@ -1,7 +1,7 @@
 /* =====================================================================
    SOLVENT design system
    Palette: near-black brown / deep brown / warm cream / muted olive /
-   rust, with yellow / red / purple as sparing graphic accents. Adapted
+   burgundy, with yellow / red / purple as sparing graphic accents. Adapted
    from an editorial-technical reference; SOLVENT's own identity, content,
    and semantics throughout.
    ===================================================================== */
@@ -17,7 +17,9 @@
   --bg-cream-soft: #efe3cb;
 
   --bg-olive: #4a4b38;
-  --bg-rust: #87352e;
+  --burgundy: #741f38;
+  --burgundy-dim: rgb(116 31 56 / 14%);
+  --bg-rust: var(--burgundy);
 
   --text-on-dark: #f7f5ef; /* headings on any dark surface */
   --text-muted-on-dark: #cdbfb1; /* body copy on any dark surface — must stay readable at normal brightness */
@@ -91,8 +93,13 @@ body {
   /* Safety net against any single element pushing the page wider than the
      viewport on mobile (a long unbroken hash, a wide fixed-width child) —
      every scrollable region below (tables, JSON blocks) opts back into
-     overflow-x itself, so this only ever catches accidents. */
+     overflow-x itself, so this only ever catches accidents.
+     `clip`, not `hidden`: `hidden` on both html and body turns body into a
+     scroll container that never scrolls, which silently disables every
+     `position: sticky` below it (the app-route topbar, the docs sidebar).
+     `hidden` stays first as the fallback for browsers without `clip`. */
   overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body {
@@ -172,6 +179,33 @@ a {
   text-decoration: none;
   color: var(--text);
   flex: none;
+}
+
+body:has(#panel-home:not([hidden])) {
+  padding-top: 78px;
+}
+
+body:has(#panel-home:not([hidden])) .topbar {
+  position: fixed;
+  inset: 0 0 auto;
+  height: 78px;
+  max-width: none;
+  padding-inline: max(24px, calc((100% - var(--content-width)) / 2 + 24px));
+}
+
+.route-home section[id] {
+  scroll-margin-top: 94px;
+}
+
+@media (max-width: 640px) {
+  body:has(#panel-home:not([hidden])) {
+    padding-top: 69px;
+  }
+
+  body:has(#panel-home:not([hidden])) .topbar {
+    height: 69px;
+    padding-inline: 16px;
+  }
 }
 
 .nav-mid {
@@ -266,51 +300,82 @@ a {
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(300px, 84vw);
+  width: min(480px, 100vw);
   z-index: 101;
-  background: var(--bg-dark-soft);
+  background: var(--bg-cream);
   border-left: 1px solid var(--border);
-  padding: 24px 20px;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transform: translateX(100%);
-  transition: transform 0.18s ease;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  counter-reset: nav-item;
 }
 
-.nav-drawer:not([hidden]) {
-  transform: translateX(0);
+.nav-drawer[hidden] {
+  display: none;
+}
+
+.nav-drawer-heading {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted-on-light);
+  font: 700 0.65rem var(--font-mono);
+  letter-spacing: 0.12em;
+  margin: 0 0 20px;
 }
 
 .nav-drawer a {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 1rem;
-  color: var(--text);
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  letter-spacing: -0.04em;
+  color: var(--text-on-light);
   text-decoration: none;
-  padding: 14px 8px;
-  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-cream);
   min-height: 44px;
   display: flex;
   align-items: center;
 }
 
-.nav-drawer-cta {
+.nav-drawer a:not(.nav-drawer-cta)::before {
+  counter-increment: nav-item;
+  content: '0' counter(nav-item);
+  font: 0.65rem var(--font-mono);
+  color: var(--text-muted-on-light);
+  margin-right: 20px;
+  letter-spacing: 0;
+}
+
+.nav-drawer a:not(.nav-drawer-cta)::after {
+  content: '↗';
+  margin-left: auto;
+  font-size: 1.1rem;
+  transition: transform 180ms ease;
+}
+
+.nav-drawer a:hover::after {
+  transform: translate(3px, -3px);
+}
+
+.nav-drawer .nav-drawer-cta {
+  background: var(--bg-dark);
   margin-top: 14px;
   border-bottom: none !important;
   justify-content: center;
   /* .nav-drawer a's `color: var(--text)` (element+class, specificity 0,1,1)
      otherwise beats .btn-solid's `color` (single class, 0,1,0) and matches
      the button's own light background — invisible text. Force it back. */
-  color: var(--bg-near-black) !important;
+  color: var(--cream) !important;
 }
 
 .nav-drawer-footnote {
   margin-top: auto;
   padding-top: 20px;
   font-size: 0.78rem;
-  color: var(--muted);
+  color: var(--text-muted-on-light);
 }
 
 .nav-drawer-scrim {
@@ -418,7 +483,44 @@ a {
 }
 
 .route-home {
+  /* Keep decorative accents quiet; the hero ribbons and decision states
+     retain their own colors. */
+  --yellow: var(--cream);
+  --purple: var(--text-muted-on-light);
+  --rust: var(--text-muted-on-light);
   overflow: hidden;
+}
+
+.route-home :is(.hero, .solution, .gate, .enforcement, .editorial, .attack-corpus, .final-cta-section) {
+  background: var(--bg-dark);
+  color: var(--text-on-dark);
+}
+
+.route-home :is(.problem-gap, .who-for, .problem, .how-to-try, .protocols-strip, .reserve-section, .nostr-section, .faq-section) {
+  background: var(--bg-cream);
+  color: var(--text-on-light);
+}
+
+.route-home .who-for-card {
+  background: var(--bg-cream-soft);
+}
+
+.route-home .editorial-body {
+  color: var(--text-muted-on-dark);
+}
+
+/* The two overrides above made some text inherit its own background:
+   .who-for's eyebrow falls back to .eyebrow's var(--yellow), remapped to
+   cream on a cream section; the promise-chain card is a dark panel inside
+   the now dark-text .problem section, and its values have no colour of
+   their own. Every other cream section already overrides its eyebrow to
+   var(--rust). */
+.route-home .who-for .eyebrow {
+  color: var(--rust);
+}
+
+.route-home .promise-chain-card {
+  color: var(--text-on-dark);
 }
 
 .route-app {
@@ -590,38 +692,28 @@ a {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 130px;
+  width: 100%;
+  height: 440px;
   z-index: 1;
   pointer-events: none;
 }
 
-.band {
-  position: absolute;
-  left: -6%;
-  right: -6%;
-  height: 46px;
-  border-radius: 999px 999px 0 0;
-}
-
-.band-yellow {
-  bottom: 0;
-  background: var(--yellow);
+.band-cream {
+  fill: var(--cream);
 }
 
 .band-red {
-  bottom: 30px;
-  background: var(--red-accent);
-  right: 4%;
-  left: -6%;
-  height: 42px;
+  fill: var(--red-accent);
 }
 
-.band-purple {
-  bottom: 56px;
-  background: var(--purple);
-  right: 12%;
-  left: -6%;
-  height: 38px;
+.band-burgundy {
+  fill: var(--burgundy);
+}
+
+@media (max-width: 1024px) {
+  .hero-bands {
+    height: 302.5px;
+  }
 }
 
 /* ================= PROTOCOLS STRIP ================= */
@@ -1402,15 +1494,19 @@ select {
   display: none;
 }
 
+/* The final decision is always the largest text on a result card; the
+   headline (why) is secondary, and partial facts (.decision-facts) are
+   smaller still — a "cryptography valid" fact must never outweigh REFUSE. */
 .decision-badge {
   display: inline-block;
-  font-size: 0.82rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+  font-size: clamp(1.9rem, 5vw, 2.9rem);
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  padding: 9px 18px;
-  border-radius: 999px;
-  margin-bottom: 22px;
+  padding: 12px 22px;
+  border-radius: 14px;
+  margin-bottom: 18px;
 }
 
 .decision-badge.green {
@@ -1425,13 +1521,20 @@ select {
   border: 1px solid var(--red);
 }
 
+.decision-badge.amber {
+  background: var(--amber-dim);
+  color: var(--amber);
+  border: 1px solid var(--amber);
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
+}
+
 .decision-headline {
-  font-size: 3rem;
+  font-size: clamp(1.3rem, 3.2vw, 1.9rem);
   font-weight: 900;
   text-transform: uppercase;
-  margin: 0 0 14px;
-  line-height: 1.04;
-  letter-spacing: -0.015em;
+  margin: 0 0 12px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
 }
 
 .decision-body {
@@ -1966,10 +2069,6 @@ select {
     display: none;
   }
 
-  .decision-headline {
-    font-size: 2rem;
-  }
-
   .result-card {
     padding: 24px;
   }
@@ -2070,7 +2169,7 @@ select {
   grid-template-columns: repeat(4, 1fr);
 }
 
-/* ---- enforcement (rust — breaks up the dark-section run) ---- */
+/* ---- enforcement (burgundy — breaks up the dark-section run) ---- */
 
 .enforcement {
   background: var(--bg-rust);
@@ -2166,6 +2265,7 @@ select {
   max-width: 760px;
   margin: 32px auto 0;
   background: var(--bg-dark);
+  color: var(--text-on-dark);
   border-radius: 18px;
   padding: 6px;
   display: grid;
@@ -2219,7 +2319,7 @@ select {
   border-color: #c9b98c;
 }
 
-/* ---- attack corpus (rust) ---- */
+/* ---- attack corpus (burgundy) ---- */
 
 .attack-corpus {
   background: var(--bg-rust);
@@ -2289,86 +2389,32 @@ select {
   margin: 0 0 14px;
 }
 
-.scenario-selector {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.scenario-btn {
-  background: var(--ink-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-btn);
-  padding: 16px;
-  text-align: left;
-  cursor: pointer;
-  color: var(--text);
-  font-family: var(--font-display);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.scenario-btn:hover {
-  border-color: var(--muted-2);
-}
-
-.scenario-btn.active {
-  border-color: var(--yellow);
-  background: var(--ink-3);
-}
-
-.scenario-btn-letter {
-  font-family: var(--font-mono);
-  font-weight: 800;
-  color: var(--yellow);
-  font-size: 0.85rem;
-}
-
-.scenario-btn-label {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.scenario-btn-outcome {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.scenario-note {
-  font-size: 0.85rem;
-  color: var(--muted);
-  margin: 0;
-}
-
 /* ---- verifier: decision chain ---- */
 
 .decision-chain {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px;
   margin: 24px 0;
-  padding: 18px;
+  padding: 16px;
   background: var(--ink-2);
   border-radius: 14px;
   border: 1px solid var(--border);
 }
 
+.decision-chain:empty {
+  display: none;
+}
+
 .chain-step {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 10px;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 10px;
-  min-width: 92px;
-  text-align: center;
+  background: var(--bg-dark-card);
+  min-width: 0;
+  text-align: left;
 }
 
 .chain-step-icon {
@@ -2379,10 +2425,12 @@ select {
 
 .chain-step-label {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   letter-spacing: 0.03em;
-  color: var(--muted);
+  color: var(--text-on-dark);
   text-transform: uppercase;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .chain-step-ok .chain-step-icon {
@@ -2398,6 +2446,7 @@ select {
 }
 
 .chain-step-final {
+  grid-column: 1 / -1;
   background: var(--ink-3);
   border: 1px solid var(--border);
 }
@@ -2407,11 +2456,9 @@ select {
   font-weight: 800;
 }
 
+/* Connectors only made sense in the old single-row strip. */
 .chain-connector {
-  flex: 1 1 12px;
-  min-width: 12px;
-  height: 1px;
-  background: var(--border);
+  display: none;
 }
 
 /* ---- publish / evidence pipeline ---- */
@@ -2647,46 +2694,47 @@ select {
   display: none;
 }
 
-.mode-explainer {
-  display: grid;
-  gap: 6px;
-  margin: 0 0 24px;
-  padding: 14px 16px;
-  background: var(--bg-dark-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.mode-explainer p {
-  margin: 0;
-  font-size: 0.84rem;
-  color: var(--text-muted-on-dark);
-  line-height: 1.5;
-}
-
-.mode-explainer strong {
-  color: var(--text-on-dark);
-}
-
 /* ---- live status ---- */
 
 .live-status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 18px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 18px;
   background: var(--bg-dark-card);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 14px 18px;
-  margin: 0 0 20px;
+  margin: 20px 0;
   font-size: 0.88rem;
   color: var(--text-muted-on-dark);
+}
+
+.live-status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.live-status-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle-on-dark);
+}
+
+.live-status-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-subtle-on-dark);
 }
 
 .live-status strong {
   color: var(--text-on-dark);
   font-family: var(--font-mono);
+  overflow-wrap: anywhere;
 }
 
 .live-status strong.live-ok {
@@ -2697,14 +2745,6 @@ select {
   color: var(--red);
 }
 
-.live-status-time {
-  color: var(--text-subtle-on-dark);
-  font-size: 0.8rem;
-}
-
-.live-status .btn {
-  margin-left: auto;
-}
 
 /* ---- accepted panel ---- */
 
@@ -2769,16 +2809,25 @@ select {
 }
 
 .manual-bundle-input {
+  display: block;
   width: 100%;
+  min-height: 96px;
+  max-height: 240px;
   background: var(--bg-dark);
   color: var(--text-on-dark);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 14px;
+  padding: 12px 14px;
   font-family: var(--font-mono);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   resize: vertical;
-  margin-bottom: 16px;
+  margin: 0;
+}
+
+/* A loaded bundle is evidence to verify, not text to read: keep it short. */
+.manual-bundle-input.is-loaded {
+  height: 96px;
+  color: var(--text-subtle-on-dark);
 }
 
 /* ---- WHAT SOLVENT PROVES (reframed, shrunk) ---- */
@@ -3025,14 +3074,31 @@ select {
 
 .docs-layout {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 40px;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 44px;
   align-items: start;
 }
 
+/* Stays in view while the doc scrolls: pinned just below the sticky
+   app-route topbar (~78px), scrolling internally if the list is taller
+   than the viewport. */
 .docs-sidebar {
   position: sticky;
-  top: 90px;
+  top: 100px;
+  align-self: start;
+  max-height: calc(100vh - 124px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.docs-mobile-label {
+  display: none;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle-on-dark);
+  margin: 0 0 6px;
 }
 
 .docs-mobile-select {
@@ -3170,16 +3236,23 @@ select {
 @media (max-width: 1024px) {
   .docs-layout {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 
+  /* No side-by-side sticky rail on narrow screens — a single "Docs" menu
+     (a native select) above the content instead. */
   .docs-sidebar {
     position: static;
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .docs-nav {
     display: none;
   }
 
+  .docs-mobile-label,
   .docs-mobile-select {
     display: block;
   }
@@ -3201,13 +3274,7 @@ select {
   }
 
   .live-status {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .live-status .btn {
-    margin-left: 0;
-    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .accepted-facts {
@@ -3216,77 +3283,6 @@ select {
 
   .accepted-facts dd {
     text-align: left;
-  }
-}
-
-/* =====================================================================
-   CREATE TEST ECASH — issuance/evidence journey.
-   ===================================================================== */
-
-.ecash-card {
-  margin-top: 20px;
-}
-
-.ecash-token {
-  background: var(--bg-dark);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: 0.8rem;
-  word-break: break-all;
-  margin: 0 0 12px;
-}
-
-.ecash-facts {
-  margin: 16px 0 0;
-}
-
-.bundle-block {
-  border-top: 1px solid var(--border);
-  margin-top: 22px;
-  padding-top: 20px;
-}
-
-.bundle-actions {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-#create-bundle-json {
-  max-height: 360px;
-}
-
-#create-bundle-json[hidden] {
-  display: none;
-}
-
-.manual-schema-note {
-  margin-top: 4px;
-}
-
-.dont-have-one {
-  border-top: 1px solid var(--border);
-  margin-top: 20px;
-  padding-top: 18px;
-}
-
-.dont-have-one-label {
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  color: var(--yellow);
-  margin: 0 0 6px;
-}
-
-@media (max-width: 640px) {
-  .bundle-actions {
-    flex-direction: column;
-  }
-
-  .bundle-actions .btn {
-    width: 100%;
   }
 }
 
@@ -3351,68 +3347,6 @@ select {
 @media (max-width: 640px) {
   .how-to-try-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-/* ================= PROBLEM STATEMENT (below hero) ================= */
-
-.problem-statement {
-  background: var(--bg-cream);
-  color: var(--text-on-light);
-  padding: 48px 24px 44px;
-  text-align: center;
-}
-
-.problem-statement-grid {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  flex-wrap: wrap;
-  max-width: var(--content-width);
-  margin: 0 auto;
-}
-
-.problem-statement-step {
-  min-width: 180px;
-}
-
-.problem-statement-num {
-  font-family: var(--font-mono);
-  font-weight: 900;
-  color: var(--rust);
-  margin: 0 0 4px;
-}
-
-.problem-statement-line {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1.1rem;
-  margin: 0;
-  color: var(--text-on-light);
-}
-
-.problem-statement-arrow {
-  font-size: 1.4rem;
-  color: var(--text-muted-on-light);
-}
-
-.problem-statement-conclusion {
-  margin: 26px 0 0;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.3rem;
-  color: var(--text-on-light);
-}
-
-@media (max-width: 640px) {
-  .problem-statement-grid {
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .problem-statement-arrow {
-    transform: rotate(90deg);
   }
 }
 
@@ -3505,7 +3439,7 @@ select {
 /* ================= CONTRADICTION / SHORTFALL CARDS ================= */
 
 .contradiction-card {
-  background: rgba(135, 53, 46, 0.14);
+  background: var(--burgundy-dim);
   border: 1px solid var(--rust);
   border-radius: 12px;
   padding: 16px 18px;
@@ -3585,5 +3519,509 @@ select {
 
   .mint-identity-value {
     text-align: left;
+  }
+}
+
+/* ================= THE PROBLEM (landing, below hero) ================= */
+
+.problem-gap {
+  background: var(--bg-cream);
+  color: var(--text-on-light);
+  padding: 64px 24px 68px;
+}
+
+.problem-gap .eyebrow {
+  color: var(--rust);
+}
+
+.problem-gap .section-heading {
+  color: var(--text-on-light);
+}
+
+.problem-gap .section-body {
+  color: var(--text-muted-on-light);
+  max-width: 64ch;
+}
+
+.gap-diagram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 34px auto 30px;
+}
+
+.gap-unknowns {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.gap-card {
+  min-width: 200px;
+  border-radius: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--border-cream);
+  background: var(--bg-cream-soft);
+}
+
+.gap-card-label {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted-on-light);
+}
+
+.gap-card-status {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-on-light);
+}
+
+.gap-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  margin-right: 6px;
+  border-radius: 50%;
+  font-weight: 900;
+}
+
+.gap-card-known .gap-mark {
+  background: #1f7a4a;
+  color: #fff;
+}
+
+.gap-card-unknown {
+  border-style: dashed;
+  border-color: var(--burgundy);
+}
+
+.gap-card-unknown .gap-mark {
+  background: var(--burgundy);
+  color: #fff;
+}
+
+.gap-but {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.4rem;
+  color: var(--text-muted-on-light);
+}
+
+.gap-callout {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  border-top: 2px solid var(--text-on-light);
+  padding-top: 18px;
+}
+
+.gap-callout-label {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--burgundy);
+}
+
+.gap-callout-text {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--text-on-light);
+}
+
+/* ================= THE SOLUTION (landing) ================= */
+
+.solution {
+  padding: 68px 24px 72px;
+}
+
+.solution .section-body {
+  max-width: 66ch;
+}
+
+.solution-flow {
+  list-style: none;
+  counter-reset: flow;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 34px;
+  max-width: var(--content-width);
+  margin: 36px auto 30px;
+  padding: 0;
+}
+
+.solution-flow li {
+  counter-increment: flow;
+  position: relative;
+  flex: 1 1 140px;
+  max-width: 170px;
+  padding: 16px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-dark-card);
+  font-weight: 800;
+  font-size: 0.9rem;
+  text-align: center;
+  color: var(--text-on-dark);
+}
+
+.solution-flow li::before {
+  content: counter(flow, decimal-leading-zero);
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-subtle-on-dark);
+}
+
+.solution-flow li:not(:last-child)::after {
+  content: "\2192";
+  position: absolute;
+  top: 50%;
+  right: -26px;
+  transform: translateY(-50%);
+  color: var(--text-subtle-on-dark);
+  font-size: 1.1rem;
+}
+
+.solution-flow .solution-flow-final {
+  border-color: var(--text-on-dark);
+  background: var(--burgundy);
+}
+
+.solution-punchline {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.35rem;
+  color: var(--text-on-dark);
+}
+
+@media (max-width: 1024px) {
+  .solution-flow {
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+  }
+
+  .solution-flow li {
+    flex: none;
+    width: min(320px, 100%);
+    max-width: none;
+  }
+
+  .solution-flow li:not(:last-child)::after {
+    content: "\2193";
+    top: auto;
+    bottom: -24px;
+    right: 50%;
+    transform: translateX(50%);
+  }
+}
+
+.who-for-lede {
+  max-width: 60ch;
+  margin: 0 auto;
+  text-align: center;
+  color: var(--text-muted-on-light);
+}
+
+.terminal-caption {
+  margin: 12px 4px 0;
+  font-size: 0.78rem;
+  color: var(--text-subtle-on-dark);
+}
+
+@media (max-width: 640px) {
+  .gap-diagram,
+  .gap-unknowns {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .gap-card {
+    min-width: 0;
+  }
+
+  .gap-but {
+    text-align: center;
+  }
+}
+
+/* ================= /verify — two modes, one result hierarchy ================= */
+
+.verify-intro {
+  margin-bottom: 4px;
+}
+
+.verify-intro-title {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.verify-intro-copy {
+  margin: 0 0 20px;
+  color: var(--text-muted-on-dark);
+  max-width: 64ch;
+}
+
+.live-dates-card {
+  margin: 0 0 20px;
+  padding: 18px 22px;
+}
+
+.live-dates-card .scenario-card-title {
+  margin-bottom: 10px;
+}
+
+.live-dates {
+  margin: 0;
+}
+
+/* Secondary facts under the decision — deliberately smaller than both the
+   decision badge and the headline. */
+.decision-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 20px;
+}
+
+.decision-facts:empty {
+  display: none;
+}
+
+.decision-fact {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg-dark-card);
+  min-width: 0;
+}
+
+.decision-fact dt {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle-on-dark);
+}
+
+.decision-fact dd {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.decision-fact-ok dd {
+  color: var(--green);
+}
+
+.decision-fact-bad dd {
+  color: var(--red);
+}
+
+.decision-fact-warn dd {
+  color: var(--amber);
+}
+
+.decision-fact-muted dd {
+  color: var(--text-subtle-on-dark);
+}
+
+.checked-ids {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.checked-ids:empty {
+  display: none;
+}
+
+.checked-id {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 0.84rem;
+}
+
+.checked-id-label {
+  color: var(--text-subtle-on-dark);
+  font-weight: 700;
+}
+
+.checked-id-value {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-on-dark);
+  word-break: break-all;
+}
+
+.checked-id a {
+  color: var(--yellow);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bundle-drop {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 0 0 16px;
+  background: var(--bg-dark);
+}
+
+.bundle-drop.is-dragging {
+  border-color: var(--yellow);
+}
+
+.bundle-drop-label {
+  display: block;
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-subtle-on-dark);
+}
+
+.bundle-drop-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.bundle-upload {
+  cursor: pointer;
+}
+
+.bundle-upload:focus-within {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.bundle-summary {
+  font-size: 0.82rem;
+  color: var(--text-muted-on-dark);
+  overflow-wrap: anywhere;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .decision-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .checked-id {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .result-card {
+    padding: 24px 18px;
+  }
+}
+
+/* ================= /lab — reference mint (developers) ================= */
+
+.lab-notice {
+  border: 1px solid var(--amber);
+  background: var(--amber-dim);
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin: 0 0 22px;
+  font-size: 0.9rem;
+  color: var(--text-on-dark);
+}
+
+.lab-notice p {
+  margin: 0;
+}
+
+.lab-notice a {
+  color: var(--yellow);
+}
+
+.lab-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 0 0 18px;
+}
+
+.lab-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lab-field {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted-on-dark);
+  margin: 0 0 6px;
+}
+
+.lab-select {
+  width: 100%;
+  margin: 0 0 14px;
+}
+
+.lab-check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 0.86rem;
+  color: var(--text-muted-on-dark);
+  margin: 0 0 16px;
+}
+
+.lab-issuance {
+  margin: 0 0 18px;
+}
+
+.lab-full-note {
+  margin: 12px 0;
+}
+
+@media (max-width: 860px) {
+  .lab-grid {
+    grid-template-columns: 1fr;
   }
 }

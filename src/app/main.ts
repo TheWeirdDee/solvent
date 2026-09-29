@@ -1,9 +1,12 @@
 import './style.css';
+import { gsap } from 'gsap';
 import { initVerifierPanel, syncModeFromHash } from './verifier-panel.js';
 import { initPublisherPanel } from './publisher-panel.js';
 import { initDocsPanel } from './docs-panel.js';
+import { initLabPanel } from './lab-panel.js';
 import { renderHeroPanel } from './hero-panel.js';
 import { renderLandingEvidence } from './landing-evidence.js';
+import { initLandingMotion, refreshLandingMotion } from './landing-motion.js';
 import { initRouter, navigate, type Route } from './router.js';
 
 function byId<T extends HTMLElement>(id: string): T {
@@ -19,6 +22,7 @@ function initRouting(): void {
     publish: byId('panel-publish'),
     protocol: byId('panel-protocol'),
     docs: byId('panel-docs'),
+    lab: byId('panel-lab'),
   };
   // No dedicated nav-publish link in the v2 header — the evidence pipeline
   // is reached via footer/final CTA, not primary nav — so it has nothing
@@ -40,6 +44,9 @@ function initRouting(): void {
     // verifier panel's own one-time-at-init deep-link check would never
     // see it, so re-sync explicitly on every arrival at /verify.
     if (route === 'verify') syncModeFromHash();
+    // Scroll-trigger positions measured while the landing route was hidden
+    // are wrong; re-measure once it is visible again.
+    if (route === 'home') refreshLandingMotion();
     // jsdom (used by the automated UI tests) doesn't implement scrollTo; a
     // real browser always does, so this guard only matters for test noise.
     try {
@@ -80,8 +87,14 @@ function initMobileNav(): void {
   const drawer = byId<HTMLElement>('nav-drawer');
   const scrim = byId<HTMLElement>('nav-drawer-scrim');
   const topbar = document.querySelector<HTMLElement>('.topbar');
+  const items = drawer.querySelectorAll('a, .nav-drawer-heading, .nav-drawer-footnote');
+  let motion: gsap.core.Timeline | undefined;
+  let isOpen = false;
+  const reduceMotion = () => !window.matchMedia || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function open(): void {
+    motion?.kill();
+    isOpen = true;
     // Start the drawer/scrim just below the real, current topbar height
     // (it varies by breakpoint) instead of covering it — .topbar sits
     // above both in z-index specifically so the burger button stays
@@ -93,27 +106,72 @@ function initMobileNav(): void {
     drawer.hidden = false;
     scrim.hidden = false;
     burger.setAttribute('aria-expanded', 'true');
+    burger.setAttribute('aria-label', 'Close menu');
+    document.body.style.overflowY = 'hidden';
+    if (!reduceMotion()) {
+      motion = gsap.timeline({ defaults: { ease: 'power3.out' } })
+        .fromTo(scrim, { opacity: 0 }, { opacity: 1, duration: 0.35 })
+        .fromTo(drawer, { xPercent: 105 }, { xPercent: 0, duration: 0.65 }, 0)
+        .fromTo(items, { y: 25, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.045, duration: 0.45 }, 0.18);
+    } else {
+      gsap.set([drawer, scrim, ...items], { clearProps: 'all' });
+      drawer.style.top = `${top}px`;
+      scrim.style.top = `${top}px`;
+    }
   }
   function close(): void {
-    drawer.hidden = true;
-    scrim.hidden = true;
+    if (!isOpen) return;
+    isOpen = false;
+    motion?.kill();
     burger.setAttribute('aria-expanded', 'false');
+    burger.setAttribute('aria-label', 'Open menu');
+    document.body.style.overflowY = '';
+    burger.focus({ preventScroll: true });
+    const finish = () => { drawer.hidden = true; scrim.hidden = true; };
+    if (reduceMotion()) finish();
+    else motion = gsap.timeline({ onComplete: finish })
+      .to(drawer, { xPercent: 105, duration: 0.32, ease: 'power3.in' })
+      .to(scrim, { opacity: 0, duration: 0.3 }, 0);
   }
 
-  burger.addEventListener('click', () => (drawer.hidden ? open() : close()));
+  burger.addEventListener('click', () => (isOpen ? close() : open()));
   scrim.addEventListener('click', close);
   drawer.querySelectorAll<HTMLAnchorElement>('[data-drawer-close]').forEach((link) => link.addEventListener('click', close));
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !drawer.hidden) close();
+    if (e.key === 'Tab' && isOpen) {
+      const links = Array.from(drawer.querySelectorAll<HTMLAnchorElement>('a'));
+      const stops = [burger, ...links];
+      const index = stops.indexOf(document.activeElement as HTMLButtonElement);
+      e.preventDefault();
+      stops[(index + (e.shiftKey ? -1 : 1) + stops.length) % stops.length]?.focus();
+    }
   });
   window.addEventListener('hashchange', close);
+  window.addEventListener('resize', () => { if (window.innerWidth > 860) close(); });
+}
+
+function initEntrance(): void {
+  if (!window.matchMedia) return;
+  gsap.matchMedia().add('(prefers-reduced-motion: no-preference)', () => {
+    gsap.timeline({ defaults: { duration: 0.8, ease: 'power3.out', clearProps: 'all' } })
+      .from('.hero-copy > *', { y: 32, opacity: 0, stagger: 0.1 }, 0.08)
+      .from('.hero-panel-wrap', { y: 45, opacity: 0, scale: 0.97 }, 0.3)
+      .from('.hero-bands', { clipPath: 'inset(0 100% 0 0)', duration: 1.3, ease: 'power2.inOut' }, 0.15);
+  });
 }
 
 initRouting();
 initScrollLinks();
 initMobileNav();
+initEntrance();
 initVerifierPanel();
 initPublisherPanel();
 initDocsPanel();
+initLabPanel();
 void renderHeroPanel();
 renderLandingEvidence();
+// After renderLandingEvidence(): the attack-corpus and FAQ rows it renders
+// are animation targets, and the attack count it sets is the count-up's end
+// value.
+initLandingMotion();

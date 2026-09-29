@@ -7,6 +7,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -26,6 +27,8 @@
     "verify:submission": "tsx src/cli/verify-submission.ts",
     "verify:deployed": "tsx src/cli/verify-deployed.ts",
     "verify:deployed:browser": "tsx src/cli/verify-deployed-browser.ts",
+    "verify:ui:browser": "tsx src/cli/verify-ui-browser.ts",
+    "select:live-evidence": "tsx src/cli/select-live-evidence.ts",
     "verify:cashu-real": "tsx src/cli/real-cashu/real-cashu-foundation.ts",
     "verify:cashu-real:restart": "tsx src/cli/real-cashu/real-cashu-restart-check.ts",
     "verify:pol-atomicity": "tsx src/cli/real-cashu/pol-atomicity-check.ts",
@@ -48,7 +51,9 @@
     "verify:pol-swap-crash-evidence": "tsx src/cli/real-cashu/pol-swap-crash-evidence.ts",
     "verify:pol-swap-restart-evidence": "tsx src/cli/real-cashu/pol-swap-restart-evidence.ts",
     "verify:pol-nut03-nut07-summary": "tsx src/cli/real-cashu/pol-nut03-nut07-summary.ts",
-    "verify:nut03-evidence": "tsx src/cli/real-cashu/pol-verify-nut03-evidence.ts"
+    "verify:nut03-evidence": "tsx src/cli/real-cashu/pol-verify-nut03-evidence.ts",
+    "pol:epoch-close": "tsx src/cli/real-cashu/pol-epoch-close.ts",
+    "verify:pol-epoch": "tsx src/cli/real-cashu/pol-epoch-e2e.ts"
   },
   "repository": {
     "type": "git",
@@ -59,6 +64,7 @@
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@scure/btc-signer": "^2.4.1",
+    "gsap": "^3.15.0",
     "nostr-tools": "^2.25.2"
   },
   "devDependencies": {

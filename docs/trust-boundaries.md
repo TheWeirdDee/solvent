@@ -1,5 +1,23 @@
 # Trust boundaries — what is real, what is not (yet)
 
+## Product, reference lab, and the real CDK integration
+
+These are three different things, and the web app keeps them apart.
+
+**Public product** (`/verify`)
+- The verifier: the nine checks, fed through `verifySubmission()` and the central `verify()`.
+- **Live check** — the published reference case (`evidence/nostr/live-demo.json`), whose Nostr event is re-fetched from public relays and whose reserve UTXO is re-queried on every run.
+- **Verify evidence** — SOLVENT-compatible bundles someone else supplies, checked the same way.
+
+**Reference mint lab** (`#/lab`, developers only — not in the primary navigation)
+- A local reference proof generator: SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated or reset).
+- Not a production mint.
+- Its evidence is private and generated locally; it is never published, so it is never publicly retrievable. Its primary action is therefore **Check local cryptography**; a full verification of lab evidence refuses with `REFUSE_NOSTR_EVENT_NOT_FOUND` unless an earlier check fails first.
+
+**Real CDK integration** (Phase 2 — `patches/cdk/`, `migrations/solvent-accounting/`)
+- SOLVENT's accounting runs inside a real `cdk-mintd` for NUT-04 minting and NUT-03 swaps, proven in CI (`.github/workflows/real-cashu-integration.yml`; see `docs/REALITY-MAP.md`).
+- It is **not** the browser's mint backend. The published reference case is issued by SOLVENT's reference implementation, and real CDK-derived epoch publication is not yet the public web path.
+
 ## REAL in this build
 
 - Cashu NUT-12 DLEQ verification and holder-side `B'`/`C'` reconstruction, through `@cashu/cashu-ts` real primitives, over a real `getEncodedToken`/`getDecodedToken` transfer round trip (Gate 0 — `evidence/gate-0/`).
@@ -11,11 +29,11 @@
 - **Nostr public evidence (Gate 5).** `src/nostr/pol-event.ts` (real BIP-340-signed kind-8181 events, schema `solvent/pol/v2`) and `src/nostr/pol-evidence.ts` (real publish to public relays via `nostr-tools`' `SimplePool`, real independent fetch-back, and `evaluatePolEvidence()` — real signature verification, freshness, digest-binding, and conflicting-state detection) are real. `npm run gate5` demonstrates a genuine end-to-end round trip against `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.nostr.band` (evidence: `evidence/nostr/`). See `docs/nostr-schema.md`.
 - **Reserve attestation mechanism (Gate 6).** `src/reserve/taproot.ts` (real Taproot key-path address derivation via `@scure/btc-signer`, including the real BIP-341 key tweak), `src/reserve/statement.ts` (real dual BIP-340 signatures — reserve key and mint master key), and `src/reserve/evaluate.ts` (`evaluateReserveAttestation()` — real independent re-verification against Esplora-shaped chain state: signature/binding validity, existence, spent status, value/script matching, staleness, coverage) are real and fully tested (`tests/reserve/evaluate.test.ts`), backed by a real, funded Signet UTXO — see "Gate 6's live reserve" below.
 - **25/25 of the PRD §11 attack battery** (A01-A25) — every attack constructs real adversarial state and runs it through the real `verify()`/`evaluatePolEvidence()`/`evaluateReserveAttestation()` code paths; see `ATTACKS.md`.
-- **The Live Public Demo, with a network-aware freshness policy and a bounded relay-fetch retry.** `npm run live-demo` (`src/cli/live-demo.ts`) generates one complete, mutually-consistent evidence bundle and publishes its Nostr event, for real, to public relays (`evidence/nostr/live-demo.json`). Try SOLVENT's "LIVE PUBLIC DEMO" case (and "Verify your evidence"'s "Load example bundle") loads this bundle and independently re-verifies it — including a real live relay fetch that genuinely finds it, with one bounded retry absorbing transient relay misses — on every run, through `verifyCanonicalLiveDemo()`, the ONE loader+verifier `npm run verify:live-demo` and `npm run verify:submission` also use. See "The Live Public Demo" and "The two-tier Nostr guarantee" below.
+- **The Live Public Demo, with a network-aware freshness policy and a bounded relay-fetch retry.** `npm run live-demo` (`src/cli/live-demo.ts`) generates one complete, mutually-consistent evidence bundle and publishes its Nostr event, for real, to public relays (`evidence/nostr/live-demo.json`). /verify's **Live check** (and **Verify evidence**'s "Load live example") loads this bundle and independently re-verifies it — including a real live relay fetch that genuinely finds it, with one bounded retry absorbing transient relay misses — on every run, through `verifyCanonicalLiveDemo()`, the ONE loader+verifier `npm run verify:live-demo` and `npm run verify:submission` also use. See "The Live Public Demo" and "The two-tier Nostr guarantee" below.
 
 ## Gate 6's live reserve — resolved
 
-Gate 6's mechanism (address derivation, dual signing, independent chain-state re-verification, all 5 required negative cases) is real and passing (`evidence/reserves/cases.json`'s `mechanism_pass: true`). The Signet reserve address was funded with a real, externally-broadcast transaction, and `evidence/reserves/cases.json`'s `live_verified` is `true`: the LIVE case independently re-queried that real Bitcoin Signet (Mutinynet) UTXO via a public Esplora API and confirmed it covers outstanding liabilities. Every Try SOLVENT run, Create Test Ecash run, and pasted-bundle verification re-runs this same live query right now, in whatever browser is running it — see `src/app/submission.ts`'s `queryLiveChainState()`. See `docs/reserve-attestation.md` for the full mechanism.
+Gate 6's mechanism (address derivation, dual signing, independent chain-state re-verification, all 5 required negative cases) is real and passing (`evidence/reserves/cases.json`'s `mechanism_pass: true`). The Signet reserve address was funded with a real, externally-broadcast transaction, and `evidence/reserves/cases.json`'s `live_verified` is `true`: the LIVE case independently re-queried that real Bitcoin Signet (Mutinynet) UTXO via a public Esplora API and confirmed it covers outstanding liabilities. Every live check, pasted-bundle verification, and lab issuance re-runs this same live query right now, in whatever browser is running it — see `src/app/submission.ts`'s `queryLiveChainState()`. See `docs/reserve-attestation.md` for the full mechanism.
 
 ## What Gate 4's "acceptance" does NOT mean
 
@@ -23,10 +41,10 @@ It does not mean a live Cashu mint's HTTP swap/receive endpoint was called, and 
 
 ## NOT YET REAL in this build
 
-- **Wallet-redeemable tokens.** `createTestEcash()` (and every "Try SOLVENT" scenario) produces a genuine NUT-00-compliant *encoded* Cashu token via `@cashu/cashu-ts`'s real `getEncodedToken()` — any NUT-00-compliant parser can decode it. But its `mint` field is `solvent-fixture-mint`, a SOLVENT-internal label, not a reachable HTTP mint URL. There is no live mint server behind it, so a real wallet could parse the token but could never redeem/swap it. SOLVENT's own copy calls this "SOLVENT test ecash," never "a real Cashu token you can spend" — see `docs/verification-bundle.md`'s "Is this ecash real?" section for the full answer this build gives to that question.
+- **Wallet-redeemable tokens.** The reference case and every reference-mint issuance produce a genuine NUT-00-compliant *encoded* Cashu token via `@cashu/cashu-ts`'s real `getEncodedToken()` — any NUT-00-compliant parser can decode it. But its `mint` field is a SOLVENT-internal label (`solvent-fixture-mint` in the currently published reference case, `solvent-reference-lab` in the lab), not a reachable HTTP mint URL. There is no live mint server behind it, so a real wallet could parse the token but could never redeem/swap it. SOLVENT's own copy calls this "SOLVENT test ecash," never "a real Cashu token you can spend" — see `docs/verification-bundle.md`'s "Is this ecash real?" section for the full answer this build gives to that question.
 - **OpenTimestamps anchoring**, BLS12-381 receipts, keyset-lifecycle enforcement, the optional Nostr "latest state" pointer event, and three of the five PR #388 fraud-challenge types — see `docs/draft-alignment.md` for the complete, itemized list.
 - **Full BIP-322** proof-of-funds — Gate 6 uses the PRD §11.2 bounded alternative instead (see `docs/reserve-attestation.md`), not full BIP-322; nothing in this build is labeled "BIP-322."
-- **Publishing a fresh Nostr event on every Create Test Ecash click.** Create Test Ecash mints a brand-new random identity every run, specifically to prove genuine fresh issuance — publishing a throwaway event to production relays on every button press would spam them for no real benefit, so it doesn't. See "The two-tier Nostr guarantee" below for exactly what that means for its verification result.
+- **Publishing lab evidence.** The reference mint lab never publishes to Nostr — publishing throwaway events to production relays on every button press would spam them for no real benefit. See "The two-tier Nostr guarantee" below for exactly what that means for its verification result.
 
 ## The two-tier Nostr guarantee
 
@@ -37,7 +55,7 @@ Earlier builds of this pass let a cryptographically valid signed event that a bu
 
 `src/app/submission.ts`'s `evaluateNostrIndependently()` now keeps these strictly separate:
 
-- Every verification (Try SOLVENT, Create Test Ecash, and Verify Your Evidence alike) genuinely attempts a real, multi-relay fetch (`fetchPolEvidence()`, the same call Gate 5 uses) for the bundle's own `(mint_identity, epoch)`, every time, never skipped.
+- Every verification (Live check, Verify evidence, and the lab's full verification alike) genuinely attempts a real, multi-relay fetch (`fetchPolEvidence()`, the same call Gate 5 uses) for the bundle's own `(mint_identity, epoch)`, every time, never skipped.
 - `providedCopyValid` (informational only, shown in the evidence panel, **never gates ACCEPT**) — is the bundle's own private copy cryptographically valid on its own.
 - `publicationVerified` / `verified` (the actual gate fed into `verify()`) — is true **only** when a public relay genuinely returns this evidence. A bundle whose event cannot be found publicly gets a REFUSE — even when its own private copy is perfectly valid. There is no fallback path from "cryptographically valid" to "accepted" that skips public retrieval.
 
@@ -50,9 +68,9 @@ Earlier builds of this pass let a cryptographically valid signed event that a bu
 
 These are materially different claims ("we couldn't check" vs. "we checked and it isn't there"), and the UI never conflates them — see `nostrLive.relayReachable` in `src/app/submission.ts`. `REFUSE_NOSTR_CONFLICT`/`REFUSE_NOSTR_STATE_MISMATCH`/`REFUSE_NOSTR_STALE` remain unchanged for their existing, more specific cases (a relay actively returning conflicting, mismatched, or expired signed state).
 
-**How `relayReachable` is actually determined:** `nostr-tools`' `pool.querySync()` never rejects on a connection failure — it resolves with whatever it collected (possibly nothing) once its timeout elapses, even if every relay was completely unreachable. A naive "did the fetch call throw" check would therefore never see a real network failure and `REFUSE_NOSTR_UNAVAILABLE` would be effectively dead code on the real network path (this was caught and fixed during this build, not a hypothetical — verified with a real browser test that closed the relay WebSocket connections and confirmed the UI correctly showed "PUBLIC EVIDENCE COULD NOT BE CHECKED" rather than collapsing into "PUBLICATION NOT FOUND"). `fetchPolEvidence()` (`src/nostr/pol-evidence.ts`) instead listens for `SimplePool`'s own `onRelayConnectionSuccess` callback, which fires at the exact moment a relay's connection genuinely succeeds — real reachability, not an inferred proxy for it.
+**How `relayReachable` is actually determined:** `nostr-tools`' `pool.querySync()` never rejects on a connection failure — it resolves with whatever it collected (possibly nothing) once its timeout elapses, even if every relay was completely unreachable. A naive "did the fetch call throw" check would therefore never see a real network failure and `REFUSE_NOSTR_UNAVAILABLE` would be effectively dead code on the real network path (this was caught and fixed during this build, not a hypothetical — verified with a real browser test that closed the relay WebSocket connections and confirmed the UI correctly reported relays as unreachable rather than collapsing that into "not found"). `fetchPolEvidence()` (`src/nostr/pol-evidence.ts`) instead listens for `SimplePool`'s own `onRelayConnectionSuccess` callback, which fires at the exact moment a relay's connection genuinely succeeds — real reachability, not an inferred proxy for it.
 
-Consequence: **Create Test Ecash's own verification correctly cannot reach `ACCEPT_VERIFIED`** — every real gate up through reserve coverage passes, but its event was never published, so `Exact event: NOT FOUND` and the decision is `REFUSE_NOSTR_EVENT_NOT_FOUND` (relays are genuinely reachable in this build's normal operation; only a real network outage would produce `REFUSE_NOSTR_UNAVAILABLE` instead). The UI shows this as "CRYPTOGRAPHIC CHECK PASSED / PUBLICATION NOT FOUND," not a scary generic refusal, with a link to the Live Public Demo. This is intended, correct behavior, not a bug: it is the whole point of the distinction.
+Consequence: **locally generated evidence correctly cannot reach `ACCEPT_VERIFIED`** — every real gate up through reserve coverage passes, but its event was never published, so `Exact event: NOT FOUND` and the decision is `REFUSE_NOSTR_EVENT_NOT_FOUND` (only a real network outage would produce `REFUSE_NOSTR_UNAVAILABLE` instead). The UI leads with the decision — **REFUSE / PUBLIC EVIDENCE NOT FOUND** — and shows "Local cryptography: VALID" only as a secondary fact beneath it. This is intended, correct behavior, not a bug: it is the whole point of the distinction.
 
 ### Bounded relay-fetch retry
 

@@ -4,6 +4,23 @@ Chronological record of architectural decisions, migrations, and divergences fro
 
 ---
 
+## 2026-09-29 — Phase 3A: real PoL epoch lifecycle on the patched CDK mint (not yet committed; not yet run in CI)
+
+**Decision.** Replace Phase 2's hardcoded `target_epoch = 0` with a real epoch lifecycle driven by the mint's own SQLite database. Full design: `docs/epoch-lifecycle.md`.
+
+- **One OPEN epoch per mint, with global indices starting at 1.** The draft's `global_digest` spans every keyset, so the epoch index is mint-wide. Index 1, not 0, so a real receipt can never collide with the retired placeholder.
+- **The epoch is stamped by the database, and receipts are signed inside the transaction.** Migration 0003 re-creates the Phase 2 triggers so that each liability row, and its receipt message, carries the OPEN epoch. Patch 0007 moves receipt signing from before the transaction (over a constant) to inside it (over the stamped message) via `Mint::sign_pol_receipts_in_tx`. This is needed because the promised epoch only exists once the trigger has run. The signatory call is unchanged.
+- **Race safety comes from SQLite's single writer, not from application logic.** CDK's transactions are `BEGIN IMMEDIATE`, and so is the closer's. `BEFORE INSERT` guards make "a liability targets the OPEN epoch" a database invariant.
+- **The closer is TypeScript, reuses `src/pol/*`, and reads the real tables.** Leaves are joined to CDK's own `blind_signature` / `proof` rows, so no synthetic or unbacked row can enter a commitment. Such rows are reported, not dropped silently.
+- **The manifest key is an operator key (`SOLVENT_MANIFEST_PRIVKEY`), not CDK's signatory seed.** This adds no new signing path into the signatory. The closer refuses a key change between epochs. Binding the key to the mint publicly is Phase 3B.
+- **Broken-promise demo mode is explicit opt-in** (`SOLVENT_OMIT_PROMISED_ISSUANCE`). It covers one close, only for an issuance promised to that epoch, and is recorded in `solvent_pol_epoch_omission` so later epochs stay append-only consistent.
+
+**Verified so far:** 19 unit tests against the real CDK v0.18.1 schema dump, including a real SIGKILL of a fully staged close. A real patched `cdk-mintd` was also built locally from the pinned commit plus patches 0001-0007 (Windows, `sqlite,fakewallet`). Against it: `npm run verify:pol-epoch` passed (honest close with NUT-04 and NUT-03; broken promise refused `REFUSE_ISSUANCE_OMITTED`); a SIGKILL during a staged close on the live mint database left it unchanged; and after a real mint restart every epoch re-audited and the lifecycle continued (epochs 1–6). Evidence: `evidence/real-pol/phase3a-local-fakewallet*/`. **Lightning in these local runs was CDK's fakewallet (self-settled invoices).** The LND-backed CI steps are added to `real-cashu-integration.yml` but have **not run yet**.
+
+**Not in this milestone:** Nostr publication of closed epochs, the reserve binding, and NUT-06 publication of the manifest key (Phase 3B); browser integration; deployment.
+
+---
+
 ## 2026-09-25 — Phase 2 NUT-03 evidence correction (committed `4a802bc`, verified in CI run 36150315347)
 
 **The gap, stated plainly:** the NUT-03 final report implied that `evidence/real-pol/<run-id>/` held machine-readable NUT-03 evidence. It did not. The CI step named "Generate NUT-03 machine-readable evidence" re-ran the NUT-04 generator (`pol-generate-evidence.ts`), which writes the same 14 NUT-04-scoped files both times and has no swap fields. The NUT-03 results in run 36008787769 are real, but they exist only as CI step stdout.

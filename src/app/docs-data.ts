@@ -20,7 +20,7 @@ export interface DocEntry {
 }
 
 export const DOCS: DocEntry[] = [
-  { id: 'start-here', navLabel: 'Start here (2 minutes)', title: 'Start here — try SOLVENT in 2 minutes', raw: startHereRaw },
+  { id: 'start-here', navLabel: 'Start here', title: 'Start here — check ecash with SOLVENT in 2 minutes', raw: startHereRaw },
   { id: 'getting-started', navLabel: 'Getting started', title: 'Getting started', raw: readmeRaw },
   { id: 'protocol', navLabel: 'Protocol & architecture', title: 'Protocol & architecture', raw: protocolRaw },
   { id: 'verification-bundle', navLabel: 'Verification bundle schema', title: 'Verification bundle schema', raw: verificationBundleRaw },

@@ -22,18 +22,22 @@ interface Receipt {
   amount: number;
   blinded_message_hex: string;
   signature_hex: string;
+  target_epoch: number;
 }
 
 function line(label: string, ok: boolean, detail?: string): string {
   return `${label.padEnd(34)}${ok ? 'PASS' : 'FAIL'}${detail ? '  ' + detail : ''}`;
 }
 
-function canonicalMessage(blindedMessageHex: string): Uint8Array {
-  return new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${blindedMessageHex}:0`);
+// Phase 3A: the epoch is the one the database stamped on the liability row
+// (migrations/solvent-accounting/0003_pol_epoch_lifecycle.sql), no longer
+// Phase 2's constant 0.
+function canonicalMessage(blindedMessageHex: string, targetEpoch: number): Uint8Array {
+  return new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${blindedMessageHex}:${targetEpoch}`);
 }
 
-function verify(pubkeyHex: string, blindedMessageHex: string, signatureHex: string): boolean {
-  const digest = sha256(canonicalMessage(blindedMessageHex));
+function verify(pubkeyHex: string, blindedMessageHex: string, targetEpoch: number, signatureHex: string): boolean {
+  const digest = sha256(canonicalMessage(blindedMessageHex, targetEpoch));
   return schnorrVerifyDigest(signatureHex, digest, pubkeyHex, false);
 }
 
@@ -56,7 +60,8 @@ async function main() {
   const receipts = db
     .prepare(
       `SELECT r.id AS id, il.keyset_id AS keyset_id, il.amount AS amount,
-              il.blinded_message_hex AS blinded_message_hex, r.signature_hex AS signature_hex
+              il.blinded_message_hex AS blinded_message_hex, r.signature_hex AS signature_hex,
+              il.target_epoch AS target_epoch
        FROM solvent_pol_receipt r
        JOIN solvent_issued_liability il ON il.id = r.liability_id
        WHERE r.liability_kind = 'issued' AND il.operation_kind = 'mint' AND r.status = 'signed'`,
@@ -88,7 +93,7 @@ async function main() {
       allValid = false;
       continue;
     }
-    const ok = verify(pubkey, r.blinded_message_hex, r.signature_hex);
+    const ok = verify(pubkey, r.blinded_message_hex, r.target_epoch, r.signature_hex);
     console.log(line(`Receipt ${r.id.slice(0, 8)} (amount ${r.amount})`, ok, ok ? 'signature VALID against real mint public key' : 'signature INVALID'));
     if (!ok) allValid = false;
   }
@@ -99,14 +104,14 @@ async function main() {
   const sample = receipts[0]!;
   const sampleKeys = await getKeys(sample.keyset_id);
   const samplePubkey = sampleKeys[String(sample.amount)]!;
-  const baselineOk = verify(samplePubkey, sample.blinded_message_hex, sample.signature_hex);
+  const baselineOk = verify(samplePubkey, sample.blinded_message_hex, sample.target_epoch, sample.signature_hex);
   console.log(line('Baseline (unmutated) receipt', baselineOk));
 
   const tamperedAmountPubkey = sampleKeys[String(sample.amount)] ? Object.values(sampleKeys).find((k) => k !== samplePubkey) : undefined;
   const tests: { label: string; ok: boolean }[] = [
-    { label: 'Tampered public key (wrong amount)', ok: !verify(tamperedAmountPubkey ?? '02' + '00'.repeat(32), sample.blinded_message_hex, sample.signature_hex) },
-    { label: 'Tampered blinded message', ok: !verify(samplePubkey, sample.blinded_message_hex.slice(0, -2) + '00', sample.signature_hex) },
-    { label: 'Tampered signature', ok: !verify(samplePubkey, sample.blinded_message_hex, sample.signature_hex.slice(0, -2) + '00') },
+    { label: 'Tampered public key (wrong amount)', ok: !verify(tamperedAmountPubkey ?? '02' + '00'.repeat(32), sample.blinded_message_hex, sample.target_epoch, sample.signature_hex) },
+    { label: 'Tampered blinded message', ok: !verify(samplePubkey, sample.blinded_message_hex.slice(0, -2) + '00', sample.target_epoch, sample.signature_hex) },
+    { label: 'Tampered signature', ok: !verify(samplePubkey, sample.blinded_message_hex, sample.target_epoch, sample.signature_hex.slice(0, -2) + '00') },
     { label: 'Tampered epoch (message forged with :1 instead of :0)', ok: !schnorrVerifyDigest(sample.signature_hex, sha256(new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${sample.blinded_message_hex}:1`)), samplePubkey, false) },
   ];
   for (const t of tests) {

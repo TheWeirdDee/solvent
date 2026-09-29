@@ -37,12 +37,13 @@ async function main() {
   const rows = db
     .prepare(
       `SELECT r.id AS id, r.status AS status, r.signature_hex AS signature_hex,
-              il.keyset_id AS keyset_id, il.amount AS amount, il.blinded_message_hex AS blinded_message_hex
+              il.keyset_id AS keyset_id, il.amount AS amount, il.blinded_message_hex AS blinded_message_hex,
+              il.target_epoch AS target_epoch
        FROM solvent_pol_receipt r
        JOIN solvent_issued_liability il ON il.id = r.liability_id
        WHERE il.operation_kind = 'batch_mint'`,
     )
-    .all() as unknown as { id: string; status: string; signature_hex: string | null; keyset_id: string; amount: number; blinded_message_hex: string }[];
+    .all() as unknown as { id: string; status: string; signature_hex: string | null; keyset_id: string; amount: number; blinded_message_hex: string; target_epoch: number }[];
   db.close();
 
   console.log('SOLVENT — PHASE 2 RECEIPT RECOVERY VERIFICATION\n');
@@ -65,7 +66,8 @@ async function main() {
       allValid = false;
       continue;
     }
-    const message = new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${r.blinded_message_hex}:0`);
+    // Phase 3A: the DB-stamped epoch (0003_pol_epoch_lifecycle.sql), not Phase 2's constant 0.
+    const message = new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${r.blinded_message_hex}:${r.target_epoch}`);
     const ok = schnorrVerifyDigest(r.signature_hex!, sha256(message), pubkey, false);
     console.log(line(`Receipt ${r.id.slice(0, 8)} (amount ${r.amount})`, ok, ok ? 'recovered signature VALID' : 'recovered signature INVALID'));
     if (!ok) allValid = false;

@@ -1,5 +1,5 @@
 # SOLVENT — Real Cashu Integration: Phase 1 foundation + Phase 2
-# mint-native accounting (NUT-04 and NUT-03).
+# mint-native accounting (NUT-04 and NUT-03) + Phase 3A real PoL epochs.
 #
 # Brings up a REAL regtest stack (Bitcoin Core + 2 real `lnd` nodes + a real
 # CDK mint, backend `lnd` — no fakewallet) and runs against it:
@@ -356,6 +356,11 @@ jobs:
           sqlite3 /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0001_nut04_issued_liability.sql
           sqlite3 /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0002_nut03_consumed_liability.sql
           npm run verify:pol-atomicity -- /tmp/regtest/mint/cdk-mintd.sqlite
+          # Phase 3A: the real epoch lifecycle (docs/epoch-lifecycle.md).
+          # Applied after the atomicity check has cleaned up its synthetic
+          # rows — the migration refuses a database that already holds
+          # liabilities. -bail makes that refusal fail this step.
+          sqlite3 -bail /tmp/regtest/mint/cdk-mintd.sqlite < migrations/solvent-accounting/0003_pol_epoch_lifecycle.sql
 
           MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
           CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
@@ -798,6 +803,76 @@ jobs:
       - name: Verify the NUT-03 machine-readable evidence package
         run: npm run verify:nut03-evidence -- "$SOLVENT_RUN_ID"
 
+      # Phase 3A — real epoch lifecycle on the real LND-backed mint. Runs
+      # last so it cannot perturb any Phase 2 evidence above: closes the
+      # epoch the whole Phase 2 suite accumulated in, then drives a fresh
+      # honest issuance + swap and the explicit broken-promise omission
+      # through real epochs (src/cli/real-cashu/pol-epoch-e2e.ts). Writes
+      # evidence/real-pol/<run id>/phase3-*.json.
+      - name: Phase 3A — real epoch lifecycle (honest close + broken promise)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          # A fresh manifest key per run, kept for the restart audit below.
+          openssl rand -hex 32 > /tmp/regtest/mint/manifest.key
+          export SOLVENT_MANIFEST_PRIVKEY=$(cat /tmp/regtest/mint/manifest.key)
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_TLS_REJECT_UNAUTHORIZED=0  # regtest LND self-signed certs only
+          npm run verify:pol-epoch -- /tmp/regtest/mint/cdk-mintd.sqlite
+
+      - name: Phase 3A — genuine SIGKILL during an epoch close, then restart and re-audit
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+        run: |
+          set -euo pipefail
+          DB=/tmp/regtest/mint/cdk-mintd.sqlite
+          export SOLVENT_MANIFEST_PRIVKEY=$(cat /tmp/regtest/mint/manifest.key)
+          EV="evidence/real-pol/$SOLVENT_RUN_ID"
+          mkdir -p "$EV"
+          npm run --silent verify:pol-epoch -- "$DB" --snapshot --evidence-out /tmp/regtest/mint/epoch-before-kill.json
+          # Stage a complete close, blocked before COMMIT (test-only hook),
+          # then kill it for real.
+          SOLVENT_TEST_DELAY_BEFORE_EPOCH_COMMIT_MS=60000 npm run pol:epoch-close -- "$DB" > /tmp/regtest/mint/epoch-close-crash.log 2>&1 &
+          for i in $(seq 1 60); do
+            if grep -q "fully staged" /tmp/regtest/mint/epoch-close-crash.log; then break; fi
+            sleep 0.5
+          done
+          grep -q "fully staged" /tmp/regtest/mint/epoch-close-crash.log
+          pkill -9 -f pol-epoch-close.ts
+          sleep 1
+          npm run --silent verify:pol-epoch -- "$DB" --snapshot --evidence-out /tmp/regtest/mint/epoch-after-kill.json
+          jq -n \
+            --slurpfile before /tmp/regtest/mint/epoch-before-kill.json \
+            --slurpfile after /tmp/regtest/mint/epoch-after-kill.json \
+            --arg log "$(cat /tmp/regtest/mint/epoch-close-crash.log)" \
+            '{closeFullyStaged: true, signal: "SIGKILL", closerLog: $log, before: $before[0], after: $after[0], unchanged: ($before[0] == $after[0])}' \
+            > "$EV/phase3-crash-rollback.json"
+          cat "$EV/phase3-crash-rollback.json"
+          [ "$(jq -r .unchanged "$EV/phase3-crash-rollback.json")" = "true" ]
+
+          # Real process restart of the mint, then re-derive every epoch.
+          MINTD_PID=$(cat /tmp/regtest/mint/mintd.pid)
+          kill "$MINTD_PID"
+          for i in $(seq 1 30); do
+            if ! kill -0 "$MINTD_PID" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          MNEMONIC="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+          CDK_MINTD_MNEMONIC="$MNEMONIC" cdk-mintd --work-dir /tmp/regtest/mint \
+            >> /tmp/regtest/mint/mintd.log 2>&1 &
+          echo $! > /tmp/regtest/mint/mintd.pid
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8085/v1/info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:8085/v1/info >/dev/null
+          npm run verify:pol-epoch -- "$DB" --audit-only --evidence-out "$EV/phase3-restart-audit.json"
+          # And the lifecycle continues after restart: a normal close succeeds.
+          npm run pol:epoch-close -- "$DB" --json-out "$EV/phase3-post-restart-close.json"
+          npm run verify:pol-epoch -- "$DB" --audit-only --evidence-out "$EV/phase3-post-restart-audit.json"
+
       - name: Collect logs
         if: always()
         run: |
@@ -812,6 +887,7 @@ jobs:
           cp /tmp/regtest/mint/pol-swap-post-restart.txt /tmp/regtest-logs/pol-swap-post-restart.txt 2>/dev/null || true
           cp /tmp/regtest/mint/crash-trigger.log /tmp/regtest-logs/crash-trigger.log 2>/dev/null || true
           cp /tmp/regtest/mint/swap-crash-trigger.log /tmp/regtest-logs/swap-crash-trigger.log 2>/dev/null || true
+          cp /tmp/regtest/mint/epoch-close-crash.log /tmp/regtest-logs/epoch-close-crash.log 2>/dev/null || true
 
       - name: Upload Phase 1 + Phase 2 evidence (real-cashu, real-pol incl. nut03-*.json, logs)
         if: always()

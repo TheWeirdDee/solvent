@@ -54,14 +54,13 @@
 // fabricated result, never skipped. What this module does NOT do is
 // publish a fresh event on every click before fetching it back — that
 // would spam production relays with throwaway evidence on every button
-// press for no real benefit. So a demo-generated bundle (Create Test Ecash,
-// which mints a brand-new random identity every run specifically to prove
-// genuine fresh issuance) will predictably find nothing on public relays,
-// since it was never published anywhere — and correctly cannot reach
-// ACCEPT_VERIFIED on that basis alone (see protocol-demo.ts's
-// loadLivePublicDemo() for the one identity that genuinely IS published,
-// once, via `npm run live-demo`, and is what Try SOLVENT's HEALTHY / Live
-// Public Demo case verifies against). See docs/trust-boundaries.md.
+// press for no real benefit. So a locally generated bundle (the /lab
+// reference mint, or protocol-demo.ts's throwaway reference identities)
+// will predictably find nothing on public relays, since it was never
+// published anywhere — and correctly cannot reach ACCEPT_VERIFIED on that
+// basis alone (see protocol-demo.ts's loadLivePublicDemo() for the one
+// identity that genuinely IS published, via `npm run live-demo`, and is
+// what /verify's Live check verifies against). See docs/trust-boundaries.md.
 import type { Proof } from '@cashu/cashu-ts';
 import type { NostrEvent } from 'nostr-tools';
 import { globalDigest, keysetMerkleRoot, manifestDigestHex, sortKeysets, type KeysetManifestEntry, type ManifestFields } from '../pol/manifest.js';
@@ -374,9 +373,9 @@ async function evaluateNostrIndependently(
 }
 
 /**
- * The single entry point every /verify surface now goes through — Try
- * SOLVENT's curated scenarios, Create Test Ecash, and Verify Your Evidence
- * (pasted bundles) alike. Independently re-derives `reserve`/`nostr` from
+ * The single entry point every verification goes through — /verify's Live
+ * check and Verify evidence (pasted bundles), and /lab's full verification
+ * alike. Independently re-derives `reserve`/`nostr` from
  * raw evidence (see module header) and only then calls the real, locked
  * verify(). A caller cannot skip the independent re-derivation — there is
  * no code path here that reads a `verified` boolean off the input bundle.

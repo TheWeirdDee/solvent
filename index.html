@@ -19,7 +19,7 @@
     <header class="topbar">
       <a id="nav-home" class="brand nav-link" href="#/">SOLVENT</a>
       <nav class="nav-mid" aria-label="On this page">
-        <a href="#why" data-scroll="why">Why</a>
+        <a href="#problem" data-scroll="problem">Why</a>
         <a href="#how-it-works" data-scroll="how-it-works">How it works</a>
         <a href="#reserve" data-scroll="reserve">Reserve</a>
         <a href="#nostr" data-scroll="nostr">Nostr</a>
@@ -27,7 +27,7 @@
       </nav>
       <div class="nav-right">
         <a id="nav-protocol" class="nav-link btn btn-outline btn-sm" href="#/protocol">Protocol</a>
-        <a id="nav-verify" class="nav-link btn btn-solid btn-sm" href="#/verify">Try / Verify</a>
+        <a id="nav-verify" class="nav-link btn btn-solid btn-sm" href="#/verify">Verify</a>
       </div>
       <button id="nav-burger" type="button" class="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-drawer">
         <span></span><span></span><span></span>
@@ -35,13 +35,14 @@
     </header>
 
     <div id="nav-drawer" class="nav-drawer" hidden>
-      <a href="#why" data-scroll="why" data-drawer-close>Why</a>
+      <p class="nav-drawer-heading">EXPLORE SOLVENT <span>01 — 06</span></p>
+      <a href="#problem" data-scroll="problem" data-drawer-close>Why</a>
       <a href="#how-it-works" data-scroll="how-it-works" data-drawer-close>How it works</a>
       <a href="#reserve" data-scroll="reserve" data-drawer-close>Reserve</a>
       <a href="#nostr" data-scroll="nostr" data-drawer-close>Nostr</a>
       <a href="#/docs" data-drawer-close>Docs</a>
       <a href="#/protocol" data-drawer-close>Protocol</a>
-      <a href="#/verify" class="btn btn-solid nav-drawer-cta" data-drawer-close>Try / Verify</a>
+      <a href="#/verify" class="btn btn-solid nav-drawer-cta" data-drawer-close>Verify</a>
       <p class="nav-drawer-footnote">SOLVENT &middot; BOSS Battle 2026 submission</p>
     </div>
     <div id="nav-drawer-scrim" class="nav-drawer-scrim" hidden></div>
@@ -62,7 +63,7 @@
               state, and real Bitcoin reserves.
             </p>
             <div class="hero-ctas">
-              <a href="#/verify?mode=create" class="btn btn-solid btn-lg">Try with test ecash</a>
+              <a href="#/verify?mode=live" class="btn btn-solid btn-lg">Run the live check</a>
               <a href="#hero-proof" data-scroll="hero-proof" class="btn btn-outline btn-lg">See the proof</a>
             </div>
             <p class="hero-footnote">Signed promise &middot; Closed accounting epoch &middot; Public state &middot; Live Bitcoin reserve</p>
@@ -93,70 +94,105 @@
               <p id="hero-result" class="terminal-result">REFUSE</p>
               <p id="hero-result-reason" class="terminal-result-reason">Reason: PROMISED ISSUANCE OMITTED</p>
             </div>
+            <p class="terminal-caption">Example: a reference mint that omitted a promised issuance, decided by the real verifier as this page loads.</p>
           </div>
         </div>
 
-        <div class="hero-bands" aria-hidden="true">
-          <span class="band band-yellow" title="Receipt / promise"></span>
-          <span class="band band-purple" title="Public Nostr epoch state"></span>
-          <span class="band band-red" title="Refusal / contradiction"></span>
-        </div>
+        <svg class="hero-bands" viewBox="0 -120 1440 440" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path class="band-cream" d="M0 248H850Q888 248 900 208L975 -40Q992 -96 1040 -96H1440V-72H1096Q1048 -72 1031 -16L956 232Q944 272 906 272H0Z" />
+          <path class="band-red" d="M0 272H906Q944 272 956 232L1031 -16Q1048 -72 1096 -72H1440V-48H1152Q1104 -48 1087 8L1012 256Q1000 296 962 296H0Z" />
+          <path class="band-burgundy" d="M0 296H962Q1000 296 1012 256L1087 8Q1104 -48 1152 -48H1440V-24H1208Q1160 -24 1143 32L1068 280Q1056 320 1018 320H0Z" />
+        </svg>
       </section>
 
-      <!-- ---------- PROBLEM STATEMENT (cream, directly below hero) ---------- -->
-      <section class="problem-statement">
+      <!-- ---------- THE PROBLEM (cream, directly below hero) ---------- -->
+      <section class="problem-gap" id="problem">
        <div class="section-inner">
-        <div class="problem-statement-grid">
-          <div class="problem-statement-step">
-            <p class="problem-statement-num">1</p>
-            <p class="problem-statement-line">The token looks valid.</p>
+        <p class="eyebrow eyebrow-center">The problem</p>
+        <h2 class="section-heading section-heading-center">A valid Cashu token<br />doesn&rsquo;t prove the mint<br />counted what it owes.</h2>
+        <p class="section-body section-body-center">
+          Cashu can prove that ecash was signed by a mint. That alone does not prove the mint included that issuance in
+          its liabilities &mdash; or that its reserves still cover what it owes. A mint can issue valid ecash while
+          omitting that obligation from its accounting.
+        </p>
+        <div class="gap-diagram">
+          <div class="gap-card gap-card-known">
+            <p class="gap-card-label">Valid token</p>
+            <p class="gap-card-status"><span class="gap-mark" aria-hidden="true">&check;</span> mint signature</p>
           </div>
-          <div class="problem-statement-arrow" aria-hidden="true">&rarr;</div>
-          <div class="problem-statement-step">
-            <p class="problem-statement-num">2</p>
-            <p class="problem-statement-line">But did the mint count it?</p>
-          </div>
-          <div class="problem-statement-arrow" aria-hidden="true">&rarr;</div>
-          <div class="problem-statement-step">
-            <p class="problem-statement-num">3</p>
-            <p class="problem-statement-line">And is the money still there?</p>
+          <p class="gap-but">but</p>
+          <div class="gap-unknowns">
+            <div class="gap-card gap-card-unknown">
+              <p class="gap-card-label">Liability</p>
+              <p class="gap-card-status"><span class="gap-mark" aria-hidden="true">?</span> counted or omitted</p>
+            </div>
+            <div class="gap-card gap-card-unknown">
+              <p class="gap-card-label">Reserve</p>
+              <p class="gap-card-status"><span class="gap-mark" aria-hidden="true">?</span> enough or not</p>
+            </div>
           </div>
         </div>
-        <p class="problem-statement-conclusion">SOLVENT checks all three before acceptance.</p>
+        <div class="gap-callout">
+          <p class="gap-callout-label">The gap</p>
+          <p class="gap-callout-text">Wallets need a way to check the mint&rsquo;s obligation before accepting the token.</p>
+        </div>
        </div>
       </section>
 
-      <!-- ---------- WHO IS THIS FOR (cream) ---------- -->
-      <section class="who-for">
+      <!-- ---------- THE SOLUTION (dark) ---------- -->
+      <section class="solution" id="solution">
        <div class="section-inner">
-        <p class="eyebrow eyebrow-center">Who this is for</p>
-        <h2 class="section-heading section-heading-center">For anyone who has to decide<br />whether to accept ecash.</h2>
+        <p class="eyebrow eyebrow-center">The solution</p>
+        <h2 class="section-heading section-heading-center">SOLVENT makes<br />the mint&rsquo;s promise<br />checkable.</h2>
+        <p class="section-body section-body-center">
+          SOLVENT gives each issuance a signed liability receipt, checks that promise against the mint&rsquo;s closed
+          accounting state, verifies the public Nostr record and live Bitcoin reserve, and blocks acceptance when any
+          part is missing, inconsistent, stale or underfunded.
+        </p>
+        <ol class="solution-flow">
+          <li>Issuance</li>
+          <li>Signed liability receipt</li>
+          <li>Closed accounting state</li>
+          <li>Public Nostr evidence</li>
+          <li>Live Bitcoin reserve</li>
+          <li class="solution-flow-final">Accept / Refuse</li>
+        </ol>
+        <p class="solution-punchline">Valid token &ne; solvent mint. SOLVENT checks both.</p>
+       </div>
+      </section>
+
+      <!-- ---------- BUILT FOR (cream) ---------- -->
+      <section class="who-for" id="built-for">
+       <div class="section-inner">
+        <p class="eyebrow eyebrow-center">Built for</p>
+        <h2 class="section-heading section-heading-center">Anyone who has to decide<br />whether to accept ecash.</h2>
+        <p class="who-for-lede">For anyone who needs to know not only that ecash is authentic, but that the mint actually accounted for it.</p>
         <div class="who-for-grid">
           <div class="who-for-card">
-            <p class="who-for-title">Wallets</p>
-            <p class="who-for-desc">Check a mint's promise before showing a balance as spendable.</p>
+            <p class="who-for-title">Cashu wallets</p>
+            <p class="who-for-desc">Check a mint&rsquo;s obligation before showing a balance as spendable.</p>
           </div>
           <div class="who-for-card">
-            <p class="who-for-title">Autonomous agents</p>
-            <p class="who-for-desc">Verify ecash programmatically before treating it as settled value.</p>
+            <p class="who-for-title">Ecash apps</p>
+            <p class="who-for-desc">Gate acceptance on independent evidence, not on the mint&rsquo;s word.</p>
           </div>
           <div class="who-for-card">
-            <p class="who-for-title">Marketplaces</p>
-            <p class="who-for-desc">Refuse ecash from a mint whose own signed accounting contradicts itself.</p>
+            <p class="who-for-title">Mint operators</p>
+            <p class="who-for-desc">Publish evidence holders can check, and show every signed promise was kept.</p>
           </div>
           <div class="who-for-card">
-            <p class="who-for-title">Services accepting ecash</p>
-            <p class="who-for-desc">Gate acceptance on independent evidence, not on trusting the mint's word.</p>
+            <p class="who-for-title">Users accepting ecash</p>
+            <p class="who-for-desc">Know a token is authentic and actually counted before taking it.</p>
           </div>
         </div>
        </div>
       </section>
 
-      <!-- ---------- HOW SOLVENT HELPS (cream) ---------- -->
+      <!-- ---------- WHAT SOLVENT CATCHES (cream) ---------- -->
       <section class="problem" id="why">
         <div class="problem-grid">
           <div class="problem-copy">
-            <p class="eyebrow">How SOLVENT helps</p>
+            <p class="eyebrow">What SOLVENT catches</p>
             <h2 class="section-heading">A signed promise<br />should be checkable.</h2>
             <p class="section-body">
               The mint signs a receipt promising that an issuance will appear in a specific accounting epoch. If the
@@ -169,7 +205,7 @@
               <li>The epoch&rsquo;s own signed manifest can look internally consistent</li>
               <li>The promised issuance can still be missing from it</li>
             </ul>
-            <a href="#/verify" class="btn btn-outline">See SOLVENT catch it &rarr;</a>
+            <a href="#/docs?doc=attack-corpus" class="btn btn-outline">See every refusal case &rarr;</a>
           </div>
 
           <div class="promise-chain-card">
@@ -242,31 +278,31 @@
       <section class="how-to-try">
        <div class="section-inner">
         <p class="eyebrow eyebrow-center">Get started</p>
-        <h2 class="section-heading section-heading-center">How to try SOLVENT.</h2>
+        <h2 class="section-heading section-heading-center">How to check ecash<br />with SOLVENT.</h2>
         <div class="how-to-try-grid">
           <div class="how-to-try-step">
             <p class="how-to-try-num">1</p>
-            <p class="how-to-try-title">Create test ecash</p>
-            <p class="how-to-try-desc">SOLVENT&rsquo;s test mint issues a real blind-signed Cashu proof and a signed receipt promising to account for it.</p>
+            <p class="how-to-try-title">Run the live check</p>
+            <p class="how-to-try-desc">Open Verify and run SOLVENT against a real published reference case. Nothing to install.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">2</p>
-            <p class="how-to-try-title">Get the evidence</p>
-            <p class="how-to-try-desc">SOLVENT packages the receipt, closed epoch manifest, inclusion proof, public Nostr evidence, and reserve information required to verify the ecash.</p>
+            <p class="how-to-try-title">Watch nine checks</p>
+            <p class="how-to-try-desc">Token, mint origin, signed receipt, closed epoch, manifest, inclusion, public Nostr retrieval and the live Bitcoin reserve &mdash; checked in your browser.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">3</p>
-            <p class="how-to-try-title">Verify</p>
-            <p class="how-to-try-desc">The verifier checks the Cashu proof, the mint&rsquo;s promise, inclusion, published state, and the live Bitcoin reserve.</p>
+            <p class="how-to-try-title">Inspect the evidence</p>
+            <p class="how-to-try-desc">Open the exact Nostr event and reserve UTXO SOLVENT just checked, on public explorers.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">4</p>
-            <p class="how-to-try-title">Accept or refuse</p>
-            <p class="how-to-try-desc">Only ecash that passes every required check can cross the acceptance boundary.</p>
+            <p class="how-to-try-title">Verify your own bundle</p>
+            <p class="how-to-try-desc">Paste SOLVENT-compatible evidence. Missing, private, stale or underfunded evidence is refused.</p>
           </div>
         </div>
         <div class="gate-cta">
-          <a href="#/verify?mode=create" id="how-to-try-cta" class="btn btn-solid btn-lg">Create test ecash &rarr;</a>
+          <a href="#/verify?mode=live" id="how-to-try-cta" class="btn btn-solid btn-lg">Run the live check &rarr;</a>
         </div>
        </div>
       </section>
@@ -454,7 +490,7 @@
             <p class="editorial-subhead">&ldquo;A signed receipt means nothing if nobody checks what happened next.&rdquo;</p>
 
             <div class="hero-ctas hero-ctas-center">
-              <a href="#/verify?mode=create" class="btn btn-solid btn-lg">Try with test ecash</a>
+              <a href="#/verify?mode=live" class="btn btn-solid btn-lg">Run the live check</a>
               <a href="#/protocol" class="btn btn-outline btn-lg">View protocol</a>
             </div>
           </div>
@@ -466,52 +502,32 @@
     <main id="panel-verify" class="route route-app panel" hidden>
       <p class="eyebrow">Verify ecash</p>
       <h1 class="page-heading">VERIFY ECASH</h1>
-      <p class="page-sub">Check a mint&rsquo;s promise before allowing ecash into your wallet.</p>
+      <p class="page-sub">Check a mint&rsquo;s promise &mdash; its signed liability receipt, public accounting state and live Bitcoin reserve &mdash; before ecash is accepted.</p>
 
-      <div class="mode-tabs" role="tablist">
-        <button type="button" class="mode-tab active" data-mode="try" role="tab" aria-selected="true">Try SOLVENT</button>
-        <button type="button" class="mode-tab" data-mode="create" role="tab" aria-selected="false">Create test ecash</button>
-        <button type="button" class="mode-tab" data-mode="manual" role="tab" aria-selected="false">Verify your evidence</button>
-      </div>
-      <div class="mode-explainer">
-        <p><strong>Try SOLVENT</strong> &mdash; curated cases, including a Live Public Demo whose evidence is genuinely published; SOLVENT fetches it from real public relays every run.</p>
-        <p><strong>Create test ecash</strong> &mdash; issue your own fresh SOLVENT test ecash to inspect/export. Fresh evidence is not automatically published, so it can't cross the live acceptance boundary on its own.</p>
-        <p><strong>Verify your evidence</strong> &mdash; paste externally-supplied SOLVENT-compatible evidence. Full acceptance still requires independently retrievable public state and a live reserve check.</p>
+      <div class="mode-tabs" role="tablist" aria-label="Verification mode">
+        <button type="button" id="tab-live" class="mode-tab active" data-mode="live" role="tab" aria-selected="true" aria-controls="mode-live">Live check</button>
+        <button type="button" id="tab-evidence" class="mode-tab" data-mode="evidence" role="tab" aria-selected="false" aria-controls="mode-evidence">Verify evidence</button>
       </div>
 
-      <!-- ---- TRY SOLVENT MODE ---- -->
-      <section id="mode-try" class="verify-mode">
-        <div class="card scenario-card">
-          <p class="scenario-card-title">Choose a test case</p>
-          <div class="scenario-selector" role="group" aria-label="Choose a test case">
-            <button type="button" class="scenario-btn" data-scenario="honest">
-              <span class="scenario-btn-label">LIVE PUBLIC DEMO</span>
-              <span class="scenario-btn-desc">Published accounting record is fetched live from public relays and matches</span>
-            </button>
-            <button type="button" class="scenario-btn" data-scenario="omitted">
-              <span class="scenario-btn-label">BROKEN PROMISE</span>
-              <span class="scenario-btn-desc">Mint promised to count the issuance but omitted it</span>
-            </button>
-            <button type="button" class="scenario-btn" data-scenario="reserve-short">
-              <span class="scenario-btn-label">RESERVE SHORTFALL</span>
-              <span class="scenario-btn-desc">Issuance is accounted for but reserve is insufficient</span>
-            </button>
-          </div>
-          <button id="run-verification-btn" type="button" class="btn btn-solid btn-lg btn-block" disabled>Run verification</button>
-          <p class="scenario-note">
-            Each run performs real blind-signed issuance verification, a real signed receipt check, a real signed
-            epoch manifest check, a real live fetch of the required public Nostr evidence, and a live re-query of
-            the real Bitcoin Signet reserve UTXO &mdash; fed through the same <code>verify()</code> function the CLI
-            and test suite use. Nothing here is a hardcoded outcome.
-          </p>
+      <!-- ---- LIVE CHECK ---- -->
+      <section id="mode-live" class="verify-mode" role="tabpanel" aria-labelledby="tab-live">
+        <div class="card verify-intro">
+          <h2 class="verify-intro-title">LIVE VERIFICATION</h2>
+          <p class="verify-intro-copy">Run SOLVENT against a real published reference case. Public Nostr evidence and the Bitcoin reserve are checked again when you run it.</p>
+          <button id="run-verification-btn" type="button" class="btn btn-solid btn-lg btn-block">Run live check</button>
         </div>
 
-        <div id="live-status" class="live-status">
-          <span>Nostr <strong id="live-status-nostr">&hellip;</strong></span>
-          <span>Reserve <strong id="live-status-reserve">&hellip;</strong></span>
-          <span>Network <strong>Mutinynet</strong></span>
-          <span id="live-status-time" class="live-status-time"></span>
-          <button id="refresh-evidence-btn" type="button" class="btn btn-outline btn-sm">Refresh evidence</button>
+        <div id="live-status" class="live-status" aria-live="polite">
+          <div class="live-status-cell"><span class="live-status-label">Last checked</span><strong id="live-status-time">Not yet run</strong></div>
+          <div class="live-status-cell"><span class="live-status-label">Nostr</span><strong id="live-status-nostr">&mdash;</strong></div>
+          <div class="live-status-cell"><span class="live-status-label">Reserve</span><strong id="live-status-reserve">&mdash;</strong></div>
+          <div class="live-status-cell"><span class="live-status-label">Network</span><strong id="live-status-network">Mutinynet (Bitcoin Signet)</strong></div>
+          <p class="live-status-note">Test-network coins have no monetary value.</p>
+        </div>
+
+        <div class="card live-dates-card">
+          <p class="scenario-card-title">Reference case</p>
+          <dl id="live-dates" class="evidence-rows live-dates"></dl>
         </div>
 
         <div id="progress-panel" class="progress" hidden>
@@ -522,20 +538,21 @@
           <div id="decision-badge" class="decision-badge"></div>
           <p id="decision-headline" class="decision-headline"></p>
           <p id="decision-body" class="decision-body"></p>
-
+          <dl id="decision-facts" class="decision-facts"></dl>
+          <div id="live-checked-ids" class="checked-ids"></div>
           <div class="decision-chain" id="decision-chain"></div>
 
           <button id="accept-btn" class="btn btn-accept btn-block" type="button" disabled>Accept ecash</button>
           <div id="accepted-panel" class="accepted-panel" hidden></div>
-          <button id="run-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Run another check</button>
+          <button id="run-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Run the live check again</button>
 
           <p class="honesty-note">
-            This build accepts into a local reference store, on Signet test capital &mdash; not mainnet funds.
+            Accepted ecash goes into a local reference store. The reserve is Bitcoin Signet (test-network) capital, not mainnet funds.
             <a href="#/docs?doc=trust-boundaries">Full trust model &rarr;</a>
           </p>
 
           <details id="evidence" class="evidence">
-            <summary>View evidence</summary>
+            <summary>Evidence details</summary>
             <div id="evidence-content" class="evidence-content"></div>
           </details>
         </div>
@@ -543,113 +560,104 @@
         <p id="status" class="status" aria-live="polite"></p>
       </section>
 
-      <!-- ---- CREATE TEST ECASH MODE ---- -->
-      <section id="mode-create" class="verify-mode" hidden>
-        <div class="card scenario-card">
-          <p class="scenario-card-title">Create test ecash</p>
-          <p class="manual-desc">
-            Create SOLVENT-compatible Cashu ecash using the test mint &mdash; a fresh identity every time, to prove
-            genuine issuance. SOLVENT will issue the proof and generate the evidence required to verify it. Because
-            this evidence is freshly generated and not automatically published anywhere, verifying it can prove the
-            cryptography is valid, but not that the accounting record is publicly retrievable &mdash; see the Live
-            Public Demo in Try SOLVENT for a case where it genuinely is.
-          </p>
-          <button id="create-ecash-btn" type="button" class="btn btn-solid btn-lg btn-block">Create test ecash</button>
-          <p id="create-status" class="status" aria-live="polite"></p>
-        </div>
-
-        <div id="create-ecash-result" class="card ecash-card" hidden>
-          <p class="scenario-card-title">Your ecash</p>
-          <p class="mono ecash-token" id="create-token-value"></p>
-          <button id="copy-token-btn" type="button" class="btn btn-outline btn-sm">Copy ecash</button>
-          <dl class="accepted-facts ecash-facts">
-            <dt>Amount</dt><dd id="create-token-amount"></dd>
-            <dt>Keyset</dt><dd id="create-token-keyset" class="mono"></dd>
-            <dt>Mint</dt><dd id="create-token-mint"></dd>
-            <dt>Issued</dt><dd id="create-token-issued"></dd>
-          </dl>
-
-          <div class="bundle-block">
-            <p class="scenario-card-title">SOLVENT verification evidence</p>
-            <p class="manual-desc">
-              This bundle contains the evidence required to verify this ecash against the mint&rsquo;s promise,
-              published accounting state, and reserve.
-            </p>
-            <div class="bundle-actions">
-              <button id="view-bundle-btn" type="button" class="btn btn-outline btn-sm">View JSON</button>
-              <button id="copy-bundle-btn" type="button" class="btn btn-outline btn-sm">Copy bundle</button>
+      <!-- ---- VERIFY EVIDENCE ---- -->
+      <section id="mode-evidence" class="verify-mode" role="tabpanel" aria-labelledby="tab-evidence" hidden>
+        <div class="card verify-intro">
+          <h2 class="verify-intro-title">VERIFY YOUR EVIDENCE</h2>
+          <p class="verify-intro-copy">Have SOLVENT-compatible ecash and its liability evidence? Paste the verification bundle and SOLVENT will independently check the mint&rsquo;s signatures, accounting promise, public state and reserve.</p>
+          <div id="bundle-drop" class="bundle-drop">
+            <label for="manual-bundle-input" class="bundle-drop-label">Verification bundle</label>
+            <textarea id="manual-bundle-input" class="manual-bundle-input" rows="4" spellcheck="false" autocomplete="off" placeholder="Paste a SOLVENT verification bundle (JSON) here, or drop / upload a .json file"></textarea>
+            <div class="bundle-drop-row">
+              <label class="btn btn-outline btn-sm bundle-upload">
+                <input id="manual-bundle-file" class="visually-hidden" type="file" accept=".json,application/json" />
+                Upload .json
+              </label>
+              <span id="manual-bundle-summary" class="bundle-summary" aria-live="polite"></span>
             </div>
-            <pre id="create-bundle-json" class="raw-json" hidden></pre>
-            <button id="create-verify-btn" type="button" class="btn btn-solid btn-lg btn-block">Verify this ecash</button>
           </div>
-        </div>
-
-        <div id="create-progress-panel" class="progress" hidden>
-          <div id="create-progress-steps"></div>
-        </div>
-
-        <div id="create-result" class="result-card" hidden>
-          <div id="create-decision-badge" class="decision-badge"></div>
-          <p id="create-decision-headline" class="decision-headline"></p>
-          <p id="create-decision-body" class="decision-body"></p>
-
-          <div class="decision-chain" id="create-decision-chain"></div>
-
-          <button id="create-accept-btn" class="btn btn-accept btn-block" type="button" disabled>Accept ecash</button>
-          <div id="create-accepted-panel" class="accepted-panel" hidden></div>
-          <button id="create-try-live-demo-btn" type="button" class="btn btn-outline btn-block" hidden>Try live public demo &rarr;</button>
-          <button id="create-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Create another</button>
-
-          <p class="honesty-note">
-            This build accepts into a local reference store, on Signet test capital &mdash; not mainnet funds.
-            <a href="#/docs?doc=trust-boundaries">Full trust model &rarr;</a>
-          </p>
-
-          <details id="create-evidence" class="evidence">
-            <summary>View evidence</summary>
-            <div id="create-evidence-content" class="evidence-content"></div>
-          </details>
-        </div>
-      </section>
-
-      <!-- ---- VERIFY YOUR EVIDENCE (MANUAL) MODE ---- -->
-      <section id="mode-manual" class="verify-mode" hidden>
-        <div class="card">
-          <p class="scenario-card-title">Verify your evidence</p>
-          <p class="manual-desc">
-            Have SOLVENT-compatible ecash? Paste the verification bundle exported by a SOLVENT-compatible mint.
-            SOLVENT independently fetches its accounting record from public Nostr relays and re-queries the live
-            reserve &mdash; a cryptographically valid bundle whose evidence cannot be found publicly will not cross
-            the acceptance boundary. See "Load example bundle" for a bundle whose evidence genuinely is public.
-          </p>
-          <textarea id="manual-bundle-input" class="manual-bundle-input" rows="10" placeholder="{ &quot;proof&quot;: { ... }, &quot;receipt&quot;: { ... }, &quot;manifest&quot;: { ... }, &quot;reserveAttestation&quot;: { ... }, &quot;nostrEvent&quot;: { ... }, ... }"></textarea>
           <div class="manual-btn-row">
             <button id="manual-verify-btn" type="button" class="btn btn-solid btn-lg">Verify bundle</button>
-            <button id="manual-load-example-btn" type="button" class="btn btn-outline btn-lg">Load example bundle</button>
+            <button id="manual-load-example-btn" type="button" class="btn btn-outline btn-lg">Load live example</button>
           </div>
           <p id="manual-status" class="status" aria-live="polite"></p>
           <p class="manual-desc manual-schema-note">
-            See the <a href="#/docs?doc=verification-bundle">verification bundle schema</a> for the exact structure,
-            every field, and a complete real example. A mint that cannot supply this evidence is unsupported
-            &mdash; SOLVENT does not verify arbitrary Cashu ecash from arbitrary mints.
+            See the <a href="#/docs?doc=verification-bundle">verification bundle schema</a> for the exact structure. A mint
+            that cannot supply this evidence is unsupported &mdash; SOLVENT does not verify arbitrary Cashu ecash from
+            arbitrary mints.
           </p>
-          <div class="dont-have-one">
-            <p class="dont-have-one-label">Don&rsquo;t have one?</p>
-            <p class="manual-desc">Create test ecash and SOLVENT will generate a compatible token and verification bundle for you.</p>
-            <button id="manual-create-ecash-btn" type="button" class="btn btn-outline">Create test ecash</button>
-          </div>
+        </div>
+
+        <div id="manual-progress-panel" class="progress" hidden>
+          <div id="manual-progress-steps"></div>
         </div>
 
         <div id="manual-result" class="result-card" hidden>
           <div id="manual-decision-badge" class="decision-badge"></div>
           <p id="manual-decision-headline" class="decision-headline"></p>
           <p id="manual-decision-body" class="decision-body"></p>
+          <dl id="manual-decision-facts" class="decision-facts"></dl>
+          <div id="manual-checked-ids" class="checked-ids"></div>
           <div class="decision-chain" id="manual-decision-chain"></div>
           <button id="manual-accept-btn" class="btn btn-accept btn-block" type="button" disabled>Accept ecash</button>
           <div id="manual-accepted-panel" class="accepted-panel" hidden></div>
-          <div id="manual-evidence-content" class="evidence-content"></div>
+          <details id="manual-evidence" class="evidence">
+            <summary>Evidence details</summary>
+            <div id="manual-evidence-content" class="evidence-content"></div>
+          </details>
         </div>
       </section>
+    </main>
+
+    <!-- ============ REFERENCE MINT LAB (developers only — not in the primary navigation) ============ -->
+    <main id="panel-lab" class="route route-app panel" hidden>
+      <p class="eyebrow">Developers</p>
+      <h1 class="page-heading">REFERENCE MINT LAB</h1>
+      <p class="page-sub">Generate local SOLVENT-compatible proofs for protocol inspection. Evidence generated here is not automatically published and is not a production mint.</p>
+
+      <div class="lab-notice">
+        <p><strong>This is SOLVENT&rsquo;s reference mint, running in your browser.</strong> Its keys are test keys kept only in this browser. Nothing issued here is published to Nostr, so lab evidence can pass every local check but never public retrieval &mdash; it cannot be accepted. To verify real published evidence, use <a href="#/verify">Verify</a>.</p>
+      </div>
+
+      <div class="lab-grid">
+        <div class="card">
+          <p class="scenario-card-title">Reference mint</p>
+          <dl id="lab-mint-rows" class="evidence-rows"></dl>
+          <div class="lab-actions">
+            <button id="lab-rotate-btn" type="button" class="btn btn-outline btn-sm">Rotate keyset</button>
+            <button id="lab-reset-btn" type="button" class="btn btn-outline btn-sm">New mint identity</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <p class="scenario-card-title">Issue a proof</p>
+          <label class="lab-field" for="lab-amount">Amount</label>
+          <select id="lab-amount" class="lab-select"></select>
+          <label class="lab-check"><input type="checkbox" id="lab-omit" /> Break the promise: sign the receipt but omit this issuance from the epoch the mint closes</label>
+          <button id="lab-issue-btn" type="button" class="btn btn-solid btn-lg btn-block">Issue proof</button>
+          <p id="lab-status" class="status" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <div id="lab-issuance" class="card lab-issuance" hidden>
+        <p class="scenario-card-title">Latest issuance</p>
+        <dl id="lab-issuance-rows" class="evidence-rows"></dl>
+        <div class="lab-actions">
+          <button id="lab-check-btn" type="button" class="btn btn-solid">Check local cryptography</button>
+          <button id="lab-full-btn" type="button" class="btn btn-outline">Run full verification</button>
+          <button id="lab-copy-bundle-btn" type="button" class="btn btn-outline btn-sm">Copy bundle</button>
+        </div>
+        <p class="manual-desc lab-full-note">Full verification also checks public Nostr retrieval and the live reserve. Lab evidence is never published, so it refuses with PUBLIC EVIDENCE NOT FOUND unless an earlier check fails first.</p>
+        <details class="raw-json-toggle"><summary>View raw bundle</summary><pre id="lab-bundle-json" class="raw-json"></pre></details>
+      </div>
+
+      <div id="lab-result" class="result-card" hidden>
+        <div id="lab-decision-badge" class="decision-badge"></div>
+        <p id="lab-decision-headline" class="decision-headline"></p>
+        <p id="lab-decision-body" class="decision-body"></p>
+        <dl id="lab-decision-facts" class="decision-facts"></dl>
+        <div class="decision-chain" id="lab-decision-chain"></div>
+      </div>
     </main>
 
     <!-- ============ PUBLISH / EVIDENCE PIPELINE ============ -->
@@ -858,7 +866,8 @@
       <div class="docs-layout">
         <aside class="docs-sidebar">
           <p class="eyebrow">Documentation</p>
-          <select id="docs-mobile-select" class="docs-mobile-select" aria-label="Choose a documentation page"></select>
+          <label for="docs-mobile-select" class="docs-mobile-label">Docs menu</label>
+          <select id="docs-mobile-select" class="docs-mobile-select"></select>
           <nav id="docs-nav" class="docs-nav" aria-label="Documentation sections"></nav>
         </aside>
         <div class="docs-content">
@@ -892,6 +901,7 @@
           <div class="footer-col">
             <p class="footer-col-title">Project</p>
             <a href="https://github.com/TheWeirdDee/solvent" rel="noreferrer">GitHub</a>
+            <a href="#/lab">Reference mint lab (developers)</a>
             <span>BOSS Battle</span>
           </div>
           <div class="footer-col">

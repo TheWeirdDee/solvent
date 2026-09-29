@@ -27,20 +27,25 @@ function main() {
   const seeded: { id: string; blindedMessageHex: string; amount: number }[] = [];
   const amounts = [1, 2, 4, 8, 16, 32, 64, 128];
 
-  db.exec('BEGIN');
+  db.exec('BEGIN IMMEDIATE');
+  // Phase 3A: stamp the currently OPEN epoch, as SOLVENT's real triggers
+  // do (0003_pol_epoch_lifecycle.sql refuses any other target). These rows
+  // have no blind_signature behind them, so the epoch closer
+  // (src/epoch/closer.ts) never commits them and reports them as excluded.
+  const { epoch_index: openEpoch } = db.prepare(`SELECT epoch_index FROM solvent_pol_epoch WHERE state = 'OPEN'`).get() as { epoch_index: number };
   for (let i = 0; i < count; i++) {
     const amount = amounts[i % amounts.length]!;
     const blindedMessageHex = randomBytes(33).toString('hex');
     const liabilityId = randomBytes(16).toString('hex');
     const receiptId = randomBytes(16).toString('hex');
-    const message = `Cashu_PoL_Receipt_Issued:${blindedMessageHex}:0`;
+    const message = `Cashu_PoL_Receipt_Issued:${blindedMessageHex}:${openEpoch}`;
     const now = Math.floor(Date.now() / 1000);
 
     db.prepare(
       `INSERT INTO solvent_issued_liability
-         (id, blinded_message_hex, operation_id, operation_kind, keyset_id, amount, signature_c_hex, created_at)
-       VALUES (?, ?, NULL, 'batch_mint', ?, ?, ?, ?)`,
-    ).run(liabilityId, blindedMessageHex, keysetId, amount, randomBytes(33).toString('hex'), now);
+         (id, blinded_message_hex, operation_id, operation_kind, keyset_id, amount, signature_c_hex, target_epoch, created_at)
+       VALUES (?, ?, NULL, 'batch_mint', ?, ?, ?, ?, ?)`,
+    ).run(liabilityId, blindedMessageHex, keysetId, amount, randomBytes(33).toString('hex'), openEpoch, now);
 
     db.prepare(
       `INSERT INTO solvent_pol_receipt

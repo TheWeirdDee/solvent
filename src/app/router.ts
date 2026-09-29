@@ -1,4 +1,4 @@
-// Minimal hash-based router — no dependency needed for four routes, and
+// Minimal hash-based router — no dependency needed for a handful of routes, and
 // hash routing works unmodified on a static build with no server rewrite
 // rules. Route hashes are namespaced under `#/...` so in-page anchor links
 // on the landing page (e.g. `#attack`, `#how-it-works`) can coexist with
@@ -6,15 +6,16 @@
 // the browser's native "scroll to element with this id" behavior applies.
 //
 // `/docs` and `/verify` are prefix-matched (`#/docs?doc=nostr-schema`,
-// `#/verify?mode=create`) rather than exact-matched, since each carries its
+// `#/verify?mode=live`) rather than exact-matched, since each carries its
 // own sub-navigation in the hash query string; docs-panel.ts/verifier-panel.ts
 // read that query string themselves on route entry, so deep links (e.g.
-// the landing page's "Create test ecash" CTA, or the FAQ) land on the
-// right sub-view.
-export type Route = 'home' | 'verify' | 'publish' | 'protocol' | 'docs';
+// the landing page's "Run the live check" CTA, or the FAQ) land on the
+// right sub-view. `/lab` (the developer reference mint) is reachable by URL
+// and from the docs/footer only — never the primary navigation.
+export type Route = 'home' | 'verify' | 'publish' | 'protocol' | 'docs' | 'lab';
 
 function isRouteHash(hash: string): boolean {
-  return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/verify') || hash === '#/publish' || hash === '#/protocol' || hash.startsWith('#/docs');
+  return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/verify') || hash === '#/publish' || hash === '#/protocol' || hash.startsWith('#/docs') || hash === '#/lab';
 }
 
 function routeFromHash(hash: string): Route {
@@ -22,6 +23,7 @@ function routeFromHash(hash: string): Route {
   if (hash === '#/publish') return 'publish';
   if (hash === '#/protocol') return 'protocol';
   if (hash.startsWith('#/docs')) return 'docs';
+  if (hash === '#/lab') return 'lab';
   return 'home';
 }
 

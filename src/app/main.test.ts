@@ -18,6 +18,17 @@ import liveAttestationEvidence from '../../evidence/reserves/live-attestation.js
 import liveDemoEvidence from '../../evidence/nostr/live-demo.json' with { type: 'json' };
 import { buildPolEvidenceContent, signPolEvidenceEvent } from '../nostr/pol-event.js';
 
+// Many tests here drive real verification scenarios (real blind signing, DLEQ,
+// receipts, MMR proofs) through the real UI. Measured one file at a time,
+// the slowest take ~1.1-2.1s. In the full parallel suite, CPU contention from
+// the other workers slowed one of them 5.4x (the "ACCEPT scenario" test, 1.1s
+// -> 6.04s), past Vitest's 5s default, so the file failed intermittently. The
+// same A/B timing with and without the landing-page GSAP work showed no
+// slowdown, so this is contention, not a regression. The fix is an explicit
+// budget for this file (~5.4x contention over a ~2.1s worst case is ~11s,
+// rounded up), not weaker assertions.
+vi.setConfig({ testTimeout: 20_000 });
+
 const mockState = vi.hoisted(() => ({
   /**
    * Controls fetchPolEvidence's mocked return. Defaults to the Live Public
@@ -186,21 +197,49 @@ async function goToDocs() {
   await waitFor(() => !byId<HTMLElement>('panel-docs').hidden);
 }
 
-async function selectAndRun(id: 'honest' | 'omitted' | 'reserve-short') {
+async function switchToMode(mode: 'live' | 'evidence') {
   await goToVerify();
-  const btn = document.querySelector<HTMLButtonElement>(`#mode-try .scenario-btn[data-scenario="${id}"]`);
-  if (!btn) throw new Error(`missing scenario button for ${id}`);
-  btn.click();
-  const runBtn = byId<HTMLButtonElement>('run-verification-btn');
-  await waitFor(() => !runBtn.disabled);
-  runBtn.click();
-  await waitFor(() => !byId<HTMLElement>('result').hidden, 8000);
+  document.querySelector<HTMLButtonElement>(`#panel-verify .mode-tab[data-mode="${mode}"]`)!.click();
+  await waitFor(() => !byId<HTMLElement>(`mode-${mode}`).hidden);
 }
 
-describe('SOLVENT web client (jsdom) — manual verifier first-run state (Part 8, must run before anything else touches manual mode)', () => {
+/** Runs /verify's Live check and waits for THIS run's result (not a previous one still on screen). */
+async function runLiveCheck() {
+  await switchToMode('live');
+  const runBtn = byId<HTMLButtonElement>('run-verification-btn');
+  await waitFor(() => !runBtn.disabled);
+  const before = byId<HTMLElement>('live-status-time').dataset.checkedAt;
+  runBtn.click();
+  await waitFor(() => !byId<HTMLElement>('result').hidden && byId<HTMLElement>('live-status-time').dataset.checkedAt !== before, 8000);
+}
+
+/** Pastes text into Verify evidence and verifies it. Parse errors render synchronously; real verifications resolve asynchronously. */
+async function verifyPasted(text: string) {
+  await switchToMode('evidence');
+  byId<HTMLTextAreaElement>('manual-bundle-input').value = text;
+  byId<HTMLButtonElement>('manual-verify-btn').click();
+  await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
+}
+
+function chainStepClasses(chainId: string): string[] {
+  return Array.from(byId<HTMLElement>(chainId).querySelectorAll('.chain-step')).map((s) => s.className);
+}
+
+function factValue(factsId: string, label: string): string {
+  const fact = Array.from(byId<HTMLElement>(factsId).querySelectorAll('.decision-fact')).find((f) => f.querySelector('dt')?.textContent === label);
+  return fact?.querySelector('dd')?.textContent ?? '';
+}
+
+/** Visible product copy of a panel: raw evidence the user can open (JSON, a pasted bundle) is data, not copy. */
+function productText(panelId: string): string {
+  const clone = byId<HTMLElement>(panelId).cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('.raw-json, textarea').forEach((el) => el.remove());
+  return clone.textContent ?? '';
+}
+
+describe('SOLVENT web client (jsdom) — Verify evidence first-run state (must run before anything else touches that mode)', () => {
   it('shows a neutral, non-error first-run state — no premature "unsupported mint" before the user has pasted anything', async () => {
-    await goToVerify();
-    document.querySelector<HTMLButtonElement>('.mode-tab[data-mode="manual"]')!.click();
+    await switchToMode('evidence');
     expect(byId<HTMLElement>('manual-status').textContent).toBe('');
     expect(byId<HTMLElement>('manual-result').hidden).toBe(true);
     expect(byId<HTMLTextAreaElement>('manual-bundle-input').value).toBe('');
@@ -219,7 +258,7 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(hero?.textContent).toMatch(/did it keep it/i);
   });
 
-  it('the hero terminal is powered by a real runScenario("omitted") call, not hardcoded decoration', async () => {
+  it('the hero terminal is powered by a real runScenario("omitted") call, not hardcoded decoration, and says it is an example', async () => {
     await goHome();
     expect(byId<HTMLElement>('hero-promised-epoch').textContent).toBe('12');
     expect(byId<HTMLElement>('hero-epoch-closed').textContent).toContain('CLOSED');
@@ -228,9 +267,45 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(resultEl.textContent).toBe('REFUSE');
     expect(resultEl.className).toContain('red');
     expect(byId<HTMLElement>('hero-result-reason').textContent).toContain('REFUSE_ISSUANCE_OMITTED');
+    expect(document.querySelector('.terminal-caption')?.textContent).toMatch(/example/i);
   });
 
-  it('the problem section tells the broken-promise story, not the old v1 ratio-only story', async () => {
+  it('I. states the problem explicitly: a valid token does not prove the mint counted what it owes', async () => {
+    await goHome();
+    const section = byId<HTMLElement>('problem');
+    expect(section.querySelector('.eyebrow')?.textContent).toMatch(/^the problem$/i);
+    expect(section.querySelector('.section-heading')?.textContent).toMatch(/a valid cashu token\s*doesn.t prove the mint\s*counted what it owes/i);
+    expect(section.textContent!.replace(/\s+/g, ' ')).toMatch(/a mint can issue valid ecash while omitting that obligation from its accounting/i);
+    expect(section.textContent).toMatch(/valid token/i);
+    expect(section.textContent).toMatch(/mint signature/i);
+    expect(section.textContent).toMatch(/counted or omitted/i);
+    expect(section.textContent).toMatch(/enough or not/i);
+    expect(section.textContent).toMatch(/the gap/i);
+    expect(section.textContent).toMatch(/wallets need a way to check the mint.s obligation before accepting the token/i);
+    // Directly below the hero.
+    expect(byId<HTMLElement>('panel-home').querySelector(':scope > section.hero')?.nextElementSibling).toBe(section);
+  });
+
+  it('I. follows the problem with the solution: issuance through to ACCEPT / REFUSE', async () => {
+    await goHome();
+    const section = byId<HTMLElement>('solution');
+    expect(byId<HTMLElement>('problem').nextElementSibling).toBe(section);
+    expect(section.querySelector('.eyebrow')?.textContent).toMatch(/^the solution$/i);
+    expect(section.querySelector('.section-heading')?.textContent).toMatch(/solvent makes\s*the mint.s promise\s*checkable/i);
+    const flow = Array.from(section.querySelectorAll('.solution-flow li')).map((li) => li.textContent?.trim());
+    expect(flow).toEqual(['Issuance', 'Signed liability receipt', 'Closed accounting state', 'Public Nostr evidence', 'Live Bitcoin reserve', 'Accept / Refuse']);
+    expect(section.textContent).toMatch(/valid token ≠ solvent mint\. solvent checks both\./i);
+  });
+
+  it('says who it is built for', async () => {
+    await goHome();
+    const section = byId<HTMLElement>('built-for');
+    expect(section.textContent).toMatch(/built for/i);
+    for (const who of ['Cashu wallets', 'Ecash apps', 'Mint operators', 'Users accepting ecash']) expect(section.textContent).toContain(who);
+    expect(section.textContent).toMatch(/not only that ecash is authentic, but that the mint actually accounted for it/i);
+  });
+
+  it('the "what SOLVENT catches" section tells the broken-promise story, not the old v1 ratio-only story', async () => {
     await goHome();
     const section = byId<HTMLElement>('why');
     expect(section.textContent).toMatch(/signed promise/i);
@@ -316,36 +391,29 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(landing.textContent).not.toMatch(/hackathon/i);
   });
 
-  it('the "Try with test ecash" hero CTA lands directly on the Create test ecash tab, even as an in-app same-document navigation (not just a fresh page load)', async () => {
+  it('the "Run the live check" hero CTA lands on Live check, even as an in-app same-document navigation (not just a fresh page load)', async () => {
+    await switchToMode('evidence');
     await goHome();
-    // A real click on an in-app <a href="#/verify?mode=create"> is a
-    // same-document hash change (hashchange event), not a fresh page load
-    // — this specifically regression-tests that the deep link is re-synced
-    // on every arrival at /verify, not only once at initial module load.
-    document.querySelector<HTMLAnchorElement>('a[href="#/verify?mode=create"]')!.click();
+    // A real click on an in-app <a href="#/verify?mode=live"> is a
+    // same-document hash change, not a fresh page load — the deep link must
+    // be re-synced on every arrival at /verify.
+    document.querySelector<HTMLAnchorElement>('.hero a[href="#/verify?mode=live"]')!.click();
     await waitFor(() => !byId<HTMLElement>('panel-verify').hidden);
-    expect(byId<HTMLElement>('mode-create').hidden).toBe(false);
-    expect(byId<HTMLElement>('mode-try').hidden).toBe(true);
-    expect(document.querySelector('.mode-tab.active')?.getAttribute('data-mode')).toBe('create');
-    const btn = byId<HTMLButtonElement>('create-ecash-btn');
-    expect(btn.getBoundingClientRect).toBeDefined();
-    expect(btn.hidden).toBe(false);
+    expect(byId<HTMLElement>('mode-live').hidden).toBe(false);
+    expect(byId<HTMLElement>('mode-evidence').hidden).toBe(true);
+    expect(document.querySelector('#panel-verify .mode-tab.active')?.getAttribute('data-mode')).toBe('live');
   });
 
-  it('deep-linking into #/verify?mode=create a second time (from a different in-app starting point) still works', async () => {
+  it('old deep links still land on a real mode: ?mode=manual -> Verify evidence, ?mode=create -> Live check', async () => {
+    window.location.hash = '#/verify?mode=manual';
+    await waitFor(() => !byId<HTMLElement>('mode-evidence').hidden);
     await goHome();
-    document.querySelector<HTMLAnchorElement>('a[href="#/verify?mode=create"]')!.click();
-    await waitFor(() => !byId<HTMLElement>('panel-verify').hidden);
-    // Manually switch away, then navigate elsewhere and back in via the
-    // same CTA hash again.
-    document.querySelector<HTMLButtonElement>('.mode-tab[data-mode="manual"]')!.click();
-    await goHome();
-    document.querySelector<HTMLAnchorElement>('a[href="#/verify?mode=create"]')!.click();
-    await waitFor(() => !byId<HTMLElement>('panel-verify').hidden);
-    expect(document.querySelector('.mode-tab.active')?.getAttribute('data-mode')).toBe('create');
+    window.location.hash = '#/verify?mode=create';
+    await waitFor(() => !byId<HTMLElement>('mode-live').hidden);
+    expect(byId<HTMLElement>('mode-evidence').hidden).toBe(true);
   });
 
-  it('nav links reflect the active route, including the new Docs route', async () => {
+  it('nav links reflect the active route, including the Docs route', async () => {
     await goHome();
     expect(byId('nav-home').className).toContain('active');
     await goToVerify();
@@ -358,110 +426,154 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
   });
 });
 
-describe('SOLVENT web client (jsdom) — verifier panel, "Try SOLVENT" mode, real v2 scenarios', () => {
-  it('does not show a result until RUN VERIFICATION is explicitly clicked', async () => {
+describe('SOLVENT web client (jsdom) — /verify has exactly two primary modes', () => {
+  it('A. offers Live check and Verify evidence only — no "Create test ecash" tab or copy anywhere on /verify', async () => {
     await goToVerify();
-    const btn = document.querySelector<HTMLButtonElement>('#mode-try .scenario-btn[data-scenario="honest"]')!;
-    btn.click();
+    const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('#panel-verify .mode-tab'));
+    expect(tabs.map((t) => t.dataset.mode)).toEqual(['live', 'evidence']);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Live check', 'Verify evidence']);
+    expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/create test ecash/i);
+    expect(document.getElementById('mode-create')).toBeNull();
+    expect(document.getElementById('create-ecash-btn')).toBeNull();
+    expect(byId<HTMLElement>('mode-live').querySelector('.verify-intro-title')?.textContent).toBe('LIVE VERIFICATION');
+    expect(byId<HTMLButtonElement>('run-verification-btn').textContent).toMatch(/run live check/i);
+    expect(byId<HTMLElement>('mode-evidence').querySelector('.verify-intro-title')?.textContent).toBe('VERIFY YOUR EVIDENCE');
+    expect(byId<HTMLButtonElement>('manual-verify-btn').textContent).toMatch(/verify bundle/i);
+    expect(byId<HTMLButtonElement>('manual-load-example-btn').textContent).toMatch(/load live example/i);
+  });
+
+  it('the bundle input is a compact paste/upload area, not a giant JSON editor', async () => {
+    await switchToMode('evidence');
+    const input = byId<HTMLTextAreaElement>('manual-bundle-input');
+    expect(Number(input.getAttribute('rows'))).toBeLessThanOrEqual(5);
+    expect(document.querySelector('label[for="manual-bundle-input"]')?.textContent).toMatch(/verification bundle/i);
+    expect(byId<HTMLInputElement>('manual-bundle-file').type).toBe('file');
+  });
+});
+
+describe('SOLVENT web client (jsdom) — Live check', () => {
+  it('does not run until RUN LIVE CHECK is clicked, and shows the reference case dates up front', async () => {
+    await switchToMode('live');
     expect(byId<HTMLElement>('result').hidden).toBe(true);
-    expect(byId<HTMLButtonElement>('run-verification-btn').disabled).toBe(false);
+    expect(byId<HTMLElement>('live-status-time').textContent).toBe('Not yet run');
+    expect(byId<HTMLElement>('live-status-network').textContent).toBe('Mutinynet (Bitcoin Signet)');
+    expect(byId<HTMLElement>('live-status').textContent).toMatch(/test-network coins have no monetary value/i);
+    const dates = byId<HTMLElement>('live-dates').textContent!;
+    expect(dates).toMatch(/Published/);
+    expect(dates).toMatch(/Nostr event valid/);
+    expect(dates).toMatch(new RegExp(`block ${liveDemoEvidence.bundle.reserveAttestation.statement.block_height.toLocaleString('en-US')}`));
+    expect(dates).toMatch(/estimated/i);
   });
 
-  it('HEALTHY / Live Public Demo case -> real public relay fetch finds the event -> ACCEPT_VERIFIED, enables Accept, all decision-chain steps pass', async () => {
-    await selectAndRun('honest');
-    const badge = byId<HTMLElement>('decision-badge');
-    expect(badge.className).toContain('green');
-    expect(byId<HTMLElement>('decision-headline').textContent).toContain('ACCEPT');
+  it('a healthy reference case -> real public relay fetch finds the event -> ACCEPT, every step passes, Accept enabled', async () => {
+    await runLiveCheck();
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✓ ACCEPT');
+    expect(byId<HTMLElement>('decision-badge').className).toContain('green');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('ACCEPT VERIFIED.');
     expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(false);
-    const chain = byId<HTMLElement>('decision-chain');
-    expect(chain.querySelectorAll('.chain-step-fail').length).toBe(0);
-    // This specific case's ACCEPT rests on a genuine live relay fetch
-    // finding the exact published event — not a privately-supplied copy.
-    const evidence = byId<HTMLElement>('evidence-content');
-    expect(evidence.textContent).toMatch(/FOUND \(public relay\)/);
-    expect(evidence.textContent).toMatch(/REACHABLE/);
+    const classes = chainStepClasses('decision-chain');
+    expect(classes).toHaveLength(9);
+    expect(classes.every((c) => c.includes('chain-step-ok'))).toBe(true);
+    expect(byId<HTMLElement>('live-status-nostr').textContent).toBe('LIVE');
+    expect(byId<HTMLElement>('live-status-reserve').textContent).toBe('LIVE');
+    expect(byId<HTMLElement>('evidence-content').textContent).toMatch(/FOUND \(public relay\)/);
+    expect(byId<HTMLElement>('live-dates').textContent).toMatch(/FRESH until/);
   });
 
-  it('BROKEN PROMISE case -> REFUSE_ISSUANCE_OMITTED, Accept stays disabled, reserve/Nostr still show healthy', async () => {
-    await selectAndRun('omitted');
-    const badge = byId<HTMLElement>('decision-badge');
-    expect(badge.className).toContain('red');
-    expect(byId<HTMLElement>('decision-headline').textContent).toMatch(/broken promise/i);
-    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_ISSUANCE_OMITTED');
-    expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
-    const chain = byId<HTMLElement>('decision-chain');
-    const steps = Array.from(chain.querySelectorAll('.chain-step'));
-    const mmrStep = steps.find((s) => s.textContent?.includes('Issuance included'));
-    expect(mmrStep?.className).toContain('chain-step-fail');
-    const reserveStep = steps.find((s) => s.textContent?.includes('Live reserve'));
-    expect(reserveStep?.className).toContain('chain-step-ok');
-    // Part 16: the contradiction must be shown explicitly, not as a bare "0".
-    const evidence = byId<HTMLElement>('evidence-content');
-    expect(evidence.textContent).toMatch(/receipt-promised issuance/i);
-    expect(evidence.textContent).toMatch(/manifest-reported issuance/i);
-    expect(evidence.textContent).toContain('70,000 sats');
+  it('the nine checks use the new wording — "signed epoch manifest", never "published accounting record"', async () => {
+    await runLiveCheck();
+    const labels = Array.from(byId<HTMLElement>('progress-steps').querySelectorAll('.step-label')).map((s) => s.firstChild?.textContent?.trim());
+    expect(labels).toEqual([
+      '1. Token format',
+      '2. Mint origin / NUT-12',
+      '3. PoL receipt',
+      '4. Promised epoch',
+      '5. Signed epoch manifest',
+      '6. Liability inclusion',
+      '7. Public Nostr retrieval',
+      '8. Live reserve',
+      '9. Decision',
+    ]);
+    expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/published accounting record/i);
   });
 
-  it('RESERVE SHORTFALL case -> REFUSE_RESERVE_SHORT, issuance itself was correctly included', async () => {
-    await selectAndRun('reserve-short');
-    expect(byId<HTMLElement>('decision-headline').textContent).toMatch(/reserve shortfall/i);
-    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_RESERVE_SHORT');
-    expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
-    const chain = byId<HTMLElement>('decision-chain');
-    const steps = Array.from(chain.querySelectorAll('.chain-step'));
-    const mmrStep = steps.find((s) => s.textContent?.includes('Issuance included'));
-    expect(mmrStep?.className).toContain('chain-step-ok');
-    // Part 17: reserve was VERIFIED (not "unverified") and simply insufficient.
-    const evidence = byId<HTMLElement>('evidence-content');
-    expect(evidence.textContent).toMatch(/reserve verified/i);
-    expect(evidence.textContent).toMatch(/committed liabilities/i);
-    expect(evidence.textContent).toMatch(/shortfall/i);
-    expect(evidence.textContent).toMatch(/coverage/i);
-    // The shortfall figures themselves must be the real, correctly computed
-    // numbers (1,500,000 committed vs the real ~1,000,000-sat captured
-    // reserve), not just present-but-arbitrary text.
-    expect(evidence.textContent).toContain('1,500,000 sats');
-    expect(evidence.textContent).toMatch(/500,000 sats/);
+  it('shows the exact Nostr event id and reserve txid:vout it checked', async () => {
+    await runLiveCheck();
+    const ids = byId<HTMLElement>('live-checked-ids').textContent!;
+    const outpoint = liveDemoEvidence.bundle.reserveAttestation.statement.outpoints[0]!;
+    expect(ids).toContain(liveDemoEvidence.bundle.nostrEvent.id);
+    expect(ids).toContain(`${outpoint.txid}:${outpoint.vout}`);
   });
 
-  it('fails closed to REFUSE_UNVERIFIABLE when the live reserve query fails (never silently substitutes success)', async () => {
+  it('re-running re-fetches the evidence and updates "Last checked"', async () => {
+    const { fetchPolEvidence } = await import('../nostr/pol-evidence.js');
+    await runLiveCheck();
+    const first = byId<HTMLElement>('live-status-time').dataset.checkedAt;
+    vi.mocked(fetchPolEvidence).mockClear();
+    await new Promise((r) => setTimeout(r, 5));
+    byId<HTMLButtonElement>('run-again-btn').click();
+    await waitFor(() => byId<HTMLElement>('live-status-time').dataset.checkedAt !== first && !byId<HTMLElement>('result').hidden, 8000);
+    expect(vi.mocked(fetchPolEvidence)).toHaveBeenCalled();
+  });
+
+  it('never substitutes bundled data when the reserve query fails: REFUSE, "LIVE RESERVE UNAVAILABLE", reserve UNAVAILABLE', async () => {
     mockState.reserveLive = { ok: false, spent: false };
-    await selectAndRun('honest');
+    await runLiveCheck();
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('LIVE RESERVE UNAVAILABLE.');
     expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_UNVERIFIABLE');
+    expect(byId<HTMLElement>('live-status-reserve').textContent).toBe('UNAVAILABLE');
     expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
   });
 
-  it('shows REFUSE_RESERVE_UTXO_SPENT when the live reserve query reports the UTXO spent', async () => {
+  it('when relays are unreachable: REFUSE, "PUBLIC EVIDENCE UNAVAILABLE", Nostr UNAVAILABLE', async () => {
+    mockState.relayOk = false;
+    await runLiveCheck();
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('PUBLIC EVIDENCE UNAVAILABLE.');
+    expect(byId<HTMLElement>('live-status-nostr').textContent).toBe('UNAVAILABLE');
+    expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
+  });
+
+  it('when relays answer but no longer hold the event: REFUSE, "PUBLIC EVIDENCE NOT FOUND", Nostr NOT FOUND', async () => {
+    mockState.nostrEvents = [];
+    await runLiveCheck();
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('live-status-nostr').textContent).toBe('NOT FOUND');
+  });
+
+  it('shows REFUSE_RESERVE_UTXO_SPENT and Reserve SPENT when the live reserve query reports the UTXO spent', async () => {
     mockState.reserveLive = { ok: true, spent: true };
-    await selectAndRun('honest');
+    await runLiveCheck();
     expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_RESERVE_UTXO_SPENT');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('RESERVE SPENT.');
+    expect(byId<HTMLElement>('live-status-reserve').textContent).toBe('SPENT');
   });
 
-  it('evidence drawer contains the required v2 sections (Cashu/PoL receipt/Epoch/Nostr/Reserve/Decision)', async () => {
-    await selectAndRun('honest');
+  it('evidence details contain the required v2 sections, with raw JSON only behind collapsed developer toggles', async () => {
+    await runLiveCheck();
     const evidence = byId<HTMLElement>('evidence-content');
-    expect(evidence.textContent).toContain('Cashu');
-    expect(evidence.textContent).toContain('PoL receipt');
-    expect(evidence.textContent).toContain('Epoch / MMR');
-    expect(evidence.textContent).toContain('Nostr');
-    expect(evidence.textContent).toContain('Reserve');
-    expect(evidence.textContent).toContain('Decision');
-    expect(evidence.querySelector('.raw-json-toggle')).not.toBeNull();
+    for (const section of ['Cashu', 'PoL receipt', 'Epoch / MMR', 'Nostr', 'Reserve', 'Decision']) expect(evidence.textContent).toContain(section);
+    const toggles = Array.from(evidence.querySelectorAll<HTMLDetailsElement>('.raw-json-toggle'));
+    expect(toggles.map((t) => t.querySelector('summary')?.textContent)).toEqual(['View raw bundle', 'View result JSON']);
+    expect(toggles.every((t) => !t.open)).toBe(true);
+    expect(byId<HTMLDetailsElement>('evidence').open).toBe(false);
   });
 
-  it('live status indicators reflect the mocked live reserve/Nostr checks, and Refresh evidence re-runs them (Part 13: this is public-infrastructure reachability, not a re-run of any decision)', async () => {
-    await goToVerify();
-    await waitFor(() => byId<HTMLElement>('live-status-reserve').textContent !== '…');
-    expect(byId<HTMLElement>('live-status-reserve').textContent).toBe('REACHABLE');
-    mockState.reserveLive = { ok: false, spent: false };
-    byId<HTMLButtonElement>('refresh-evidence-btn').click();
-    await waitFor(() => byId<HTMLElement>('live-status-reserve').textContent === 'UNREACHABLE');
+  it("the live check's status line lives inside its own mode and does not leak into Verify evidence", async () => {
+    mockState.nostrEvents = [];
+    await runLiveCheck();
+    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
+    expect(byId<HTMLElement>('mode-live').contains(byId<HTMLElement>('status'))).toBe(true);
+    await switchToMode('evidence');
+    expect(byId<HTMLElement>('mode-live').hidden).toBe(true);
   });
 });
 
 describe('SOLVENT web client (jsdom) — Gate 4 enforcement reaches the real acceptance boundary', () => {
-  it('ACCEPT scenario: clicking Accept calls the real accept function and visibly transitions to ACCEPTED', async () => {
-    await selectAndRun('honest');
+  it('ACCEPT: clicking Accept calls the real accept function and visibly transitions to ACCEPTED', async () => {
+    await runLiveCheck();
     const acceptBtn = byId<HTMLButtonElement>('accept-btn');
     expect(acceptBtn.disabled).toBe(false);
     acceptBtn.click();
@@ -470,296 +582,351 @@ describe('SOLVENT web client (jsdom) — Gate 4 enforcement reaches the real acc
     expect(acceptedPanel.textContent).toMatch(/accepted/i);
     expect(acceptedPanel.textContent).toContain('CALLED ONCE');
     expect(acceptBtn.hidden).toBe(true);
-    const evidence = byId<HTMLElement>('evidence-content');
-    expect(evidence.textContent).toContain('accept() CALLED');
+    expect(byId<HTMLElement>('evidence-content').textContent).toContain('accept() CALLED');
   });
 
   it('clicking Accept twice never calls the acceptance side effect twice (button is hidden after first accept)', async () => {
-    await selectAndRun('honest');
+    await runLiveCheck();
     const acceptBtn = byId<HTMLButtonElement>('accept-btn');
     const acceptedPanel = byId<HTMLElement>('accepted-panel');
     acceptBtn.click();
     await waitFor(() => acceptBtn.hidden === true);
-    // A hidden button cannot be clicked again by a real user; even a
-    // programmatic click must not double-accept.
     acceptBtn.click();
     await waitFor(() => !acceptedPanel.hidden);
     expect(acceptedPanel.textContent?.match(/CALLED ONCE/g)?.length).toBe(1);
   });
 
-  it('"Run another check" resets to the case-selection state without a full page reload', async () => {
-    await selectAndRun('honest');
-    byId<HTMLButtonElement>('run-again-btn').click();
-    expect(byId<HTMLElement>('result').hidden).toBe(true);
-    expect(byId<HTMLButtonElement>('run-verification-btn').disabled).toBe(true);
-  });
-
-  it('REFUSE scenario: Accept is disabled and cannot reach the acceptance side effect', async () => {
-    await selectAndRun('omitted');
-    const acceptBtn = byId<HTMLButtonElement>('accept-btn');
-    expect(acceptBtn.disabled).toBe(true);
-    const acceptedPanel = byId<HTMLElement>('accepted-panel');
-    expect(acceptedPanel.hidden).toBe(true);
+  it('REFUSE: Accept is disabled and cannot reach the acceptance side effect', async () => {
+    mockState.nostrEvents = [];
+    await runLiveCheck();
+    expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
+    expect(byId<HTMLElement>('accepted-panel').hidden).toBe(true);
   });
 });
 
-async function switchToTab(mode: 'try' | 'create' | 'manual') {
-  await goToVerify();
-  document.querySelector<HTMLButtonElement>(`.mode-tab[data-mode="${mode}"]`)!.click();
-  await waitFor(() => !byId<HTMLElement>(`mode-${mode}`).hidden);
-}
-
-describe('SOLVENT web client (jsdom) — Create test ecash (the real issuance/evidence journey)', () => {
-  it('A. Create test ecash produces a real proof/token and a non-placeholder canonical verification bundle', async () => {
-    await switchToTab('create');
-    byId<HTMLButtonElement>('create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-ecash-result').hidden, 8000);
-
-    const token = byId<HTMLElement>('create-token-value').textContent!;
-    expect(token.startsWith('cashuB')).toBe(true);
-    expect(byId<HTMLElement>('create-token-amount').textContent).toBe('70,000 sats');
-    expect(byId<HTMLElement>('create-token-keyset').textContent).not.toBe('');
-    expect(byId<HTMLElement>('create-token-mint').textContent).toMatch(/solvent-fixture-mint/);
-    expect(byId<HTMLElement>('create-token-issued').textContent).not.toBe('');
-
-    byId<HTMLButtonElement>('view-bundle-btn').click();
-    const bundleText = byId<HTMLElement>('create-bundle-json').textContent!;
-    const bundle = JSON.parse(bundleText);
-    // Exactly the canonical SubmissionBundle shape — no invented UI-only fields.
-    expect(bundle.proof).toBeDefined();
-    expect(bundle.receipt).toBeDefined();
-    expect(bundle.manifest).toBeDefined();
-    expect(bundle.manifestSignature).toBeDefined();
-    expect(bundle.masterPublicKeyHex).toBeDefined();
-    expect(bundle.inclusionProof).toBeDefined();
-    // Part 10: raw evidence only — never a pre-evaluated "this is already
-    // verified" claim. A bundle a user can paste back in must not carry a
-    // `reserve`/`nostr` verified boolean.
-    expect(bundle.reserveAttestation).toBeDefined();
-    expect(bundle.nostrEvent).toBeDefined();
-    expect(bundle.reserve).toBeUndefined();
-    expect(bundle.nostr).toBeUndefined();
+describe('SOLVENT web client (jsdom) — Verify evidence', () => {
+  it('B. "Load live example" loads the canonical, publicly published reference case — identical every time, never freshly generated', async () => {
+    await switchToMode('evidence');
+    const input = byId<HTMLTextAreaElement>('manual-bundle-input');
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    const first = input.value;
+    const parsed = JSON.parse(first);
+    expect(parsed.nostrEvent.id).toBe(liveDemoEvidence.bundle.nostrEvent.id);
+    expect(parsed.proof.secret).toBe(liveDemoEvidence.bundle.proof.secret);
+    expect(parsed.masterPublicKeyHex).toBe(liveDemoEvidence.bundle.masterPublicKeyHex);
+    expect(byId<HTMLElement>('manual-bundle-summary').textContent).toMatch(/live example loaded/i);
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    expect(input.value).toBe(first);
   });
 
-  it('B. Verifying the generated ecash passes every cryptographic gate, but cannot reach ACCEPT_VERIFIED because its fresh event was never publicly published (Part: two-tier Nostr verification)', async () => {
-    await switchToTab('create');
-    byId<HTMLButtonElement>('create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-ecash-result').hidden, 8000);
-    byId<HTMLButtonElement>('create-verify-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-result').hidden, 8000);
-
-    // Every gate up to and including reserve coverage passed for real — only
-    // the public-publication gate blocks this, and it must say so plainly,
-    // not with a scary generic REFUSE. Relays WERE reachable (mocked as
-    // such by default) but genuinely had nothing for this fresh identity —
-    // REFUSE_NOSTR_EVENT_NOT_FOUND specifically, not REFUSE_NOSTR_UNAVAILABLE.
-    expect(byId<HTMLElement>('create-decision-badge').textContent).toMatch(/publication not found/i);
-    expect(byId<HTMLElement>('create-decision-headline').textContent).toMatch(/cryptographic check passed/i);
-    const chain = byId<HTMLElement>('create-decision-chain');
-    const steps = Array.from(chain.querySelectorAll('.chain-step'));
-    const publicEvidenceStep = steps.find((s) => s.textContent?.includes('Public evidence'));
-    expect(publicEvidenceStep?.className).toContain('chain-step-fail');
-    // Every real crypto/accounting/reserve gate before it genuinely passed.
-    for (const label of ['Token origin', 'Blind-signature proof', 'Mint receipt', 'Accounting period', 'Published accounting record', 'Issuance included', 'Live reserve']) {
-      const step = steps.find((s) => s.textContent?.includes(label));
-      expect(step?.className, `expected "${label}" to have passed`).toContain('chain-step-ok');
-    }
-    expect(byId<HTMLButtonElement>('create-accept-btn').disabled).toBe(true);
-    // The evidence panel must show the honest breakdown, not just a badge.
-    const evidence = byId<HTMLElement>('create-evidence-content');
-    expect(evidence.textContent).toMatch(/NOT FOUND/);
-    expect(evidence.textContent).toMatch(/CRYPTOGRAPHICALLY VALID/);
-    expect(evidence.textContent).toMatch(/Public publication/i);
-    expect(evidence.textContent).toMatch(/NOT VERIFIED/);
-    // Relays were reachable but had nothing for this fresh identity — the
-    // more specific REFUSE_NOSTR_EVENT_NOT_FOUND, never the generic
-    // REFUSE_NOSTR_UNAVAILABLE (which means the relay layer itself failed).
-    expect(evidence.textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
-    // The cross-link to the real ACCEPT path must be offered.
-    expect(byId<HTMLElement>('create-try-live-demo-btn').hidden).toBe(false);
-  });
-
-  it('C. UI: token visible, bundle viewable/copyable, Accept ecash stays disabled for fresh unpublished evidence, and "Try live public demo" reaches a real ACCEPT', async () => {
-    await switchToTab('create');
-    byId<HTMLButtonElement>('create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-ecash-result').hidden, 8000);
-    // Accept must not exist/enable before verification has even run.
-    expect(byId<HTMLElement>('create-result').hidden).toBe(true);
-
-    byId<HTMLButtonElement>('create-verify-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-result').hidden, 8000);
-    const acceptBtn = byId<HTMLButtonElement>('create-accept-btn');
-    expect(acceptBtn.disabled).toBe(true);
-
-    byId<HTMLButtonElement>('create-try-live-demo-btn').click();
-    await waitFor(() => byId<HTMLElement>('panel-verify').querySelector('.mode-tab[data-mode="try"]')?.classList.contains('active') === true);
-    await waitFor(() => !byId<HTMLElement>('result').hidden, 8000);
-    expect(byId<HTMLElement>('decision-badge').className).toContain('green');
-    expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(false);
-  });
-
-  it('D. Manual round-trip: a bundle exported from Create test ecash is genuinely consumable by the manual verifier and reproduces the exact same PUBLICATION NOT FOUND outcome (not a fake ACCEPT)', async () => {
-    await switchToTab('create');
-    byId<HTMLButtonElement>('create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-ecash-result').hidden, 8000);
-    byId<HTMLButtonElement>('view-bundle-btn').click();
-    const exportedBundle = byId<HTMLElement>('create-bundle-json').textContent!;
-    expect(exportedBundle.length).toBeGreaterThan(100);
-
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = exportedBundle;
+  it('C. "Load live example" then Verify runs the real verifier — a live relay fetch, and a different answer when the relay no longer has the event', async () => {
+    const { fetchPolEvidence } = await import('../nostr/pol-evidence.js');
+    await switchToMode('evidence');
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    vi.mocked(fetchPolEvidence).mockClear();
     byId<HTMLButtonElement>('manual-verify-btn').click();
-
     await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
-    expect(byId<HTMLElement>('manual-decision-badge').className).not.toContain('green');
-    expect(byId<HTMLElement>('manual-status').textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
-    expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(true);
+    expect(vi.mocked(fetchPolEvidence)).toHaveBeenCalledWith(liveDemoEvidence.bundle.masterPublicKeyHex, liveDemoEvidence.bundle.manifest.epoch_index);
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✓ ACCEPT');
+    expect(byId<HTMLElement>('manual-status').textContent).toContain('ACCEPT_VERIFIED');
+    expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(false);
+
+    mockState.nostrEvents = [];
+    byId<HTMLButtonElement>('manual-verify-btn').click();
+    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
   });
 
-  it('D2. Manual verifier reaches real ACCEPT_VERIFIED for a bundle whose evidence genuinely IS publicly retrievable (the Live Public Demo bundle, pasted manually)', async () => {
-    const { runScenario } = await import('./protocol-demo.js');
+  it('D. a locally generated, never-published bundle cannot masquerade as public evidence', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
     const { submissionBundleToJson } = await import('./bundle-json.js');
-    const demo = await runScenario('honest');
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = submissionBundleToJson(demo.submissionBundle);
-    byId<HTMLButtonElement>('manual-verify-btn').click();
-    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
+    const local = await createTestEcash();
+    // The relay answers — with the real published reference event, the
+    // only kind 8181 event it holds — but nothing for this bundle's own
+    // (mint identity, epoch).
+    await verifyPasted(submissionBundleToJson(local.submissionBundle));
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-status').textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
+    expect(factValue('manual-decision-facts', 'Local cryptography')).toBe('VALID');
+    expect(factValue('manual-decision-facts', 'Public Nostr retrieval')).toBe('NOT FOUND');
+    expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(true);
+    expect(byId<HTMLElement>('manual-evidence-content').textContent).toMatch(/Public retrievalNOT VERIFIED/);
+  });
+
+  it('E. the signed epoch manifest can pass while public Nostr retrieval fails', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await verifyPasted(submissionBundleToJson((await createTestEcash()).submissionBundle));
+    const classes = chainStepClasses('manual-decision-chain');
+    expect(classes[4]).toContain('chain-step-ok'); // 5. Signed epoch manifest
+    expect(classes[6]).toContain('chain-step-fail'); // 7. Public Nostr retrieval
+    expect(classes[7]).toContain('chain-step-ok'); // 8. Live reserve
+    expect(classes[8]).toContain('chain-step-fail'); // 9. Decision
+  });
+
+  it('F. when public retrieval fails, the headline is the REFUSE decision, not "cryptographic check passed"', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await verifyPasted(submissionBundleToJson((await createTestEcash()).submissionBundle));
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('manual-decision-body').textContent).toBe(
+      'The token and supplied signatures are cryptographically valid, but SOLVENT could not independently retrieve the required accounting event from public relays. Acceptance is blocked.',
+    );
+    expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/cryptographic check passed/i);
+    // Valid local cryptography is reported only as a secondary fact under the decision.
+    expect(factValue('manual-decision-facts', 'Local cryptography')).toBe('VALID');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).not.toMatch(/valid|passed/i);
+  });
+
+  it('D2. a bundle whose evidence genuinely is publicly retrievable reaches a real ACCEPT when pasted', async () => {
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    const { loadCanonicalLiveDemoBundle } = await import('./submission.js');
+    await verifyPasted(submissionBundleToJson(loadCanonicalLiveDemoBundle()));
     expect(byId<HTMLElement>('manual-decision-badge').className).toContain('green');
     expect(byId<HTMLElement>('manual-status').textContent).toContain('ACCEPT_VERIFIED');
     expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(false);
   });
 
-  it('F. a pasted bundle cannot fake acceptance by asserting fake reserve/nostr "verified" claims — verifySubmission() independently re-derives them and ignores the claim (Part 10)', async () => {
-    await switchToTab('create');
-    byId<HTMLButtonElement>('create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('create-ecash-result').hidden, 8000);
-    byId<HTMLButtonElement>('view-bundle-btn').click();
-    const exportedBundle = byId<HTMLElement>('create-bundle-json').textContent!;
-    const bundle = JSON.parse(exportedBundle);
-    // Strip the real (verifiable) reserve/Nostr evidence and replace it
-    // with a bare, unbacked "already verified" claim — exactly the attack
-    // Part 10 describes. If verify() ever trusted this, it would ACCEPT
-    // with a fabricated 999,999,999-sat reserve.
+  it('a pasted bundle cannot fake acceptance by asserting "verified" reserve/nostr claims — they are ignored and re-derived', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    const bundle = JSON.parse(submissionBundleToJson((await createTestEcash()).submissionBundle));
     bundle.reserveAttestation = null;
     bundle.nostrEvent = null;
     bundle.reserve = { verified: true, reserveSats: 999_999_999 };
     bundle.nostr = { verified: true };
-
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = JSON.stringify(bundle);
-    byId<HTMLButtonElement>('manual-verify-btn').click();
-    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
-
+    await verifyPasted(JSON.stringify(bundle));
     expect(byId<HTMLElement>('manual-decision-badge').className).not.toContain('green');
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).not.toContain('ACCEPT');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNVERIFIABLE.');
     expect(byId<HTMLElement>('manual-status').textContent).toContain('REFUSE_UNVERIFIABLE');
+  });
+
+  it('a broken promise shows the explicit contradiction, not a bare "0"', async () => {
+    const { runScenario } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await verifyPasted(submissionBundleToJson((await runScenario('omitted')).submissionBundle));
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('BROKEN PROMISE.');
+    const classes = chainStepClasses('manual-decision-chain');
+    expect(classes[5]).toContain('chain-step-fail'); // 6. Liability inclusion
+    expect(classes[7]).toContain('chain-step-ok'); // reserve still healthy
+    const evidence = byId<HTMLElement>('manual-evidence-content').textContent!;
+    expect(evidence).toMatch(/receipt-promised issuance/i);
+    expect(evidence).toMatch(/manifest-reported issuance/i);
+    expect(evidence).toContain('70,000 sats');
+  });
+
+  it('a reserve shortfall shows the real, correctly computed shortfall — verified and insufficient, not "unverified"', async () => {
+    const { runScenario } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await verifyPasted(submissionBundleToJson((await runScenario('reserve-short')).submissionBundle));
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('RESERVE SHORTFALL.');
+    expect(factValue('manual-decision-facts', 'Live reserve')).toBe('SHORT');
+    const evidence = byId<HTMLElement>('manual-evidence-content').textContent!;
+    expect(evidence).toMatch(/reserve verified/i);
+    expect(evidence).toContain('1,500,000 sats');
+    expect(evidence).toMatch(/500,000 sats/);
   });
 });
 
-describe('SOLVENT web client (jsdom) — verifier panel, "Verify your evidence" (manual) mode — error taxonomy (Part 9)', () => {
+describe('SOLVENT web client (jsdom) — Verify evidence error taxonomy', () => {
   it('INVALID JSON: unparseable text never runs verification and never accepts', async () => {
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = '{ this is not json ';
-    byId<HTMLButtonElement>('manual-verify-btn').click();
+    await verifyPasted('{ this is not json ');
     expect(byId<HTMLElement>('manual-status').textContent).toMatch(/invalid json/i);
-    expect(byId<HTMLElement>('manual-result').hidden).toBe(false);
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
     expect(byId<HTMLElement>('manual-accepted-panel').hidden).toBe(true);
   });
 
-  it('INVALID JSON: an empty textarea does not show a misleading "unsupported mint" message', async () => {
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = '';
-    byId<HTMLButtonElement>('manual-verify-btn').click();
+  it('INVALID JSON: an empty input does not show a misleading "unsupported mint" message', async () => {
+    await verifyPasted('');
     expect(byId<HTMLElement>('manual-status').textContent).toMatch(/invalid json/i);
     expect(byId<HTMLElement>('manual-status').textContent).not.toMatch(/unsupported mint/i);
   });
 
   it('INCOMPLETE BUNDLE: valid JSON missing required fields is distinguished from invalid JSON', async () => {
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = '{ "not": "a real bundle" }';
-    byId<HTMLButtonElement>('manual-verify-btn').click();
+    await verifyPasted('{ "not": "a real bundle" }');
     expect(byId<HTMLElement>('manual-status').textContent).toMatch(/incomplete bundle/i);
-    expect(byId<HTMLElement>('manual-result').hidden).toBe(false);
   });
 
   it('INVALID BUNDLE: every required field present, but one is malformed (not "unsupported mint")', async () => {
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = JSON.stringify({
-      proof: { id: 'x', amount: 'not-a-number', secret: 's', C: 'c' },
-      receipt: {},
-      manifest: { outstanding_balance: 0, issued_mmr_root_sum: 0, spent_mmr_root_sum: 0 },
-      manifestSignature: '',
-      masterPublicKeyHex: '',
-      keysetId: '',
-      amountPublicKeyHex: '',
-      issuedMmrSize: 0,
-      inclusionProof: null,
-      reserveAttestation: null,
-      nostrEvent: null,
-      mint: 'x',
-    });
-    byId<HTMLButtonElement>('manual-verify-btn').click();
+    await verifyPasted(
+      JSON.stringify({
+        proof: { id: 'x', amount: 'not-a-number', secret: 's', C: 'c' },
+        receipt: {},
+        manifest: { outstanding_balance: 0, issued_mmr_root_sum: 0, spent_mmr_root_sum: 0 },
+        manifestSignature: '',
+        masterPublicKeyHex: '',
+        keysetId: '',
+        amountPublicKeyHex: '',
+        issuedMmrSize: 0,
+        inclusionProof: null,
+        reserveAttestation: null,
+        nostrEvent: null,
+        mint: 'x',
+      }),
+    );
     expect(byId<HTMLElement>('manual-status').textContent).toMatch(/invalid bundle/i);
-    expect(byId<HTMLElement>('manual-result').hidden).toBe(false);
   });
 
-  it('UNSUPPORTED MINT: a structurally valid, fully-formed bundle whose keyset verify() itself rejects (proof.id != keysetId) is labeled UNSUPPORTED MINT, not a generic REFUSE or a parse error', async () => {
+  it('UNSUPPORTED MINT: a plain Cashu token carries no liability evidence', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    await verifyPasted((await createTestEcash()).token);
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNSUPPORTED MINT.');
+    expect(byId<HTMLElement>('manual-decision-body').textContent).toMatch(/^This mint does not provide the SOLVENT-compatible liability evidence required for full verification\./);
+  });
+
+  it('UNSUPPORTED MINT: ecash JSON with none of the liability evidence', async () => {
+    await verifyPasted(JSON.stringify({ proof: { id: '00ab', amount: 8, secret: 's', C: '02aa' }, mint: 'https://mint.example' }));
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNSUPPORTED MINT.');
+  });
+
+  it('UNSUPPORTED MINT: a fully-formed bundle whose keyset verify() itself rejects', async () => {
     const { createTestEcash } = await import('./protocol-demo.js');
     const { submissionBundleToJson } = await import('./bundle-json.js');
     const ecash = await createTestEcash();
-    const tampered = { ...ecash.submissionBundle, keysetId: `${ecash.submissionBundle.keysetId}00` };
-    await switchToTab('manual');
-    byId<HTMLTextAreaElement>('manual-bundle-input').value = submissionBundleToJson(tampered);
-    byId<HTMLButtonElement>('manual-verify-btn').click();
-    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 15000);
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toMatch(/unsupported mint/i);
+    await verifyPasted(submissionBundleToJson({ ...ecash.submissionBundle, keysetId: `${ecash.submissionBundle.keysetId}00` }));
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNSUPPORTED MINT.');
     expect(byId<HTMLElement>('manual-status').textContent).toContain('REFUSE_UNSUPPORTED_KEYSET');
-    // Same as any other REFUSE_* case: the button stays visible but disabled
-    // (only the pre-verify() parse-error branches hide it outright) — it
-    // must never be enabled here.
     expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(true);
   });
 
   it('none of the error taxonomy branches ever call the acceptance side effect', async () => {
-    await switchToTab('manual');
-    for (const bad of ['not json', '{}', '{ "reserveAttestation": null }']) {
-      byId<HTMLTextAreaElement>('manual-bundle-input').value = bad;
-      byId<HTMLButtonElement>('manual-verify-btn').click();
+    for (const bad of ['not json', '{}', '{ "reserveAttestation": null }', 'cashuBnotreal']) {
+      await verifyPasted(bad);
       expect(byId<HTMLElement>('manual-accept-btn').hidden).toBe(true);
       expect(byId<HTMLElement>('manual-accepted-panel').hidden).toBe(true);
     }
   });
+});
 
-  it('the "Don\'t have one?" cross-link switches to Create test ecash', async () => {
-    await switchToTab('manual');
-    byId<HTMLButtonElement>('manual-create-ecash-btn').click();
-    await waitFor(() => !byId<HTMLElement>('mode-create').hidden);
-    expect(byId<HTMLElement>('mode-manual').hidden).toBe(true);
+describe('SOLVENT web client (jsdom) — reference mint lab (#/lab)', () => {
+  async function goToLab() {
+    window.location.hash = '#/lab';
+    await waitFor(() => !byId<HTMLElement>('panel-lab').hidden);
+  }
+
+  async function issue(amount: number, omit = false) {
+    const status = byId<HTMLElement>('lab-status');
+    const select = byId<HTMLSelectElement>('lab-amount');
+    select.value = String(amount);
+    byId<HTMLInputElement>('lab-omit').checked = omit;
+    const before = status.textContent;
+    byId<HTMLButtonElement>('lab-issue-btn').click();
+    await waitFor(() => status.textContent !== before && /^Issued/.test(status.textContent ?? ''), 8000);
+  }
+
+  function mintRow(label: string): string {
+    const rows = Array.from(byId<HTMLElement>('lab-mint-rows').querySelectorAll('dt'));
+    return rows.find((dt) => dt.textContent === label)?.nextElementSibling?.textContent ?? '';
+  }
+
+  function issuanceRow(label: string): string {
+    const rows = Array.from(byId<HTMLElement>('lab-issuance-rows').querySelectorAll('dt'));
+    return rows.find((dt) => dt.textContent === label)?.nextElementSibling?.textContent ?? '';
+  }
+
+  it('is not in the primary navigation, nor a /verify mode — only a footer link for developers', async () => {
+    const headerLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.topbar a, #nav-drawer a')).map((a) => a.getAttribute('href'));
+    expect(headerLinks).not.toContain('#/lab');
+    expect(Array.from(document.querySelectorAll('#panel-verify .mode-tab')).some((t) => /lab|create/i.test(t.textContent ?? ''))).toBe(false);
+    expect(document.querySelector('.site-footer a[href="#/lab"]')?.textContent).toMatch(/developers/i);
+    await goToLab();
+    expect(byId<HTMLElement>('panel-lab').querySelector('.page-heading')?.textContent).toBe('REFERENCE MINT LAB');
+    expect(byId<HTMLElement>('panel-lab').textContent).toMatch(/Evidence generated here is not automatically published and is not a production mint\./);
   });
 
-  it("Try SOLVENT's status line lives inside its own tab and does not leak a stale decision into Create/Manual tabs", async () => {
-    await selectAndRun('reserve-short');
-    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_RESERVE_SHORT');
-    // #status must be a descendant of #mode-try specifically, not a
-    // page-level element shared across all three tabs (it used to sit
-    // after all three <section>s, so switching tabs left a stale REFUSE
-    // message visible under a completely different mode's UI).
-    expect(byId<HTMLElement>('mode-try').contains(byId<HTMLElement>('status'))).toBe(true);
-    await switchToTab('manual');
-    expect(byId<HTMLElement>('mode-try').hidden).toBe(true);
+  it('keeps one mint identity and keyset across issuances; each issuance gets a new secret, receipt and epoch; the amount varies', async () => {
+    await goToLab();
+    byId<HTMLButtonElement>('lab-reset-btn').click();
+    const identity = mintRow('Mint identity');
+    const keyset = mintRow('Active keyset');
+    await issue(10_000);
+    const first = { secret: issuanceRow('Proof secret'), receipt: issuanceRow('Receipt signature'), epoch: issuanceRow('Promised epoch'), amount: issuanceRow('Amount') };
+    await issue(250_000);
+    const second = { secret: issuanceRow('Proof secret'), receipt: issuanceRow('Receipt signature'), epoch: issuanceRow('Promised epoch'), amount: issuanceRow('Amount') };
+    expect(mintRow('Mint identity')).toBe(identity);
+    expect(mintRow('Active keyset')).toBe(keyset);
+    expect(second.secret).not.toBe(first.secret);
+    expect(second.receipt).not.toBe(first.receipt);
+    expect(Number(second.epoch)).toBe(Number(first.epoch) + 1);
+    expect([first.amount, second.amount]).toEqual(['10,000 sats', '250,000 sats']);
+    expect(mintRow('Outstanding liabilities')).toBe('260,000 sats');
+    expect(issuanceRow('Published to Nostr')).toMatch(/^NO/);
   });
 
-  it('"Load example bundle" loads SOLVENT\'s stable Live Public Demo bundle (same real runScenario("honest") call the Try SOLVENT tab uses, not a hardcoded string) and it verifies to a real ACCEPT', async () => {
-    await switchToTab('manual');
+  it('the keyset changes only on explicit rotation', async () => {
+    await goToLab();
+    const identity = mintRow('Mint identity');
+    const keyset = mintRow('Active keyset');
+    await issue(1_000);
+    expect(mintRow('Active keyset')).toBe(keyset);
+    byId<HTMLButtonElement>('lab-rotate-btn').click();
+    expect(mintRow('Active keyset')).not.toBe(keyset);
+    expect(mintRow('Active keyset')).toMatch(/generation 2/);
+    expect(mintRow('Mint identity')).toBe(identity);
+  });
+
+  it('CHECK LOCAL CRYPTOGRAPHY is its primary action — valid, and explicitly not a full verification', async () => {
+    await goToLab();
+    await issue(70_000);
+    expect(byId<HTMLButtonElement>('lab-check-btn').textContent).toBe('Check local cryptography');
+    expect(byId<HTMLElement>('panel-lab').textContent).not.toMatch(/verify ecash/i);
+    byId<HTMLButtonElement>('lab-check-btn').click();
+    expect(byId<HTMLElement>('lab-decision-badge').textContent).toBe('LOCAL CHECK ONLY');
+    expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('LOCAL CRYPTOGRAPHY VALID.');
+    expect(byId<HTMLElement>('lab-decision-body').textContent).toMatch(/not a full verification/i);
+    expect(factValue('lab-decision-facts', 'Public Nostr retrieval')).toBe('NOT CHECKED (local only)');
+    const classes = chainStepClasses('lab-decision-chain');
+    expect(classes.slice(0, 6).every((c) => c.includes('chain-step-ok'))).toBe(true);
+    expect(classes.slice(6).every((c) => c.includes('chain-step-na'))).toBe(true);
+  });
+
+  it('a full verification of lab evidence refuses as PUBLIC EVIDENCE NOT FOUND — it is never published', async () => {
+    await goToLab();
+    await issue(70_000);
+    byId<HTMLButtonElement>('lab-full-btn').click();
+    await waitFor(() => byId<HTMLElement>('lab-decision-badge').textContent === '✕ REFUSE', 8000);
+    expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+  });
+
+  it('a broken promise is caught locally (liability inclusion) and by full verification (BROKEN PROMISE)', async () => {
+    await goToLab();
+    byId<HTMLButtonElement>('lab-reset-btn').click();
+    await issue(70_000, true);
+    expect(issuanceRow('In the closed epoch')).toMatch(/omitted/i);
+    byId<HTMLButtonElement>('lab-check-btn').click();
+    expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('LOCAL CHECK FAILED — LIABILITY INCLUSION.');
+    byId<HTMLButtonElement>('lab-full-btn').click();
+    await waitFor(() => byId<HTMLElement>('lab-decision-headline').textContent === 'BROKEN PROMISE.', 8000);
+  });
+
+  it('issuing past the 1,000,000-sat reserve produces a real RESERVE SHORTFALL', async () => {
+    await goToLab();
+    byId<HTMLButtonElement>('lab-reset-btn').click();
+    await issue(1_000_000);
+    await issue(70_000);
+    expect(mintRow('Outstanding liabilities')).toBe('1,070,000 sats');
+    byId<HTMLButtonElement>('lab-full-btn').click();
+    await waitFor(() => byId<HTMLElement>('lab-decision-headline').textContent === 'RESERVE SHORTFALL.', 8000);
+  });
+});
+
+describe('SOLVENT web client (jsdom) — primary routes use product language, not reference-lab/test language', () => {
+  it('J. no primary route shows solvent-fixture-mint, "test environment", "fresh identity every time" (or similar) — even after running checks', async () => {
+    const forbidden = [/solvent-fixture-mint/i, /test environment/i, /fresh identity every time/i, /\bfixture\b/i, /\btest mint\b/i, /demo scenario/i, /fresh demo identity/i, /create test ecash/i];
+    await runLiveCheck();
+    await switchToMode('evidence');
     byId<HTMLButtonElement>('manual-load-example-btn').click();
-    await waitFor(() => byId<HTMLTextAreaElement>('manual-bundle-input').value.length > 100, 8000);
-    const loaded = byId<HTMLTextAreaElement>('manual-bundle-input').value;
-    const parsed = JSON.parse(loaded);
-    expect(parsed.proof).toBeDefined();
-    expect(parsed.nostrEvent).toBeDefined();
     byId<HTMLButtonElement>('manual-verify-btn').click();
     await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
-    expect(byId<HTMLElement>('manual-status').textContent).toContain('ACCEPT_VERIFIED');
+    for (const panel of ['panel-home', 'panel-verify', 'panel-protocol']) {
+      const text = productText(panel);
+      for (const re of forbidden) expect(text, `${panel} must not contain ${re}`).not.toMatch(re);
+    }
+    // The network is named truthfully: a test network, not a "test mint".
+    expect(productText('panel-verify')).toMatch(/Mutinynet \(Bitcoin Signet\)/);
   });
 });
 
@@ -854,7 +1021,7 @@ describe('SOLVENT web client (jsdom) — mobile burger nav (keyboard/ARIA/close 
 
 describe('SOLVENT web client (jsdom) — public evidence links use the real, exact IDs (Part 21)', () => {
   it('the reserve UTXO link/copy button and the Nostr event link/copy button carry the exact real values, on the correct (non-mainnet) network', async () => {
-    await selectAndRun('honest');
+    await runLiveCheck();
     const evidence = byId<HTMLElement>('evidence-content');
     const copyBtns = Array.from(evidence.querySelectorAll<HTMLButtonElement>('.copy-evidence-btn'));
     const txidBtn = copyBtns.find((b) => b.textContent?.includes('Copy txid'));
@@ -1147,10 +1314,14 @@ describe('SOLVENT web client (jsdom) — Nostr live relay fetch (submission.ts e
     // Force the mocked "current tip" to be comfortably past the network-aware
     // freshness budget (~19,830 blocks on Mutinynet's ~30.5s blocks for the
     // real ~1 week target — see maxAttestationAgeBlocks in
-    // src/reserve/evaluate.ts) past this bundle's real attestation
+    // src/reserve/evaluate.ts) past the reference case's OWN attestation
     // block_height — deterministic staleness, not a real multi-day wait on
-    // a real chain.
-    mockState.tipHeightOverride = liveAttestationEvidence.attestation.statement.block_height + 25_000;
+    // a real chain. It must be the attestation inside live-demo.json, the
+    // one the live check verifies: `npm run live-demo` regenerates that file
+    // but never evidence/reserves/live-attestation.json, so measuring from
+    // the latter stops being "stale" as soon as the two drift apart (this
+    // failed every scheduled refresh run once they were a day apart).
+    mockState.tipHeightOverride = liveDemoEvidence.bundle.reserveAttestation.statement.block_height + 25_000;
     const scenario = await runScenario('honest');
     expect(scenario.reserveLive.queryOk).toBe(true);
     expect(scenario.reserveLive.verified).toBe(false);
@@ -1161,12 +1332,15 @@ describe('SOLVENT web client (jsdom) — Nostr live relay fetch (submission.ts e
     expect(accepted).toBe(false);
   });
 
-  it('the UI shows "LIVE DEMO EVIDENCE EXPIRED" (not a shortfall or generic REFUSE) when the Live Public Demo\'s reserve attestation is stale, and Accept stays disabled', async () => {
-    mockState.tipHeightOverride = liveAttestationEvidence.attestation.statement.block_height + 25_000;
-    await selectAndRun('honest');
-    expect(byId<HTMLElement>('decision-badge').textContent).toMatch(/live demo evidence expired/i);
-    expect(byId<HTMLElement>('decision-headline').textContent).toMatch(/live demo evidence expired/i);
+  it('the live check shows REFUSE / "LIVE EVIDENCE EXPIRED" (not a shortfall or generic REFUSE) when the reference case\'s reserve attestation is stale, and Accept stays disabled', async () => {
+    // Same anchor as the test above — the live check's own attestation.
+    mockState.tipHeightOverride = liveDemoEvidence.bundle.reserveAttestation.statement.block_height + 25_000;
+    await runLiveCheck();
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('LIVE EVIDENCE EXPIRED.');
     expect(byId<HTMLElement>('decision-body').textContent).toMatch(/npm run live-demo/i);
+    expect(factValue('decision-facts', 'Live reserve')).toBe('ATTESTATION EXPIRED');
+    expect(byId<HTMLElement>('live-dates').textContent).toMatch(/EXPIRED \(/);
     expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
     expect(byId<HTMLElement>('accepted-panel').hidden).toBe(true);
   });
@@ -1189,5 +1363,47 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     window.location.hash = '#/docs?doc=faq';
     await waitFor(() => !byId<HTMLElement>('docs-faq-content').hidden);
     expect(byId<HTMLElement>('docs-faq-content').textContent).toMatch(/does solvent make a cashu mint trustless/i);
+  });
+
+  it('the sidebar lists every docs section, in order, and highlights the active one', async () => {
+    window.location.hash = '#/docs?doc=trust-boundaries';
+    await waitFor(() => byId<HTMLElement>('docs-doc-content').textContent!.includes('Trust boundaries'));
+    const labels = Array.from(document.querySelectorAll('#docs-nav .docs-nav-link')).map((b) => b.textContent);
+    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Draft alignment', 'Verify in 5 minutes', 'FAQ']);
+    expect(document.querySelector('#docs-nav .docs-nav-link.active')?.textContent).toBe('Trust boundaries');
+  });
+
+  it('G. the desktop sidebar is sticky, and nothing above it silently disables sticky positioning', () => {
+    // jsdom has no layout engine, so this checks the stylesheet itself; the
+    // real scrolling behaviour is checked in a browser by verify-ui-browser.ts.
+    const css = readFileSync(path.resolve(import.meta.dirname, 'style.css'), 'utf8');
+    const sidebar = /\.docs-sidebar \{([^}]*)\}/.exec(css)![1]!;
+    expect(sidebar).toMatch(/position: sticky/);
+    expect(sidebar).toMatch(/align-self: start/);
+    expect(sidebar).toMatch(/max-height: calc\(100vh/);
+    expect(sidebar).toMatch(/overflow-y: auto/);
+    expect(/\.docs-layout \{[^}]*grid-template-columns: (2[6-9]\d|300)px/.test(css)).toBe(true);
+    // overflow-x: hidden on html+body makes body a scroll container that
+    // never scrolls, which breaks every position: sticky beneath it.
+    const root = /html,\s*body \{([^}]*)\}/.exec(css)![1]!;
+    expect(root).toMatch(/overflow-x: clip;/);
+    expect(root.lastIndexOf('overflow-x: clip')).toBeGreaterThan(root.lastIndexOf('overflow-x: hidden'));
+  });
+
+  it('H. the mobile docs menu (a labelled select) lists every section and navigates', async () => {
+    await goToDocs();
+    const select = byId<HTMLSelectElement>('docs-mobile-select');
+    expect(document.querySelector('label[for="docs-mobile-select"]')?.textContent).toMatch(/docs menu/i);
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'draft-alignment', 'verify-in-5', 'faq']);
+    select.value = 'reserve-attestation';
+    select.dispatchEvent(new Event('change'));
+    await waitFor(() => window.location.hash.includes('reserve-attestation'));
+    await waitFor(() => select.value === 'reserve-attestation' && byId<HTMLElement>('docs-doc-content').textContent!.length > 200);
+    // Below 1024px the rail is hidden and this select replaces it — no
+    // side-by-side sticky navigation on phones.
+    const css = readFileSync(path.resolve(import.meta.dirname, 'style.css'), 'utf8');
+    const narrow = /@media \(max-width: 1024px\) \{\s*\.docs-layout \{[\s\S]*?\.docs-mobile-select \{\s*display: block;/.exec(css)?.[0] ?? '';
+    expect(narrow).toMatch(/\.docs-sidebar \{\s*position: static;/);
+    expect(narrow).toMatch(/\.docs-nav \{\s*display: none;/);
   });
 });

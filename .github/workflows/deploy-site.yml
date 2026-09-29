@@ -1,0 +1,118 @@
+# Builds and deploys the SOLVENT web app to GitHub Pages.
+#
+# Deliberately independent of Nostr relays. The site ships with the newest
+# canonical live evidence that has already been verified: either
+# evidence/nostr/live-demo.json as committed, or a newer copy uploaded by
+# the most recent SUCCESSFUL "Refresh Live Evidence" run (which only
+# uploads evidence it has just published and proven live — see
+# refresh-live-demo.yml and src/cli/select-live-evidence.ts). A relay
+# outage or a failed refresh therefore never takes the site offline or
+# blocks a deploy. If the shipped evidence goes stale, the deployed live
+# check says so (LIVE EVIDENCE EXPIRED / PUBLIC EVIDENCE UNAVAILABLE) —
+# nothing is ever faked.
+#
+# Runs on every push to main, on demand, and after each successful refresh
+# (so refreshed evidence reaches the site without a commit).
+name: Deploy Site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+  workflow_run:
+    workflows: ['Refresh Live Evidence']
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read # download the refresh workflow's evidence artifact
+  pages: write
+  id-token: write
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # A failed refresh uploads nothing new — no reason to redeploy for it.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Use the newest verified live evidence (offline check only — no relays)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow refresh-live-demo.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run_id" ] && gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name live-evidence --dir "$RUNNER_TEMP/live-evidence"; then
+            npm run select:live-evidence -- "$RUNNER_TEMP/live-evidence/live-demo.json"
+          else
+            echo "No successful refresh artifact available — deploying the committed evidence."
+          fi
+
+      - name: Deterministic test suite (no network)
+        run: npm test
+
+      # GH_PAGES_BASE matches this repo's GitHub Pages project-site subpath
+      # — see vite.config.ts.
+      - name: Build
+        run: npm run build
+        env:
+          GH_PAGES_BASE: /${{ github.event.repository.name }}/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Smoke test — the deployed bundle serves this build's evidence
+        run: npm run verify:deployed -- "${{ steps.deployment.outputs.page_url }}"
+
+      - name: Install Chromium for the browser smoke test
+        run: npx playwright install --with-deps chromium
+
+      # Passes whether the live evidence is healthy or not: every route must
+      # render and the live check must reach a real decision (ACCEPT, or a
+      # REFUSE naming its reason).
+      - name: Smoke test — every route renders; the live check reaches a decision
+        run: npm run verify:ui:browser -- "${{ steps.deployment.outputs.page_url }}"
+
+  live-acceptance:
+    # Reported separately, after the site is already up: fails when the
+    # deployed live check does not reach ACCEPT VERIFIED right now (stale
+    # evidence, relay outage). A signal to refresh the evidence — never a
+    # reason to take the site down.
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Deployed live check reaches ACCEPT VERIFIED
+        run: npm run verify:deployed:browser -- "${{ needs.deploy.outputs.page_url }}"

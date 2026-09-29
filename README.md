@@ -1,21 +1,21 @@
 # SOLVENT
 
-**BOSS Battle 2026 — Freedom Stack (Nostr + Ecash)**
-**Problem:** Auditable Ecash — mint proof-of-reserves and proof-of-liabilities
+**BOSS Battle 2026 â€” Freedom Stack (Nostr + Ecash)**
+**Problem:** Auditable Ecash â€” mint proof-of-reserves and proof-of-liabilities
 **Team:** _(add your name(s) here)_
 **License:** MIT
 
 **Demo video:** _(add link here before submission)_
 
-> The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against its closed accounting epoch, public Nostr state, and a real Bitcoin Signet reserve — before the ecash reaches a real acceptance side effect.
+> The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against its closed accounting epoch, public Nostr state, and a real Bitcoin Signet reserve â€” before the ecash reaches a real acceptance side effect.
 
-The product is the protocol, aligned to Cashu PR #388 / the draft Proof-of-Liabilities proposal: real NUT-12 DLEQ verification, a holder-reconstructed `B'` bound to a signed transactional receipt, an append-only sum-MMR epoch commitment, real Nostr publication of that evidence, and a real Bitcoin Signet UTXO independently re-verified on chain. The web UI is a thin client over `src/verifier/verify.ts` — it never decides ACCEPT/REFUSE itself.
+The product is the protocol, aligned to Cashu PR #388 / the draft Proof-of-Liabilities proposal: real NUT-12 DLEQ verification, a holder-reconstructed `B'` bound to a signed transactional receipt, an append-only sum-MMR epoch commitment, real Nostr publication of that evidence, and a real Bitcoin Signet UTXO independently re-verified on chain. The web UI is a thin client over `src/verifier/verify.ts` â€” it never decides ACCEPT/REFUSE itself.
 
 ## PHASE 1 REAL CASHU FOUNDATION
 
-This is a **phase, not a finished system** — the verifier above and the real Cashu foundation below currently run side by side, not yet connected. See `docs/REALITY-MAP.md` for the full real/simulated breakdown and `DECISIONS.md` for why.
+This is a **phase, not a finished system** â€” the verifier above and the real Cashu foundation below currently run side by side, not yet connected. See `docs/REALITY-MAP.md` for the full real/simulated breakdown and `DECISIONS.md` for why.
 
-**Verified this phase** (`src/cli/real-cashu/`, `.github/workflows/real-cashu-integration.yml` — see `docs/real-cashu-stack.md`), confirmed by real execution in [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23):
+**Verified this phase** (`src/cli/real-cashu/`, `.github/workflows/real-cashu-integration.yml` â€” see `docs/real-cashu-stack.md`), confirmed by real execution in [GitHub Actions run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23):
 - a real, independent, external Cashu mint (**CDK**, not SOLVENT's own code)
 - a real regtest Lightning payment, settled by a separate real node and independently confirmed
 - real NUT-04 issuance, real NUT-03 swap, real NUT-07 proof-state transitions, real NUT-05 melt
@@ -23,29 +23,28 @@ This is a **phase, not a finished system** — the verifier above and the real C
 - real process-restart persistence: after killing and restarting the mint against the same on-disk database, already-spent proofs still report SPENT and a fresh double-spend attempt is still refused
 
 **Not yet connected in this phase**:
-- SOLVENT's own Proof-of-Liabilities mint extension (signed receipts, epoch manifests, sum-MMR)
-- persistent accounting epochs tied to real mint activity
+- persistent accounting epochs tied to real mint activity — **Phase 3A built**: the patched CDK mint now stamps real epochs, and `npm run pol:epoch-close` closes them into signed sum-MMR manifests derived from the mint's own database. Verified against a real local `cdk-mintd` (fakewallet Lightning); the LND-backed CI run has not happened yet. See [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md)
 - Nostr publication sourced from real mint state
 - reserve binding to a real mint's real liabilities
 - SOLVENT's verifier gating a real receiver's swap
 
-Everything described in the rest of this README (the verifier, the attack corpus, the Live Public Demo, the deployment automation) is real, unchanged, and already documented in detail below and in `docs/trust-boundaries.md` — Phase 1 adds to it, it does not replace or weaken any of it.
+Everything described in the rest of this README (the verifier, the attack corpus, the Live Public Demo, the deployment automation) is real, unchanged, and already documented in detail below and in `docs/trust-boundaries.md` â€” Phase 1 adds to it, it does not replace or weaken any of it.
 
-## PHASE 2 MINT-NATIVE ACCOUNTING + DURABLE PoL RECEIPTS (NUT-04 STEP 8 VERIFIED · NUT-03 VERIFIED · NUT-05 NOT STARTED)
+## PHASE 2 MINT-NATIVE ACCOUNTING + DURABLE PoL RECEIPTS (NUT-04 STEP 8 VERIFIED Â· NUT-03 VERIFIED Â· NUT-05 NOT STARTED)
 
-Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic transitions, inside the mint's real database transaction; sign real Proof-of-Liability receipts with the mint's real amount key; and prove the receipt obligation survives a real crash and is genuinely retrievable — not a sidecar that could lose it, not a fixture signature, not merely "synchronous, so probably fine." See `docs/cdk-integration-seams.md`, `docs/cdk-signatory-audit.md`, `docs/receipt-lifecycle.md`, `docs/accounting-model.md`, and `DECISIONS.md`'s Phase 2 entries for the full architecture.
+Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic transitions, inside the mint's real database transaction; sign real Proof-of-Liability receipts with the mint's real amount key; and prove the receipt obligation survives a real crash and is genuinely retrievable â€” not a sidecar that could lose it, not a fixture signature, not merely "synchronous, so probably fine." See `docs/cdk-integration-seams.md`, `docs/cdk-signatory-audit.md`, `docs/receipt-lifecycle.md`, `docs/accounting-model.md`, and `DECISIONS.md`'s Phase 2 entries for the full architecture.
 
 **Verified this phase**, confirmed by real execution across [run 35924475422](https://github.com/TheWeirdDee/solvent/actions/runs/35924475422), [run 35961052740](https://github.com/TheWeirdDee/solvent/actions/runs/35961052740), and [run 35962153613](https://github.com/TheWeirdDee/solvent/actions/runs/35962153613) (2026-09-23/24):
-- a real NUT-04 mint's issued outputs create durable SOLVENT accounting records automatically, via SQL triggers firing inside CDK's own transaction — **no CDK fork or patch needed for this part**
+- a real NUT-04 mint's issued outputs create durable SOLVENT accounting records automatically, via SQL triggers firing inside CDK's own transaction â€” **no CDK fork or patch needed for this part**
 - **a real, mint-native PoL receipt is signed for every real output**, using the mint's real per-amount signatory key, via five small, real, checked-in patches to CDK's own source (`patches/cdk/0001`-`0005`; `cdk-mintd` is built from the pinned upstream commit plus this patch series in CI, not downloaded prebuilt, for this specific capability)
 - **independent verification, with zero signatory access**: 6/6 real receipt signatures verified against the mint's own public `/v1/keys` response, and 4/4 deliberately tampered receipts correctly refused
-- **real receipt recovery**: a startup scan finds any receipt left `pending`, signs it through the real signatory, and verifies it locally before persisting — proven against 3 synthetic pending receipts seeded directly into the real database, recovered by a real mint restart, and unchanged (no duplicates) after a second real restart
-- **a genuine `kill -9`, not a simulation**: a real background Lightning-paid mint attempt was interrupted mid-transaction by an actual process termination; row counts were identical before and after, proving the interrupted transaction — receipt state included — left nothing behind
-- **real receipt delivery**: `GET /v1/solvent/pol-receipt/{blinded_message}`, a real retrieval endpoint, proven end to end by a minimal real wallet path — 6 Cashu proofs received, 6 receipts retrieved, 6/6 independently verified — a named extension beyond the pinned draft's inline-response requirement, not silently substituted for it
-- **direct, real negative tests of the signing capability itself** (`cargo test`, not HTTP-simulated, since it has no HTTP route): refuses a nonexistent keyset, an out-of-range amount, and an expired keyset — 4/4 real tests pass
-- real atomicity, real reconciliation, real retry idempotency, real restart persistence — all unchanged and still passing
+- **real receipt recovery**: a startup scan finds any receipt left `pending`, signs it through the real signatory, and verifies it locally before persisting â€” proven against 3 synthetic pending receipts seeded directly into the real database, recovered by a real mint restart, and unchanged (no duplicates) after a second real restart
+- **a genuine `kill -9`, not a simulation**: a real background Lightning-paid mint attempt was interrupted mid-transaction by an actual process termination; row counts were identical before and after, proving the interrupted transaction â€” receipt state included â€” left nothing behind
+- **real receipt delivery**: `GET /v1/solvent/pol-receipt/{blinded_message}`, a real retrieval endpoint, proven end to end by a minimal real wallet path â€” 6 Cashu proofs received, 6 receipts retrieved, 6/6 independently verified â€” a named extension beyond the pinned draft's inline-response requirement, not silently substituted for it
+- **direct, real negative tests of the signing capability itself** (`cargo test`, not HTTP-simulated, since it has no HTTP route): refuses a nonexistent keyset, an out-of-range amount, and an expired keyset â€” 4/4 real tests pass
+- real atomicity, real reconciliation, real retry idempotency, real restart persistence â€” all unchanged and still passing
 
-**NUT-03 (swap) — NUT-03 VERIFIED. Real NUT-03 swap accounting is now backed by machine-readable CI evidence.** A real patch (`patches/cdk/0006-*.patch`) wires consumed-liability, replacement issued-liability, and PoL receipt signing into CDK's real `SwapSaga::finalize()` transaction, reusing the existing NUT-04 issued-liability trigger and adding a new consumed-liability trigger (`migrations/solvent-accounting/0002_*.sql`).
+**NUT-03 (swap) â€” NUT-03 VERIFIED. Real NUT-03 swap accounting is now backed by machine-readable CI evidence.** A real patch (`patches/cdk/0006-*.patch`) wires consumed-liability, replacement issued-liability, and PoL receipt signing into CDK's real `SwapSaga::finalize()` transaction, reusing the existing NUT-04 issued-liability trigger and adding a new consumed-liability trigger (`migrations/solvent-accounting/0002_*.sql`).
 
 Verified by [CI run 36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) on commit `4a802bc444fb6b0d3f31032336af19129950508b`. Result: SUCCESS.
 - **Evidence contract:** 15/15 required NUT-03 JSON files produced, in `evidence/real-pol/36150315347/` inside the run's `real-cashu-evidence` artifact.
@@ -62,11 +61,11 @@ The evidence covers:
 
 An earlier run ([36008787769](https://github.com/TheWeirdDee/solvent/actions/runs/36008787769)) passed the same scenarios but recorded them only in CI step logs. Not covered: a keyset-rotation swap test, which was deferred and has not been run. See `docs/receipt-lifecycle.md`'s NUT-03 section for the architecture, and `DECISIONS.md`'s 2026-09-25 entry for the evidence correction.
 
-**Not yet built**: NUT-05 (melt) accounting — Phase 2's explicit build-order instruction is NUT-04, then NUT-03, then NUT-05, one milestone reviewed at a time.
+**Not yet built**: NUT-05 (melt) accounting â€” Phase 2's explicit build-order instruction is NUT-04, then NUT-03, then NUT-05, one milestone reviewed at a time.
 
 ## Why SOLVENT exists
 
-A Cashu mint's own signed receipt can promise to count a specific issuance in a specific accounting epoch — and the mint can still close that epoch without it, while everything else about the epoch (its own manifest signature, its own reserve) looks perfectly healthy:
+A Cashu mint's own signed receipt can promise to count a specific issuance in a specific accounting epoch â€” and the mint can still close that epoch without it, while everything else about the epoch (its own manifest signature, its own reserve) looks perfectly healthy:
 
 ```
 Mint signs:    "I will count this 70,000-sat issuance in epoch 12."
@@ -76,21 +75,21 @@ Reserve:       1,000,000 sats, real, unspent, independently verified.
 BUT: the 70,000-sat issuance never appears in epoch 12's signed accounting.
 ```
 
-A reserve-ratio dashboard cannot catch this — the ratio is computed from whatever the mint chooses to report, and the mint's own accounting can be internally consistent while still omitting a specific promised issuance. SOLVENT catches it because the holder independently reconstructs their exact issuance from their own Cashu proof (never a mint-supplied identifier) and checks it against the epoch the mint itself signed and closed — refusing the ecash even when the mint's reserve is comfortably healthy.
+A reserve-ratio dashboard cannot catch this â€” the ratio is computed from whatever the mint chooses to report, and the mint's own accounting can be internally consistent while still omitting a specific promised issuance. SOLVENT catches it because the holder independently reconstructs their exact issuance from their own Cashu proof (never a mint-supplied identifier) and checks it against the epoch the mint itself signed and closed â€” refusing the ecash even when the mint's reserve is comfortably healthy.
 
 ## Routes / surfaces
 
 Hash-routed single page (`npm run dev`, no server-side routing needed):
 
-- **`/` — Landing.** The broken-promise story in plain language, the four-check decision gate, real acceptance enforcement, real Nostr evidence, the real live Bitcoin Signet reserve, the 25-case attack corpus, and an honest-limits section.
-- **`/verify` — Verifier.** Pick one of three scenarios (honest issuance / promised issuance omitted / reserve below liabilities); each runs the real v2 protocol live in the browser through the real `verify()` function, then a real Gate 4 acceptance boundary.
-- **`/publish` — Evidence pipeline.** A read-only view of the real mint-operator pipeline (receipt → close epoch → sum-MMR → sign manifest → bind reserve → publish Nostr), showing the real last-captured evidence from this repository's own `evidence/` directory — not a simulated publish button.
-- **`/protocol` — Protocol.** The nine-stage decision chain `verify()` runs, gate by gate.
+- **`/` â€” Landing.** The broken-promise story in plain language, the four-check decision gate, real acceptance enforcement, real Nostr evidence, the real live Bitcoin Signet reserve, the 25-case attack corpus, and an honest-limits section.
+- **`/verify` â€” Verifier.** Pick one of three scenarios (honest issuance / promised issuance omitted / reserve below liabilities); each runs the real v2 protocol live in the browser through the real `verify()` function, then a real Gate 4 acceptance boundary.
+- **`/publish` â€” Evidence pipeline.** A read-only view of the real mint-operator pipeline (receipt â†’ close epoch â†’ sum-MMR â†’ sign manifest â†’ bind reserve â†’ publish Nostr), showing the real last-captured evidence from this repository's own `evidence/` directory â€” not a simulated publish button.
+- **`/protocol` â€” Protocol.** The nine-stage decision chain `verify()` runs, gate by gate.
 
 ## What is genuinely working
 
 - **Real NUT-12 DLEQ verification** and holder-side `B'`/`C'` reconstruction through `@cashu/cashu-ts`'s real primitives, over a real `getEncodedToken`/`getDecodedToken` transfer round trip.
-- **Real signed transactional Proof-of-Liabilities receipts** — BIP-340 Schnorr, byte-exact to the Cashu PR #388 draft, cross-checked against its official test vectors.
+- **Real signed transactional Proof-of-Liabilities receipts** â€” BIP-340 Schnorr, byte-exact to the Cashu PR #388 draft, cross-checked against its official test vectors.
 - **A real append-only sum-MMR** for issued/spent accounting per keyset, and a real signed epoch manifest, both byte-exact to the draft and validated against its official vectors.
 - **The hero omission contradiction**: a real mint signs a real receipt promising a real, holder-reconstructed issuance in a real signed epoch, and genuinely fails to produce inclusion for it.
 - **Real acceptance enforcement**: a spy-tested boundary proving a real accept function is called exactly once on `ACCEPT_VERIFIED` and zero times on every required refusal.
@@ -102,7 +101,7 @@ Hash-routed single page (`npm run dev`, no server-side routing needed):
 ## What is fixture / not yet real
 
 - **The Cashu mint is a controlled fixture.** It performs real cryptography (real keys, real blind signing, real DLEQ, real receipt/manifest signing) but its issuance and epoch records are constructed for the demo, which is what makes the omission scenario repeatable.
-- **The Bitcoin reserve is Signet (Mutinynet) test-network capital**, not mainnet capital — real, independently verifiable, but valueless coins.
+- **The Bitcoin reserve is Signet (Mutinynet) test-network capital**, not mainnet capital â€” real, independently verifiable, but valueless coins.
 - **This is a Phase 1 verifier and acceptance-boundary instrument, not a production wallet.** Gate 4's "acceptance" is a real, spy-tested state mutation (real token serialization + a committed local record), not a live mint-swap HTTP round trip.
 - **Liability semantics follow a draft Cashu proposal** (PR #388), not a finalized NUT.
 
@@ -110,9 +109,9 @@ See `docs/trust-boundaries.md` for the complete, current list of what's real vs.
 
 ## What SOLVENT supports
 
-**Supported:** SOLVENT-compatible evidence bundles — a signed PoL receipt, a signed closed epoch manifest, an inclusion proof (or an honest `null`), a signed reserve attestation, and a signed Nostr evidence event, in the exact structure `src/app/submission.ts`'s `SubmissionBundle` defines (see `docs/verification-bundle.md`). SOLVENT's own test mint produces this automatically via **Create test ecash** — you never hand-construct it.
+**Supported:** SOLVENT-compatible evidence bundles â€” a signed PoL receipt, a signed closed epoch manifest, an inclusion proof (or an honest `null`), a signed reserve attestation, and a signed Nostr evidence event, in the exact structure `src/app/submission.ts`'s `SubmissionBundle` defines (see `docs/verification-bundle.md`). A SOLVENT-compatible mint exports it with the ecash; **Load live example** on /verify loads the published reference case, and the developer reference mint lab (`#/lab`) generates local ones â€” you never hand-construct it.
 
-**Not automatically supported:** arbitrary Cashu tokens or mints that don't publish this evidence chain. Pasting a plain Cashu token, or a bundle from a mint that doesn't produce signed PoL receipts/manifests/reserve attestations/Nostr evidence, is reported as **UNSUPPORTED MINT** or **INCOMPLETE BUNDLE** — SOLVENT fails closed rather than guessing at partial support.
+**Not automatically supported:** arbitrary Cashu tokens or mints that don't publish this evidence chain. Pasting a plain Cashu token, or a bundle from a mint that doesn't produce signed PoL receipts/manifests/reserve attestations/Nostr evidence, is reported as **UNSUPPORTED MINT** or **INCOMPLETE BUNDLE** â€” SOLVENT fails closed rather than guessing at partial support.
 
 ## Quick start (clean machine)
 
@@ -122,11 +121,11 @@ cd solvent
 npm install
 npm test                    # 200+ tests
 npm run build                # typecheck + production bundle
-npm run verify:submission    # the 5-minute judge verifier — see VERIFY_IN_5_MINUTES.md
-npm run verify:cashu-real    # PHASE 1: real CDK mint + real regtest Lightning lifecycle — see docs/real-cashu-stack.md (requires the stack from docs/reproduce-real-stack.md or .github/workflows/real-cashu-integration.yml; not runnable standalone)
+npm run verify:submission    # the 5-minute judge verifier â€” see VERIFY_IN_5_MINUTES.md
+npm run verify:cashu-real    # PHASE 1: real CDK mint + real regtest Lightning lifecycle â€” see docs/real-cashu-stack.md (requires the stack from docs/reproduce-real-stack.md or .github/workflows/real-cashu-integration.yml; not runnable standalone)
 ```
 
-### CLI — regenerate evidence
+### CLI â€” regenerate evidence
 
 ```bash
 npm run gate0     # NUT-12 transfer invariant
@@ -136,16 +135,17 @@ npm run gate4     # real acceptance side effect
 npm run gate5     # real Nostr publish/fetch against public relays
 npm run gate6     # real Signet reserve attestation
 npm run attacks   # the full 25-case attack corpus
-npm run live-demo         # generates + publishes the stable Live Public Demo evidence used by Try SOLVENT / "Load example bundle"
-npm run live-demo:release # live-demo + build in one step — the evidence is bundled at build time, so a rebuild is required for a deployed site to see it
+npm run live-demo         # generates + publishes the reference case used by /verify's Live check and "Load live example"
+npm run live-demo:release # live-demo + build in one step â€” the evidence is bundled at build time, so a rebuild is required for a deployed site to see it
 npm run verify:live-demo  # independently re-verifies the Live Public Demo is still live + fresh right now (real relay fetch, real Esplora query, network-aware exact expiry)
 npm run verify:deployed -- <url>         # confirms a DEPLOYED build (not just local dist/) is serving the current canonical evidence, via a real fetch
-npm run verify:deployed:browser -- <url> # confirms a DEPLOYED build reaches a real ACCEPT VERIFIED in an actual headless Chromium run
+npm run verify:deployed:browser -- <url> # confirms a DEPLOYED build's live check reaches a real ACCEPT VERIFIED in headless Chromium
+npm run verify:ui:browser -- <url>       # real-browser UI check: routes, 1440/1024/768/390 overflow, sticky docs sidebar, live check, lab
 ```
 
 Every command re-runs real cryptography (and, for `gate5`/`gate6`/`live-demo`/`verify:live-demo`, real network I/O) and writes machine-readable evidence under `evidence/`. See `VERIFY_IN_5_MINUTES.md`.
 
-`npm test` never touches the network — every real Esplora/Nostr-relay call is mocked, so it's deterministic regardless of internet availability. The commands above (and `npm run verify:submission`, which runs the CLI mechanism checks plus these live evidence files) are the separate, real-network gate — see `VERIFY_IN_5_MINUTES.md` for exactly how `verify:submission` reports live-evidence lines distinctly from mechanism/logic lines.
+`npm test` never touches the network â€” every real Esplora/Nostr-relay call is mocked, so it's deterministic regardless of internet availability. The commands above (and `npm run verify:submission`, which runs the CLI mechanism checks plus these live evidence files) are the separate, real-network gate â€” see `VERIFY_IN_5_MINUTES.md` for exactly how `verify:submission` reports live-evidence lines distinctly from mechanism/logic lines.
 
 ### Web UI
 
@@ -153,59 +153,43 @@ Every command re-runs real cryptography (and, for `gate5`/`gate6`/`live-demo`/`v
 npm run dev
 ```
 
-Opens on the landing page (`/`), which explains the broken-promise story and links into:
+Opens on the landing page (`/`): the problem (a valid Cashu token doesn't prove the mint counted what it owes), the solution, who it's for, and the broken-promise story. It links into:
 
-- **Verify** (`/verify`) — three modes:
-  - **Try SOLVENT** — pick **LIVE PUBLIC DEMO**, **BROKEN PROMISE**, or **RESERVE SHORTFALL**, then click **Run verification**. LIVE PUBLIC DEMO loads SOLVENT's one genuinely, publicly-published evidence set (`npm run live-demo` — see below) and independently fetches it from real public Nostr relays every run; BROKEN PROMISE/RESERVE SHORTFALL mint a fresh identity each run. Every case does a real live re-query of the real Bitcoin Signet reserve UTXO, through the exact `verify()` function the CLI and tests use.
-  - **Create test ecash** — the real, user-driven issuance journey: click **Create test ecash** to issue one real SOLVENT-compatible token with a brand-new identity, inspect/copy it and its exported verification bundle, then click **Verify this ecash**. Because this fresh evidence is never automatically published anywhere, verification correctly stops at "CRYPTOGRAPHIC CHECK PASSED" with a "PUBLICATION NOT FOUND" badge (`REFUSE_NOSTR_EVENT_NOT_FOUND` — relays were reachable, the event simply isn't there) rather than a full `ACCEPT_VERIFIED` — see "The two-tier Nostr guarantee" below.
-  - **Verify your evidence** — paste a verification bundle (your own export from Create test ecash, or one from a compatible mint) and verify it directly, or click **Load example bundle** to load the same Live Public Demo bundle. See `docs/verification-bundle.md` for the exact schema and a complete real example.
-  
-  Every mode shows the nine-step decision chain, a large ACCEPT/REFUSE result, and an **Accept ecash** button wired to the real Gate 4 acceptance boundary (enabled only when the decision is `ACCEPT_VERIFIED`, and calling it exactly once). Technical detail (reconstructed `B'`, MMR roots, the real Nostr event, the real reserve UTXO, raw JSON) lives behind a **"View evidence"** panel.
-- **Publish** (`/publish`) — a read-only view of the real evidence pipeline, showing the actual last-captured Nostr event and reserve attestation this repository generated.
-- **Docs** (`/docs`) — real product documentation rendered from this repo's own markdown files.
+- **Verify** (`/verify`) â€” two modes:
+  - **Live check** â€” runs SOLVENT against the published reference case (`evidence/nostr/live-demo.json`, published by `npm run live-demo`). Every run re-fetches its Nostr event from real public relays and re-queries its reserve UTXO on Bitcoin Signet (Mutinynet), then runs the real verifier. It shows when the case was published and when its evidence expires, "Last checked", Nostr LIVE / NOT FOUND / UNAVAILABLE, Reserve LIVE / SPENT / UNAVAILABLE, and the exact event id and reserve txid:vout it checked. Nothing is substituted from bundled data when a request fails â€” the result is a REFUSE naming what couldn't be checked.
+  - **Verify evidence** â€” paste or upload a SOLVENT verification bundle, or click **Load live example** to load the same published reference case. See `docs/verification-bundle.md` for the schema. A plain Cashu token, or a bundle with no liability evidence, is refused as **UNSUPPORTED MINT**.
+
+  Both modes run the same nine checks (token format, mint origin / NUT-12, PoL receipt, promised epoch, signed epoch manifest, liability inclusion, public Nostr retrieval, live reserve, decision). The result always leads with the decision (**ACCEPT** or **REFUSE**) and its reason; partial facts such as "local cryptography: valid" sit beneath it. **Accept ecash** is wired to the real Gate 4 acceptance boundary (enabled only on `ACCEPT_VERIFIED`, called exactly once). Raw JSON lives behind collapsed "View raw bundle" / "View result JSON" toggles.
+- **Protocol** (`/protocol`), **Docs** (`/docs`), and a read-only **evidence pipeline** view (`/publish`).
+- **Reference mint lab** (`#/lab`, developers only â€” linked from the footer, not the navigation) â€” SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated), a new proof, receipt and closed epoch per issuance, and a choice of amounts. Its evidence is never published, so its primary action is **Check local cryptography**; a full verification of lab evidence refuses with PUBLIC EVIDENCE NOT FOUND. It can also break a promise on purpose (BROKEN PROMISE) or issue past the reserve (RESERVE SHORTFALL).
+
+The real CDK mint integration (NUT-04 / NUT-03 accounting, proven in CI) is not the backend behind this web page â€” see `docs/trust-boundaries.md`'s "Product, reference lab, and the real CDK integration".
 
 ### The two-tier Nostr guarantee
 
-SOLVENT's whole premise is that a mint's accounting is *publicly checkable*, not just privately signable — so a bundle's own privately-supplied signed Nostr event, however cryptographically valid, does **not** by itself satisfy the live acceptance gate. `verifySubmission()` (`src/app/submission.ts`) always genuinely attempts to fetch the bundle's evidence from real public relays; only a bundle whose evidence a relay actually returns can reach `ACCEPT_VERIFIED`. This is why **Create Test Ecash** (fresh identity every run, intentionally never published — publishing a throwaway event on every click would spam production relays) correctly cannot reach full ACCEPT, while **Try SOLVENT → LIVE PUBLIC DEMO** — built once via `npm run live-demo` and published for real — genuinely can. See `docs/trust-boundaries.md`'s "The two-tier Nostr guarantee" section for the full explanation and the exact published event id/relays/digests.
+SOLVENT's whole premise is that a mint's accounting is *publicly checkable*, not just privately signable â€” so a bundle's own privately-supplied signed Nostr event, however cryptographically valid, does **not** by itself satisfy the live acceptance gate. `verifySubmission()` (`src/app/submission.ts`) always genuinely attempts to fetch the bundle's evidence from real public relays; only a bundle whose evidence a relay actually returns can reach `ACCEPT_VERIFIED`. That is why locally generated lab evidence (intentionally never published â€” publishing a throwaway event on every click would spam production relays) cannot reach ACCEPT, while the published reference case can. See `docs/trust-boundaries.md`'s "The two-tier Nostr guarantee".
 
-"Couldn't find it" and "couldn't check" are never collapsed into one reason: a relay that answers but doesn't have the event yields `REFUSE_NOSTR_EVENT_NOT_FOUND` (Create Test Ecash's expected case — UI badge "PUBLICATION NOT FOUND"), while every relay being unreachable yields the distinct `REFUSE_NOSTR_UNAVAILABLE` (UI badge "PUBLIC EVIDENCE COULD NOT BE CHECKED"). A real relay miss can also be transient (observed directly during this build): one bounded retry absorbs that without ever masking a genuinely unpublished event — see `docs/trust-boundaries.md`'s "Bounded relay-fetch retry" section.
+"Couldn't find it" and "couldn't check" are never collapsed into one reason: a relay that answers but doesn't have the event yields `REFUSE_NOSTR_EVENT_NOT_FOUND` (REFUSE / "PUBLIC EVIDENCE NOT FOUND"), while every relay being unreachable yields `REFUSE_NOSTR_UNAVAILABLE` (REFUSE / "PUBLIC EVIDENCE UNAVAILABLE"). One bounded retry absorbs transient relay misses without ever masking a genuinely unpublished event â€” see "Bounded relay-fetch retry" in the same doc.
 
-The Live Public Demo itself has a real, finite shelf life — its *reserve* attestation, not its Nostr event, is the binding freshness constraint, network-aware (see `docs/trust-boundaries.md`'s "Effective expiry" section for the exact computed window and the network-portability fix behind it). `npm run verify:submission`'s "Canonical Live Public Demo" line is a real, right-now check of this exact demo (not historical evidence) — `SUBMISSION READY` is impossible while it's failing.
-
-**Deployment keeps this fresh automatically.** `.github/workflows/refresh-live-demo.yml` runs daily (and on demand via `workflow_dispatch`): regenerate → verify live → test → attack corpus → submission gate → build → deploy to GitHub Pages → confirm the *deployed* site (not just the local build) actually serves the new evidence, via a real fetch check and a real headless-browser run of the Live Public Demo. Any failing step stops the run before anything is deployed. No repository secrets are required — GitHub Pages deployment uses the workflow's own built-in token. See "Deployment" below.
-
-### Try SOLVENT end to end
-
-The complete, user-driven journey — entirely in the browser, no terminal, no manually-constructed JSON:
-
-1. Open `/verify`.
-2. Click **Create test ecash** (or the tab of the same name).
-3. SOLVENT issues real test ecash and builds the matching evidence bundle.
-4. Inspect/copy the token if you want it (`cashuB...`).
-5. Inspect/copy/export the verification bundle if you want it (`View JSON` / `Copy bundle`).
-6. Click **Verify this ecash**.
-7. Watch the nine verification gates run for real — expect **"CRYPTOGRAPHIC CHECK PASSED"** with a **"PUBLICATION NOT FOUND"** badge (Accept stays disabled), since this fresh evidence was never published. Click **"Try live public demo"** to see the same checks reach a real `ACCEPT_VERIFIED`.
-8. To test the manual path: copy the bundle from step 5, switch to **Verify your evidence**, paste it, and verify — it reproduces the exact same result, proving the exported bundle is genuinely consumable, not merely displayed. (Or click **Load example bundle** there to load the Live Public Demo bundle and see a real ACCEPT.)
-
-See [`docs/start-here.md`](docs/start-here.md) (or `/docs?doc=start-here` in the running app) for this same walkthrough with more detail on what each step actually proves.
+The reference case has a real, finite shelf life â€” its *reserve* attestation (~7 days on Mutinynet), not its Nostr event, is the binding freshness constraint (see `docs/trust-boundaries.md`'s "Effective expiry"). `npm run verify:submission`'s "Canonical Live Public Demo" line is a real, right-now check of it â€” `SUBMISSION READY` is impossible while it's failing. See "Deployment" below for how it is kept fresh.
 
 Honest notes:
 
 - The built-in reserve is Bitcoin Signet (Mutinynet) **test-network capital**, not mainnet capital.
-- Random external Cashu mints are **not** supported — only mints (including SOLVENT's own test mint) that publish the exact evidence chain `verify()` needs. See the FAQ.
-- You are never expected to hand-construct the verification bundle; **Create test ecash** builds a real, valid one for you.
+- Random external Cashu mints are **not** supported â€” only mints that publish the exact evidence chain `verify()` needs. See the FAQ.
 
-## Try the demo (curated scenarios)
+## Refusal cases
 
-| Scenario | Expected result |
+| Case | Expected result |
 | --- | --- |
-| LIVE PUBLIC DEMO — genuinely published, issuance included, live-fetched Nostr evidence matches, reserve covers it | **ACCEPT VERIFIED** |
-| BROKEN PROMISE — promised issuance omitted from the closed epoch | **REFUSE — `REFUSE_ISSUANCE_OMITTED`** (even though reserve is healthy) |
-| RESERVE SHORTFALL — issuance correctly included, but reserve below liabilities | **REFUSE — `REFUSE_RESERVE_SHORT`** |
+| Published reference case â€” issuance included, public Nostr evidence retrieved live, reserve covers it | **ACCEPT VERIFIED** (Live check) |
+| BROKEN PROMISE â€” promised issuance omitted from the closed epoch | **REFUSE â€” `REFUSE_ISSUANCE_OMITTED`** (even though reserve is healthy) |
+| RESERVE SHORTFALL â€” issuance correctly included, but reserve below liabilities | **REFUSE â€” `REFUSE_RESERVE_SHORT`** |
+| Signed evidence that was never published | **REFUSE â€” `REFUSE_NOSTR_EVENT_NOT_FOUND`** |
 
-BROKEN PROMISE is the point of the project: the mint really signed a receipt promising to count this issuance in this epoch (the receipt verifies, the issuance is real), but the epoch it closed and signed doesn't include it — while its live reserve is comfortably healthy. SOLVENT catches this because the holder independently reconstructs their own issuance and checks it against what the mint itself signed, not against a reported ratio.
+BROKEN PROMISE is the point of the project: the mint really signed a receipt promising to count this issuance in this epoch (the receipt verifies, the issuance is real), but the epoch it closed and signed doesn't include it â€” while its live reserve is comfortably healthy. SOLVENT catches this because the holder independently reconstructs their own issuance and checks it against what the mint itself signed, not against a reported ratio.
 
-Run it via the browser (`npm run dev`, then **Verify ecash** from the landing page or go straight to `/verify`) or reproduce the same properties via `npm run attacks` (A01/A02/A23) and their evidence under `evidence/attacks/`.
+See it on the landing page's live-computed example, in the reference mint lab (`#/lab`), or reproduce the same properties via `npm run attacks` (A01/A02/A23/A25) and their evidence under `evidence/attacks/`.
 
 ## Architecture
 
@@ -239,11 +223,11 @@ solvent/
     enforcement/            the real acceptance side-effect boundary (Gate 4)
     verifier/               the central verify() decision function + stable reason codes
     cli/                    gate0..gate6, attacks, verify-submission CLIs
-    app/                    the web client — router.ts, protocol-demo.ts (the one real
-                             issuance/evidence builder behind Try SOLVENT, Create test ecash, and
-                             Verify your evidence — see createTestEcash()/verifyEcash()/runScenario()),
+    app/                    the web client â€” router.ts, protocol-demo.ts (the one real
+                             reference issuance/evidence builder behind the live check, the lab, and
+                             Verify your evidence â€” see createTestEcash()/verifyEcash()/runScenario()),
                              submission.ts (SubmissionBundle: raw evidence only, plus
-                             verifySubmission() — independently re-derives reserve/Nostr status via a
+                             verifySubmission() â€” independently re-derives reserve/Nostr status via a
                              live chain re-query + an independent cryptographic re-check before ever
                              calling verify(); no pasted bundle can assert its own "verified" status),
                              bundle-json.ts (canonical bundle <-> JSON, handles Amount/bigint/Uint8Array),
@@ -260,7 +244,7 @@ Kind **`8181`** (regular/immutable), content schema `solvent/pol/v2`. Full field
 
 ## NUT-12 requirement
 
-A presented proof MUST carry `dleq.e`, `dleq.s`, and `dleq.r` for SOLVENT to independently verify it. `r` is what lets a *receiver* (not just the original minting wallet) reconstruct `B'`/`C'` offline. A proof missing usable DLEQ data fails closed — see `PROTOCOL.md` §1 and reason code `REFUSE_MISSING_BLINDING_FACTOR`.
+A presented proof MUST carry `dleq.e`, `dleq.s`, and `dleq.r` for SOLVENT to independently verify it. `r` is what lets a *receiver* (not just the original minting wallet) reconstruct `B'`/`C'` offline. A proof missing usable DLEQ data fails closed â€” see `PROTOCOL.md` Â§1 and reason code `REFUSE_MISSING_BLINDING_FACTOR`.
 
 ## Trust boundaries & limitations
 
@@ -270,26 +254,22 @@ Read [`docs/trust-boundaries.md`](docs/trust-boundaries.md) before trusting an `
 
 ## Deployment
 
-**Provider:** GitHub Pages (project site), via the repo's own `pages: write`/`id-token: write` permissions — no third-party account or repository secret required. Enabled with build source "GitHub Actions". Public URL: `https://<owner>.github.io/<repo>/` (see the repo's Pages settings for the exact current value).
+**Provider:** GitHub Pages (project site), via the repo's own `pages: write`/`id-token: write` permissions â€” no third-party account or repository secret required. Enabled with build source "GitHub Actions". Public URL: `https://<owner>.github.io/<repo>/` (see the repo's Pages settings for the exact current value).
 
-**Automated refresh:** `.github/workflows/refresh-live-demo.yml` runs daily (`workflow_dispatch` also available for an on-demand run) and does the full chain, failing closed at every step before anything is deployed:
+**Two workflows, deliberately separate** â€” a relay outage must never take the site offline:
+
+- **`.github/workflows/deploy-site.yml` (Deploy Site)** â€” on every push to main, on demand, and after each successful refresh. Builds and deploys the static site with the newest *already-verified* live evidence (the committed file, or a newer copy from the latest successful refresh run â€” checked offline only, see `src/cli/select-live-evidence.ts`), then smoke-tests the deployed site (`verify:deployed`, and `verify:ui:browser`, which passes whether the live evidence is healthy or not). A separate `live-acceptance` job then runs `verify:deployed:browser`, which fails when the deployed live check is not ACCEPT right now â€” a signal to refresh, never a reason to take the site down.
+- **`.github/workflows/refresh-live-demo.yml` (Refresh Live Evidence)** â€” twice a day and on demand. Regenerates and publishes the reference case (up to three publish attempts), then `verify:live-demo` â†’ `npm test` â†’ `npm run attacks` â†’ `verify:submission`, failing closed at every step. Only on success does it upload the evidence as the `live-evidence` artifact, which triggers a deploy. It never deploys by itself.
 
 ```
-checkout → npm ci
-  → npm run live-demo          (regenerate + publish, real Nostr relays)
-  → npm run verify:live-demo   (confirm the fresh evidence is genuinely live/ACCEPT_VERIFIED)
-  → npm test                   (deterministic suite)
-  → npm run attacks            (25/25 attack corpus)
-  → npm run verify:submission  (mechanism + the canonical live demo, required to pass)
-  → npm run build               (bakes the fresh evidence into the production bundle)
-  → deploy to GitHub Pages
-  → npm run verify:deployed         (confirms the DEPLOYED bundle, not just local dist/, contains the new evidence)
-  → npm run verify:deployed:browser (confirms a real headless-browser run against the DEPLOYED site reaches ACCEPT VERIFIED)
+Refresh Live Evidence:  live-demo (publish) -> verify:live-demo -> test -> attacks -> verify:submission -> upload artifact
+Deploy Site:            select newest verified evidence (offline) -> test -> build -> deploy -> verify:deployed -> verify:ui:browser
+                        live-acceptance (separate job): verify:deployed:browser (strict ACCEPT)
 ```
 
-Freshness window ~7 days (network-aware — see `docs/trust-boundaries.md`'s "Effective expiry"); refresh cadence 1 day; ~6 days of safety margin, so a temporary CI or Pages outage doesn't immediately take the deployed demo down.
+Freshness window ~7 days (network-aware â€” see `docs/trust-boundaries.md`'s "Effective expiry"). If the refresh keeps failing, the deployed live check reports the evidence's real state (LIVE EVIDENCE EXPIRED / PUBLIC EVIDENCE UNAVAILABLE) â€” nothing is faked. **Neither workflow has succeeded on GitHub yet**: this split is new and unpushed, and the previous combined workflow failed on every scheduled run.
 
-**Manual fallback** (if the workflow is disabled, failing, or an immediate refresh is needed): run `npm run live-demo:release` locally (regenerates + rebuilds `dist/` in one step — a rebuild is required, since the evidence is bundled into the production JS at build time, not fetched at runtime), then deploy `dist/` however this repo is deployed. Run `npm run verify:deployed -- <url>` (and, for the strongest check, `npm run verify:deployed:browser -- <url>`) afterward to confirm the deployed site actually picked up the refresh.
+**Manual fallback:** run `npm run live-demo` locally, commit `evidence/nostr/live-demo.json`, and push â€” Deploy Site deploys it. Then `npm run verify:deployed -- <url>` and `npm run verify:deployed:browser -- <url>` confirm the deployed site picked it up.
 
 ## Testing
 
