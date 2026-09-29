@@ -1,0 +1,108 @@
+# Proves the persistent-mint deployment artifacts (deploy/) work, exactly as a
+# host would run them: build both images from the Dockerfiles, start the
+# compose stack (fakewallet demo mode, fresh throwaway secrets), then drive
+# the real-mint browser flow against it — honest ACCEPT_VERIFIED and the
+# broken-promise REFUSE_ISSUANCE_OMITTED — with real public Nostr relays and
+# the real Mutinynet reserve. See docs/DEPLOY-REAL-MINT.md.
+name: Deploy Stack Check
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/**'
+      - 'src/sidecar/**'
+      - 'patches/cdk/**'
+      - 'migrations/**'
+      - '.github/workflows/deploy-stack-check.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-stack-check
+  cancel-in-progress: true
+
+jobs:
+  stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Throwaway secrets and configuration for this run only
+        run: |
+          set -euo pipefail
+          cd deploy
+          MNEMONIC=$(node --input-type=module -e "import { generateMnemonic } from '@scure/bip39'; import { wordlist } from '@scure/bip39/wordlists/english.js'; process.stdout.write(generateMnemonic(wordlist))")
+          MANIFEST_KEY=$(openssl rand -hex 32)
+          MANIFEST_PUB=$(node -e "const c=require('@cashu/cashu-ts');process.stdout.write(Buffer.from(c.getPubKeyFromPrivKey(Buffer.from(process.argv[1],'hex'))).toString('hex'))" "$MANIFEST_KEY")
+          echo "::add-mask::$MNEMONIC"
+          echo "::add-mask::$MANIFEST_KEY"
+          printf 'CDK_MINTD_MNEMONIC=%s\nSOLVENT_MANIFEST_PUBKEY=%s\nSOLVENT_MINT_PORT=8085\n' "$MNEMONIC" "$MANIFEST_PUB" > mint.env
+          sed 's#^SOLVENT_MINT_URL=.*#SOLVENT_MINT_URL=http://127.0.0.1:8085#; s#^SOLVENT_MANIFEST_PRIVKEY=.*#SOLVENT_MANIFEST_PRIVKEY='"$MANIFEST_KEY"'#; s#^SOLVENT_EPOCH_INTERVAL_SECONDS=.*#SOLVENT_EPOCH_INTERVAL_SECONDS=20#' sidecar.env.example > sidecar.env
+          sed 's#^url = .*#url = "http://127.0.0.1:8085"#' mint.fakewallet.toml > mint.toml
+          mkdir -p secrets
+          cp ../evidence/reserves/reserve-key.json secrets/reserve-key.json
+
+      - name: Build the mint and sidecar images from deploy/
+        working-directory: deploy
+        run: docker compose build
+
+      - name: Start the stack (mint + sidecar)
+        working-directory: deploy
+        run: |
+          set -euo pipefail
+          docker compose up -d mint sidecar
+          for i in $(seq 1 150); do
+            if curl -sf http://127.0.0.1:8086/healthz >/dev/null; then break; fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8085/v1/info
+          echo
+          curl -sf http://127.0.0.1:8086/v1/solvent/status
+          echo
+
+      - name: Build the site and serve it
+        run: |
+          npm run build
+          nohup npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Real-mint browser flow against the deployed stack (honest ACCEPT, broken-promise REFUSE)
+        run: npm run verify:real-mint:browser -- http://127.0.0.1:4173/ http://127.0.0.1:8085 http://127.0.0.1:8086 --screenshots /tmp/stack-shots
+
+      - name: Stack logs
+        if: always()
+        working-directory: deploy
+        run: |
+          mkdir -p /tmp/stack-logs
+          docker compose logs mint > /tmp/stack-logs/mint.log 2>&1 || true
+          docker compose logs sidecar > /tmp/stack-logs/sidecar.log 2>&1 || true
+          tail -40 /tmp/stack-logs/sidecar.log || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: deploy-stack-check
+          path: |
+            /tmp/stack-shots/
+            /tmp/stack-logs/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Tear down
+        if: always()
+        working-directory: deploy
+        run: docker compose down -v || true

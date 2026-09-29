@@ -1,0 +1,24 @@
+# cdk-mintd configuration — PUBLIC INTERACTIVE DEMO mode.
+# Lightning settlement is CDK's fakewallet: invoices settle by themselves and
+# no real Lightning payment happens. Everything SOLVENT checks (mint, receipts,
+# epochs, manifests, delegation, Nostr, Mutinynet reserve) stays real, and the
+# evidence and UI are labelled lightning_backend = fakewallet.
+[info]
+# MUST be the public URL wallets use — the NUT-06 delegation is bound to it.
+url = "https://mint.example.com"
+listen_host = "0.0.0.0"
+listen_port = 8085
+mnemonic = "env:CDK_MINTD_MNEMONIC"
+
+[database]
+engine = "sqlite"
+
+[payment_backend]
+backend = "fakewallet"
+unit = "sat"
+
+[fake_wallet]
+fee_percent = 0.0
+reserve_fee_min = 1
+min_delay_time = 1
+max_delay_time = 3

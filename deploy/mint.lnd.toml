@@ -1,0 +1,21 @@
+# cdk-mintd configuration — PROOF mode with real Lightning (LND).
+# Point it at an LND node on Mutinynet (or regtest for a private stack);
+# mount the node's tls.cert and admin.macaroon at /secrets/lnd (see
+# docker-compose.yml). Evidence and UI are labelled lightning_backend = lnd.
+[info]
+url = "https://mint.example.com"
+listen_host = "0.0.0.0"
+listen_port = 8085
+mnemonic = "env:CDK_MINTD_MNEMONIC"
+
+[database]
+engine = "sqlite"
+
+[payment_backend]
+backend = "lnd"
+unit = "sat"
+
+[lnd]
+address = "https://lnd.example.internal:10009"
+cert_file = "/secrets/lnd/tls.cert"
+macaroon_file = "/secrets/lnd/admin.macaroon"

@@ -1,0 +1,65 @@
+# SOLVENT real mint deployment (docs/DEPLOY-REAL-MINT.md).
+#
+#   cd deploy
+#   cp mint.env.example mint.env && cp sidecar.env.example sidecar.env   # fill in
+#   cp mint.fakewallet.toml mint.toml        # or mint.lnd.toml
+#   docker compose up -d --build                          # mint + sidecar
+#   docker compose --profile https up -d                  # + Caddy (HTTPS)
+#
+# The mint and the sidecar share one volume holding the SQLite database, so
+# SOLVENT's triggers and the epoch closer see CDK's own writes.
+name: solvent
+
+services:
+  mint:
+    build:
+      context: ..
+      dockerfile: deploy/mint/Dockerfile
+    env_file: mint.env
+    volumes:
+      - mint-data:/data
+      - ./mint.toml:/config/mint.toml:ro
+      # LND credentials, only for a real-Lightning (mint.lnd.toml) deployment:
+      # - ./secrets/lnd:/secrets/lnd:ro
+    ports:
+      - '127.0.0.1:8085:8085'
+    restart: unless-stopped
+
+  sidecar:
+    build:
+      context: ..
+      dockerfile: deploy/sidecar/Dockerfile
+    env_file: sidecar.env
+    environment:
+      SOLVENT_MINT_DB: /data/cdk-mintd.sqlite
+      SOLVENT_MANIFEST_DELEGATION: /data/delegation.json
+      SOLVENT_PUBLICATION_STORE: /data/solvent-publications.json
+      SOLVENT_RESERVE_KEY_FILE: /secrets/reserve-key.json
+    volumes:
+      - mint-data:/data
+      - ./secrets/reserve-key.json:/secrets/reserve-key.json:ro
+    ports:
+      - '127.0.0.1:8086:8086'
+    depends_on:
+      mint:
+        condition: service_healthy
+    restart: unless-stopped
+
+  caddy:
+    profiles: ['https']
+    image: caddy:2
+    env_file: sidecar.env
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - mint
+      - sidecar
+    restart: unless-stopped
+
+volumes:
+  mint-data:
+  caddy-data:

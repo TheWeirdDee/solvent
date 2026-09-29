@@ -5,3 +5,9 @@ dist/
 .env
 .DS_Store
 fixtures/.cache/
+
+# Deployment secrets (docs/DEPLOY-REAL-MINT.md)
+deploy/mint.env
+deploy/sidecar.env
+deploy/mint.toml
+deploy/secrets/

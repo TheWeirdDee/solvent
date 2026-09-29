@@ -1369,7 +1369,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     window.location.hash = '#/docs?doc=trust-boundaries';
     await waitFor(() => byId<HTMLElement>('docs-doc-content').textContent!.includes('Trust boundaries'));
     const labels = Array.from(document.querySelectorAll('#docs-nav .docs-nav-link')).map((b) => b.textContent);
-    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Draft alignment', 'Verify in 5 minutes', 'FAQ']);
+    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'FAQ']);
     expect(document.querySelector('#docs-nav .docs-nav-link.active')?.textContent).toBe('Trust boundaries');
   });
 
@@ -1394,7 +1394,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     await goToDocs();
     const select = byId<HTMLSelectElement>('docs-mobile-select');
     expect(document.querySelector('label[for="docs-mobile-select"]')?.textContent).toMatch(/docs menu/i);
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'draft-alignment', 'verify-in-5', 'faq']);
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'draft-alignment', 'verify-in-5', 'deploy-real-mint', 'faq']);
     select.value = 'reserve-attestation';
     select.dispatchEvent(new Event('change'));
     await waitFor(() => window.location.hash.includes('reserve-attestation'));

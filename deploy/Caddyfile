@@ -1,0 +1,14 @@
+# HTTPS in front of the mint and the SOLVENT evidence API. Caddy obtains
+# certificates automatically once DNS for both hosts points at this machine.
+# Both upstreams already send permissive CORS headers (cdk-axum's
+# cors_middleware; src/sidecar/api.ts), which a browser wallet needs.
+
+{$SOLVENT_MINT_HOST} {
+	encode gzip
+	reverse_proxy mint:8085
+}
+
+{$SOLVENT_EVIDENCE_HOST} {
+	encode gzip
+	reverse_proxy sidecar:8086
+}

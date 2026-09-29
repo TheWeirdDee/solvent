@@ -11,6 +11,7 @@ import trustBoundariesRaw from '../../docs/trust-boundaries.md?raw';
 import nostrSchemaRaw from '../../docs/nostr-schema.md?raw';
 import reserveAttestationRaw from '../../docs/reserve-attestation.md?raw';
 import verificationBundleRaw from '../../docs/verification-bundle.md?raw';
+import deployRealMintRaw from '../../docs/DEPLOY-REAL-MINT.md?raw';
 
 export interface DocEntry {
   id: string;
@@ -30,6 +31,7 @@ export const DOCS: DocEntry[] = [
   { id: 'trust-boundaries', navLabel: 'Trust boundaries', title: 'Trust boundaries', raw: trustBoundariesRaw },
   { id: 'draft-alignment', navLabel: 'Draft alignment', title: 'Draft alignment (Cashu PR #388)', raw: draftAlignmentRaw },
   { id: 'verify-in-5', navLabel: 'Verify in 5 minutes', title: 'Verify in 5 minutes', raw: verifyIn5Raw },
+  { id: 'deploy-real-mint', navLabel: 'Deploy a real mint', title: 'Deploy a real SOLVENT mint', raw: deployRealMintRaw },
 ];
 
 export function docById(id: string): DocEntry {
