@@ -53,7 +53,7 @@ function siblingStepFromJson(s: JsonSiblingStep): SiblingStep {
   return { ...sumNodeFromJson(s), isLeft: s.isLeft };
 }
 
-function inclusionProofToJson(p: InclusionProof | null): JsonInclusionProof | null {
+export function inclusionProofToJson(p: InclusionProof | null): JsonInclusionProof | null {
   if (!p) return null;
   return { leafIndex: p.leafIndex, siblingPath: p.siblingPath.map(siblingStepToJson), peaks: p.peaks.map(sumNodeToJson) };
 }
@@ -63,7 +63,7 @@ function inclusionProofFromJson(p: JsonInclusionProof | null | undefined): Inclu
   return { leafIndex: p.leafIndex, siblingPath: p.siblingPath.map(siblingStepFromJson), peaks: p.peaks.map(sumNodeFromJson) };
 }
 
-function proofToJson(proof: Proof): Record<string, unknown> {
+export function proofToJson(proof: Proof): Record<string, unknown> {
   return { ...proof, amount: proof.amount.toNumber() };
 }
 

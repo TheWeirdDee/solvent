@@ -4,6 +4,7 @@ import { initVerifierPanel, syncModeFromHash } from './verifier-panel.js';
 import { initPublisherPanel } from './publisher-panel.js';
 import { initDocsPanel } from './docs-panel.js';
 import { initLabPanel } from './lab-panel.js';
+import { enterRealMintPanel, initRealMintPanel } from './real-mint-panel.js';
 import { renderHeroPanel } from './hero-panel.js';
 import { renderLandingEvidence } from './landing-evidence.js';
 import { initLandingMotion, refreshLandingMotion } from './landing-motion.js';
@@ -19,6 +20,7 @@ function initRouting(): void {
   const routes: Record<Route, HTMLElement> = {
     home: byId('panel-home'),
     verify: byId('panel-verify'),
+    mint: byId('panel-mint'),
     publish: byId('panel-publish'),
     protocol: byId('panel-protocol'),
     docs: byId('panel-docs'),
@@ -30,6 +32,7 @@ function initRouting(): void {
   const navLinks: Partial<Record<Route, HTMLElement>> = {
     home: byId('nav-home'),
     verify: byId('nav-verify'),
+    mint: byId('nav-mint'),
     protocol: byId('nav-protocol'),
     docs: byId('nav-docs'),
   };
@@ -44,6 +47,7 @@ function initRouting(): void {
     // verifier panel's own one-time-at-init deep-link check would never
     // see it, so re-sync explicitly on every arrival at /verify.
     if (route === 'verify') syncModeFromHash();
+    if (route === 'mint') enterRealMintPanel();
     // Scroll-trigger positions measured while the landing route was hidden
     // are wrong; re-measure once it is visible again.
     if (route === 'home') refreshLandingMotion();
@@ -169,6 +173,7 @@ initVerifierPanel();
 initPublisherPanel();
 initDocsPanel();
 initLabPanel();
+initRealMintPanel();
 void renderHeroPanel();
 renderLandingEvidence();
 // After renderLandingEvidence(): the attack-corpus and FAQ rows it renders

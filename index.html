@@ -27,6 +27,7 @@
       </nav>
       <div class="nav-right">
         <a id="nav-protocol" class="nav-link btn btn-outline btn-sm" href="#/protocol">Protocol</a>
+        <a id="nav-mint" class="nav-link btn btn-outline btn-sm" href="#/mint">Real mint</a>
         <a id="nav-verify" class="nav-link btn btn-solid btn-sm" href="#/verify">Verify</a>
       </div>
       <button id="nav-burger" type="button" class="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-drawer">
@@ -42,6 +43,7 @@
       <a href="#nostr" data-scroll="nostr" data-drawer-close>Nostr</a>
       <a href="#/docs" data-drawer-close>Docs</a>
       <a href="#/protocol" data-drawer-close>Protocol</a>
+      <a href="#/mint" data-drawer-close>Real mint</a>
       <a href="#/verify" class="btn btn-solid nav-drawer-cta" data-drawer-close>Verify</a>
       <p class="nav-drawer-footnote">SOLVENT &middot; BOSS Battle 2026 submission</p>
     </div>
@@ -496,6 +498,46 @@
           </div>
         </div>
       </section>
+    </main>
+
+    <!-- ============ REAL MINT PANEL ============ -->
+    <main id="panel-mint" class="route route-app panel" hidden>
+      <p class="eyebrow">Real mint</p>
+      <h1 class="page-heading">GET ECASH. VERIFY IT.</h1>
+      <p class="page-sub">Take ecash from a real patched CDK mint, watch it promise to count your issuance in an accounting epoch, and let SOLVENT check that promise &mdash; against the mint&rsquo;s own signed epoch, public Nostr evidence and a live Bitcoin reserve &mdash; before you accept.</p>
+
+      <div id="mint-unconfigured" class="card verify-intro" hidden>
+        <h2 class="verify-intro-title">NO REAL MINT IS CONNECTED TO THIS DEPLOYMENT</h2>
+        <p class="verify-intro-copy">This site is not connected to a hosted SOLVENT mint, so this page cannot issue ecash here. Everything it would run is real and reproducible: start a patched CDK mint and the SOLVENT sidecar (see <a href="#/docs?doc=deploy-real-mint">Deploy a real mint</a>), then open this page with <code>#/mint?mint=&lt;mint URL&gt;&amp;evidence=&lt;sidecar URL&gt;</code>. Meanwhile, <a href="#/verify">the Live Public Demo</a> verifies a real published reference case.</p>
+      </div>
+
+      <div id="mint-configured" hidden>
+        <div class="card verify-intro">
+          <h2 class="verify-intro-title">THE MINT</h2>
+          <dl id="mint-reality" class="mint-reality"></dl>
+          <div class="mint-actions">
+            <button id="mint-honest-btn" type="button" class="btn btn-solid btn-lg">Get 64 sats of ecash and verify it</button>
+            <button id="mint-omit-btn" type="button" class="btn btn-outline btn-lg" hidden>Get ecash &mdash; and make the mint break its promise</button>
+          </div>
+          <p id="mint-omit-note" class="verify-intro-copy mint-omit-note" hidden>Broken-promise demo: after the mint signs its receipt, SOLVENT&rsquo;s real epoch closer is asked to leave your issuance out of the epoch it promised. Nothing is faked in the browser &mdash; the verifier sees exactly what the mint published.</p>
+        </div>
+
+        <ol id="mint-steps" class="mint-steps" hidden></ol>
+
+        <div id="mint-result" class="result-card" hidden>
+          <div id="mint-decision-badge" class="decision-badge"></div>
+          <p id="mint-decision-headline" class="decision-headline"></p>
+          <p id="mint-decision-body" class="decision-body"></p>
+          <dl id="mint-decision-facts" class="decision-facts"></dl>
+          <div class="decision-chain" id="mint-decision-chain"></div>
+          <details class="evidence">
+            <summary>Technical details</summary>
+            <div id="mint-technical" class="evidence-content"></div>
+          </details>
+          <button id="mint-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Start again</button>
+        </div>
+        <p id="mint-status" class="status" aria-live="polite"></p>
+      </div>
     </main>
 
     <!-- ============ VERIFIER PANEL ============ -->

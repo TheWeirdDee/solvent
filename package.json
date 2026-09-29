@@ -56,7 +56,9 @@
     "verify:pol-epoch": "tsx src/cli/real-cashu/pol-epoch-e2e.ts",
     "phase3b:live": "tsx src/cli/real-cashu/phase3b-live.ts",
     "verify:phase3b-evidence": "tsx src/cli/real-cashu/verify-phase3b-evidence.ts",
-    "verify:pol-melt": "tsx src/cli/real-cashu/pol-melt-e2e.ts"
+    "verify:pol-melt": "tsx src/cli/real-cashu/pol-melt-e2e.ts",
+    "solvent:sidecar": "tsx src/sidecar/service.ts",
+    "verify:real-mint:browser": "tsx src/cli/verify-real-mint-browser.ts"
   },
   "repository": {
     "type": "git",

@@ -12,14 +12,15 @@
 // the landing page's "Run the live check" CTA, or the FAQ) land on the
 // right sub-view. `/lab` (the developer reference mint) is reachable by URL
 // and from the docs/footer only — never the primary navigation.
-export type Route = 'home' | 'verify' | 'publish' | 'protocol' | 'docs' | 'lab';
+export type Route = 'home' | 'verify' | 'mint' | 'publish' | 'protocol' | 'docs' | 'lab';
 
 function isRouteHash(hash: string): boolean {
-  return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/verify') || hash === '#/publish' || hash === '#/protocol' || hash.startsWith('#/docs') || hash === '#/lab';
+  return hash === '' || hash === '#' || hash === '#/' || hash.startsWith('#/verify') || hash.startsWith('#/mint') || hash === '#/publish' || hash === '#/protocol' || hash.startsWith('#/docs') || hash === '#/lab';
 }
 
 function routeFromHash(hash: string): Route {
   if (hash.startsWith('#/verify')) return 'verify';
+  if (hash.startsWith('#/mint')) return 'mint';
   if (hash === '#/publish') return 'publish';
   if (hash === '#/protocol') return 'protocol';
   if (hash.startsWith('#/docs')) return 'docs';
