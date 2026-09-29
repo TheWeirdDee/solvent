@@ -55,7 +55,8 @@
     "pol:epoch-close": "tsx src/cli/real-cashu/pol-epoch-close.ts",
     "verify:pol-epoch": "tsx src/cli/real-cashu/pol-epoch-e2e.ts",
     "phase3b:live": "tsx src/cli/real-cashu/phase3b-live.ts",
-    "verify:phase3b-evidence": "tsx src/cli/real-cashu/verify-phase3b-evidence.ts"
+    "verify:phase3b-evidence": "tsx src/cli/real-cashu/verify-phase3b-evidence.ts",
+    "verify:pol-melt": "tsx src/cli/real-cashu/pol-melt-e2e.ts"
   },
   "repository": {
     "type": "git",

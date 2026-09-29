@@ -1,0 +1,20 @@
+diff --git a/crates/cdk/src/mint/melt/shared.rs b/crates/cdk/src/mint/melt/shared.rs
+index ae06d765..c89e6764 100644
+--- a/crates/cdk/src/mint/melt/shared.rs
++++ b/crates/cdk/src/mint/melt/shared.rs
+@@ -588,6 +588,15 @@ pub(super) async fn process_melt_change(
+     tx.add_blind_signatures(&blinded_secrets, &change_sigs, Some(quote_id.clone()))
+         .await?;
+ 
++    // SOLVENT Phase 3C (NUT-05): change outputs are new issued liabilities.
++    // Sign their PoL receipts inside this same transaction, over the epoch
++    // SOLVENT's trigger just stamped — exactly as NUT-04 issuance and NUT-03
++    // replacement outputs do (Mint::sign_pol_receipts_in_tx). A signing
++    // failure drops this transaction, leaving the paid melt to the existing
++    // finalization recovery, like a change blind_sign failure above.
++    mint.sign_pol_receipts_in_tx(&mut tx, &blinded_messages_to_sign)
++        .await?;
++
+     Ok(MeltChangeResult::Ready {
+         change_sigs: Some(change_sigs),
+         tx,

@@ -1,6 +1,6 @@
 # Accounting model — Phase 2 durable SOLVENT journal
 
-Schema and migration for SOLVENT's mint-native accounting, coupled to CDK's own SQLite database via triggers (`docs/cdk-integration-seams.md`, `DECISIONS.md`'s Phase 2 Step 2 entry) and to CDK's signatory via a minimal trait extension (`docs/cdk-signatory-audit.md`, Step 8C). First milestone: **NUT-04** (Phase 2 Step 8, complete). Second milestone: **NUT-03** (this continuation) — `solvent_consumed_liability` is now populated by a real trigger (`migrations/solvent-accounting/0002_nut03_consumed_liability.sql`); melt-specific population remains deferred, per the explicit instruction not to start NUT-05 yet.
+Schema and migration for SOLVENT's mint-native accounting, coupled to CDK's own SQLite database via triggers (`docs/cdk-integration-seams.md`, `DECISIONS.md`'s Phase 2 Step 2 entry) and to CDK's signatory via a minimal trait extension (`docs/cdk-signatory-audit.md`, Step 8C). First milestone: **NUT-04** (Phase 2 Step 8, complete). Second milestone: **NUT-03** (this continuation) — `solvent_consumed_liability` is now populated by a real trigger (`migrations/solvent-accounting/0002_nut03_consumed_liability.sql`); melt-specific population remains deferred, per the explicit instruction not to start NUT-05 yet. **Update (Phase 3C):** NUT-05 is now covered. The same two triggers account melt inputs (TX1) and melt change (TX2), and patch 0009 signs change receipts in TX2 (`docs/nut05-melt-accounting.md`).
 
 ## Where this lives
 

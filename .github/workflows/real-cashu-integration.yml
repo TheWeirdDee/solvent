@@ -1,7 +1,8 @@
 # SOLVENT — Real Cashu Integration: Phase 1 foundation + Phase 2
 # mint-native accounting (NUT-04 and NUT-03) + Phase 3A real PoL epochs +
 # Phase 3B real public solvency evidence (mint-identity delegation, live
-# Mutinynet reserve, public Nostr publication and fetch-back).
+# Mutinynet reserve, public Nostr publication and fetch-back) + NUT-05 melt
+# accounting (patches/cdk/0009).
 #
 # Brings up a REAL regtest stack (Bitcoin Core + 2 real `lnd` nodes + a real
 # CDK mint, backend `lnd` — no fakewallet) and runs against it:
@@ -932,6 +933,23 @@ jobs:
       - name: Phase 3B — verify the real-LND evidence offline (replay + recompute)
         run: npm run verify:phase3b-evidence -- "evidence/real-pol/${SOLVENT_RUN_ID}-phase3b"
 
+      # NUT-05 — a real melt over real Lightning (LND-1 pays an invoice on
+      # LND-2) with change: inputs become consumed liabilities in TX1, change
+      # becomes issued liabilities with receipts signed in TX2 (patch 0009);
+      # a failed payment and a double spend record nothing; the closed epoch
+      # re-derives. Writes evidence/real-pol/<run>-nut05/nut05-melt.json.
+      - name: NUT-05 — real melt accounting over real LND (inputs, change, receipts, failure, double spend)
+        env:
+          CDK_MINT_URL: 'http://127.0.0.1:8085'
+          LND_SOURCE_REST_URL: 'https://127.0.0.1:8081'
+        run: |
+          set -euo pipefail
+          export SOLVENT_MANIFEST_PRIVKEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key)
+          export SOLVENT_RUN_ID="${SOLVENT_RUN_ID}-nut05"
+          export LND_SOURCE_MACAROON_HEX=$(xxd -p -c 10000 /tmp/regtest/lnd-two/data/chain/bitcoin/regtest/admin.macaroon)
+          export NODE_EXTRA_CA_CERTS=/tmp/regtest/lnd-two/tls.cert
+          npm run verify:pol-melt -- /tmp/regtest/mint/cdk-mintd.sqlite
+
       # Runs even if an earlier step failed, and before upload: any evidence
       # directory containing secret material is deleted and the job fails.
       - name: Secret scan of all evidence before upload
@@ -944,7 +962,7 @@ jobs:
           MANIFEST_KEY=$(tr -d '[:space:]' < /tmp/regtest/mint/manifest.key 2>/dev/null || true)
           RESERVE_TWEAKED=$(node -e "process.stdout.write(require('./evidence/reserves/reserve-key.json').tweakedPrivateKeyHex)")
           RESERVE_INTERNAL=$(node -e "process.stdout.write(require('./evidence/reserves/reserve-key.json').internalPrivateKeyHex)")
-          for DIR in "evidence/real-pol/${SOLVENT_RUN_ID}" "evidence/real-pol/${SOLVENT_RUN_ID}-phase3b" evidence/real-cashu; do
+          for DIR in "evidence/real-pol/${SOLVENT_RUN_ID}" "evidence/real-pol/${SOLVENT_RUN_ID}-phase3b" "evidence/real-pol/${SOLVENT_RUN_ID}-nut05" evidence/real-cashu; do
             [ -d "$DIR" ] || continue
             HIT=0
             for SECRET in "$MACAROON_HEX" "$MACAROON_ONE" "$MANIFEST_KEY" "$RESERVE_TWEAKED" "$RESERVE_INTERNAL"; do
