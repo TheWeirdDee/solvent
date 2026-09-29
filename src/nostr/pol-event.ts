@@ -38,6 +38,27 @@ export interface PolEvidenceContent {
   issued_at: number; // unix seconds
   valid_until: number; // unix seconds
   proof_uri: string;
+  // --- Phase 3B optional fields (docs/nostr-schema.md) ---------------------
+  // Backward compatible: v2 consumers ignore unknown fields and no existing
+  // field changes meaning. Present on evidence for a real (URL) mint; the
+  // verifier then requires each one to match what it independently checked.
+  /** The mint's NUT-06 identity pubkey (compressed) — the delegation's signer. */
+  mint_nut06_pubkey?: string;
+  /** SHA256 of the manifest key delegation's canonical signed bytes. */
+  manifest_key_delegation_digest?: string;
+  /** SHA256 of the solvent/reserve-binding/v1 canonical signed bytes. */
+  reserve_binding_digest?: string;
+  previous_global_digest?: string;
+  /** How many keysets the epoch's global digest spans. */
+  keyset_count?: number;
+}
+
+export interface PolEvidencePhase3bFields {
+  mintNut06Pubkey: string;
+  manifestKeyDelegationDigest: string;
+  reserveBindingDigest: string;
+  previousGlobalDigest: string;
+  keysetCount: number;
 }
 
 export function buildPolEvidenceContent(params: {
@@ -59,6 +80,7 @@ export function buildPolEvidenceContent(params: {
   validitySeconds: number;
   proofUri: string;
   now?: number;
+  phase3b?: PolEvidencePhase3bFields;
 }): PolEvidenceContent {
   const issuedAt = params.now ?? Math.floor(Date.now() / 1000);
   return {
@@ -81,6 +103,15 @@ export function buildPolEvidenceContent(params: {
     issued_at: issuedAt,
     valid_until: issuedAt + params.validitySeconds,
     proof_uri: params.proofUri,
+    ...(params.phase3b
+      ? {
+          mint_nut06_pubkey: params.phase3b.mintNut06Pubkey,
+          manifest_key_delegation_digest: params.phase3b.manifestKeyDelegationDigest,
+          reserve_binding_digest: params.phase3b.reserveBindingDigest,
+          previous_global_digest: params.phase3b.previousGlobalDigest,
+          keyset_count: params.phase3b.keysetCount,
+        }
+      : {}),
   };
 }
 

@@ -15,6 +15,7 @@ import { reconstruct } from '../cashu/reconstruct.js';
 import { hexToBytes as mHexToBytes, verifyManifest, type ManifestFields } from '../pol/manifest.js';
 import { issuedLeaf, verifyInclusionProof, type InclusionProof } from '../pol/mmr.js';
 import { verifyIssuedReceipt, type PolReceipt } from '../pol/receipt.js';
+import { verifyManifestKeyDelegation, type DelegationFailure, type ManifestKeyDelegation } from '../epoch/delegation.js';
 import { REASON_TEXT, type ReasonCode } from './reasons.js';
 
 export interface VerifyInput {
@@ -34,7 +35,7 @@ export interface VerifyInput {
     verified: boolean;
     reserveSats: number;
     /** Specific reason when verified=false, e.g. from a real Gate 6 chain-state check. Defaults to REFUSE_RESERVE_SHORT when omitted and coverage is insufficient. */
-    reasonCode?: Extract<ReasonCode, 'REFUSE_RESERVE_ATTESTATION_INVALID' | 'REFUSE_RESERVE_UTXO_SPENT' | 'REFUSE_RESERVE_STATE_MISMATCH' | 'REFUSE_RESERVE_SHORT'>;
+    reasonCode?: Extract<ReasonCode, 'REFUSE_RESERVE_ATTESTATION_INVALID' | 'REFUSE_RESERVE_UTXO_SPENT' | 'REFUSE_RESERVE_STATE_MISMATCH' | 'REFUSE_RESERVE_SHORT' | 'REFUSE_RESERVE_BINDING_INVALID'>;
   };
   /** Optional — Gate 5 (Nostr evidence). Omitting it fails closed. Set by src/nostr/pol-evidence.ts's real fetch+verify (checks 14-17). */
   nostr?: {
@@ -42,6 +43,16 @@ export interface VerifyInput {
     /** Specific reason when verified=false, from evaluatePolEvidence(). Defaults to REFUSE_NOSTR_UNAVAILABLE when omitted. */
     reasonCode?: Extract<ReasonCode, 'REFUSE_NOSTR_SIGNATURE' | 'REFUSE_NOSTR_STATE_MISMATCH' | 'REFUSE_NOSTR_STALE' | 'REFUSE_NOSTR_CONFLICT' | 'REFUSE_NOSTR_UNAVAILABLE' | 'REFUSE_NOSTR_EVENT_NOT_FOUND'>;
   };
+  /**
+   * Phase 3B — REQUIRED whenever `mint` is an http(s) mint URL (a real Cashu
+   * mint): the mint's NUT-06 identity pubkey as independently observed from
+   * that mint (never taken from the evidence being verified), the mint
+   * identity's delegation of `masterPublicKeyHex`, and how many keysets the
+   * epoch spans. See docs/manifest-key-delegation.md.
+   */
+  mintIdentityPubkey?: string;
+  delegation?: ManifestKeyDelegation | null;
+  epochKeysetCount?: number;
 }
 
 export interface VerifyChecks {
@@ -55,6 +66,8 @@ export interface VerifyChecks {
   manifestValid: boolean;
   inclusionValid: boolean;
   liabilityArithmeticValid: boolean;
+  /** Phase 3B: mint identity -> manifest key delegation. Present only for a real (URL) mint. */
+  delegationValid?: boolean;
   /** null = not evaluated in this build (Gate 6 not implemented). */
   reserveCoverage: boolean | null;
   /** null = not evaluated in this build (Gate 5 not implemented). */
@@ -70,6 +83,39 @@ export interface VerifyResult {
   amount: number;
   keyset: string;
   reconstructedBPrime?: string;
+}
+
+/** A real Cashu mint is addressed by URL; SOLVENT's reference fixtures use plain labels. */
+export function isMintUrl(mint: string): boolean {
+  return /^https?:\/\//i.test(mint);
+}
+
+const DELEGATION_REFUSAL: Record<DelegationFailure, ReasonCode> = {
+  DELEGATION_MALFORMED: 'REFUSE_DELEGATION_MALFORMED',
+  DELEGATION_SCHEMA: 'REFUSE_DELEGATION_MALFORMED',
+  DELEGATION_BAD_IDENTITY_KEY: 'REFUSE_DELEGATION_MALFORMED',
+  DELEGATION_BAD_MANIFEST_KEY: 'REFUSE_DELEGATION_MALFORMED',
+  DELEGATION_XONLY_MISMATCH: 'REFUSE_DELEGATION_MALFORMED',
+  DELEGATION_MINT_MISMATCH: 'REFUSE_DELEGATION_MINT_IDENTITY_MISMATCH',
+  DELEGATION_IDENTITY_MISMATCH: 'REFUSE_DELEGATION_MINT_IDENTITY_MISMATCH',
+  DELEGATION_SIGNATURE_INVALID: 'REFUSE_DELEGATION_INVALID_SIGNATURE',
+  DELEGATION_MANIFEST_KEY_MISMATCH: 'REFUSE_DELEGATION_MANIFEST_KEY_MISMATCH',
+  DELEGATION_EPOCH_OUT_OF_SCOPE: 'REFUSE_DELEGATION_EPOCH_OUT_OF_SCOPE',
+  MANIFEST_SIGNATURE_INVALID: 'REFUSE_MANIFEST_INVALID',
+};
+
+function delegationRefusal(input: VerifyInput): ReasonCode | null {
+  if (!input.delegation) return 'REFUSE_DELEGATION_MISSING';
+  // Without an independently observed NUT-06 identity there is nothing to
+  // check the delegation against; never fall back to the delegation's own claim.
+  if (!input.mintIdentityPubkey) return 'REFUSE_UNVERIFIABLE';
+  const r = verifyManifestKeyDelegation(input.delegation, {
+    mintUrl: input.mint,
+    mintIdentityPubkey: input.mintIdentityPubkey,
+    manifestPubkey: input.masterPublicKeyHex,
+    epochIndex: input.manifest.epoch_index,
+  });
+  return r.ok ? null : DELEGATION_REFUSAL[r.reason];
 }
 
 function amountOf(proof: Proof): number {
@@ -88,6 +134,7 @@ export function verify(input: VerifyInput): VerifyResult {
     manifestValid: false,
     inclusionValid: false,
     liabilityArithmeticValid: false,
+    ...(isMintUrl(input.mint) ? { delegationValid: false } : {}),
     reserveCoverage: input.reserve ? input.reserve.verified && input.reserve.reserveSats >= input.manifest.outstanding_balance : null,
     nostrEvidence: input.nostr ? input.nostr.verified : null,
   };
@@ -116,6 +163,19 @@ export function verify(input: VerifyInput): VerifyResult {
 
   checks.manifestValid = verifyManifest(input.manifest, input.manifestSignature, input.masterPublicKeyHex);
   if (!checks.manifestValid) return reject(checks, input, amount, 'REFUSE_MANIFEST_INVALID', bPrime);
+
+  // Phase 3B: a real mint's manifest is only authoritative if the mint's own
+  // NUT-06 identity delegated the key that signed it. A valid manifest
+  // signature alone proves nothing about which mint stands behind it.
+  if (isMintUrl(input.mint)) {
+    if (input.epochKeysetCount === undefined) return reject(checks, input, amount, 'REFUSE_UNVERIFIABLE', bPrime);
+    if (input.epochKeysetCount !== 1) return reject(checks, input, amount, 'REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE', bPrime);
+    const refusal = delegationRefusal(input);
+    checks.delegationValid = refusal === null;
+    if (refusal) return reject(checks, input, amount, refusal, bPrime);
+  } else if (input.epochKeysetCount !== undefined && input.epochKeysetCount !== 1) {
+    return reject(checks, input, amount, 'REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE', bPrime);
+  }
 
   checks.liabilityArithmeticValid = input.manifest.outstanding_balance === input.manifest.issued_mmr_root_sum - input.manifest.spent_mmr_root_sum;
   if (!checks.liabilityArithmeticValid) return reject(checks, input, amount, 'REFUSE_LIABILITY_ARITHMETIC', bPrime);

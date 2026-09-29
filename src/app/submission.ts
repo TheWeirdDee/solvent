@@ -66,8 +66,11 @@ import type { NostrEvent } from 'nostr-tools';
 import { globalDigest, keysetMerkleRoot, manifestDigestHex, sortKeysets, type KeysetManifestEntry, type ManifestFields } from '../pol/manifest.js';
 import { bytesToHex, type InclusionProof } from '../pol/mmr.js';
 import type { PolReceipt } from '../pol/receipt.js';
-import { evaluatePolEvidence, fetchPolEvidence, realDelay, type DelayFn, type NostrEvidenceReasonCode } from '../nostr/pol-evidence.js';
-import { fetchOutspend, fetchTipHeight, fetchTxOutScript, realDelay as esploraRealDelay } from '../reserve/esplora.js';
+import { evaluatePolEvidence, fetchPolEvidence, realDelay, type DelayFn, type NostrEvidenceExpectation, type NostrEvidenceReasonCode } from '../nostr/pol-evidence.js';
+import { delegationDigestHex, type ManifestKeyDelegation } from '../epoch/delegation.js';
+import { reserveBindingDigestHex, verifyReserveBinding, type ReserveBinding } from '../reserve/binding.js';
+import { isMintUrl } from '../verifier/verify.js';
+import { fetchOutspend, fetchTipHeight, fetchTxOutScript, realDelay as esploraRealDelay, RESERVE_NETWORK_LABEL } from '../reserve/esplora.js';
 import { evaluateReserveAttestation, type ChainStateEntry, type ReserveAttestation, type ReserveReasonCode } from '../reserve/evaluate.js';
 import { reserveStatementDigestHex } from '../reserve/statement.js';
 import { verify, type VerifyInput, type VerifyResult } from '../verifier/verify.js';
@@ -97,6 +100,45 @@ export interface SubmissionBundle {
   reserveAttestation: ReserveAttestation | null;
   /** Raw signed Nostr event — or null if none was supplied. Never a boolean. */
   nostrEvent: NostrEvent | null;
+  /**
+   * Phase 3B — required for a real (http(s) URL) mint, absent for SOLVENT's
+   * reference fixtures. The mint identity's delegation of
+   * `masterPublicKeyHex`, the manifest-key-signed reserve binding, and how
+   * many keysets the epoch spans. See docs/phase3b-public-evidence.md.
+   */
+  delegation?: ManifestKeyDelegation | null;
+  reserveBinding?: ReserveBinding | null;
+  epochKeysetCount?: number;
+}
+
+/** Phase 3B: the mint's own NUT-06 identity, fetched independently from the mint — never read from the bundle. */
+export interface MintIdentityLiveStatus {
+  queried: boolean;
+  ok: boolean;
+  pubkey?: string;
+  detail: string;
+}
+
+export type MintInfoFetchFn = (mintUrl: string) => Promise<{ ok: true; pubkey: string } | { ok: false; detail: string }>;
+
+/** Real NUT-06 lookup: GET <mint>/v1/info, read `pubkey`. */
+export const fetchMintIdentity: MintInfoFetchFn = async (mintUrl) => {
+  try {
+    const base = mintUrl.endsWith('/') ? mintUrl.slice(0, -1) : mintUrl;
+    const res = await fetch(`${base}/v1/info`);
+    if (!res.ok) return { ok: false, detail: `NUT-06 /v1/info returned HTTP ${res.status}` };
+    const info = (await res.json()) as { pubkey?: unknown };
+    if (typeof info.pubkey !== 'string') return { ok: false, detail: 'NUT-06 /v1/info has no pubkey' };
+    return { ok: true, pubkey: info.pubkey };
+  } catch (err) {
+    return { ok: false, detail: `NUT-06 /v1/info unreachable: ${(err as Error).message}` };
+  }
+};
+
+export interface Phase3bOptions {
+  mintInfoFetchFn?: MintInfoFetchFn;
+  /** Clock for binding validity windows; defaults to the real clock. */
+  nowSeconds?: () => number;
 }
 
 export interface ReserveLiveStatus {
@@ -136,6 +178,8 @@ export interface SubmissionVerification {
   result: VerifyResult;
   reserveLive: ReserveLiveStatus;
   nostrLive: NostrLiveStatus;
+  /** Present only for a real (URL) mint. */
+  mintIdentityLive?: MintIdentityLiveStatus;
 }
 
 function outpointKey(txid: string, vout: number): string {
@@ -194,10 +238,19 @@ export async function queryLiveChainState(
 /** The exact shape of queryLiveChainState() — extracted for the same reason as RelayFetchFn above (see src/cli/attacks.ts's A25): lets a deterministic caller inject a fake chain-state response at this exact boundary, while the browser always uses the real function (the default). */
 export type ChainStateFetchFn = typeof queryLiveChainState;
 
+/** Phase 3B inputs for the epoch-scoped reserve binding (a real URL mint only). */
+interface ReserveBindingContext {
+  binding: ReserveBinding | null | undefined;
+  bundle: Pick<SubmissionBundle, 'mint' | 'manifest' | 'masterPublicKeyHex'>;
+  mintIdentityPubkey: string | undefined;
+  nowSeconds: number;
+}
+
 async function evaluateReserveLive(
   attestation: ReserveAttestation | null,
   outstandingBalance: number,
   fetchFn: ChainStateFetchFn = queryLiveChainState,
+  bindingContext?: ReserveBindingContext,
 ): Promise<ReserveLiveStatus> {
   if (!attestation) {
     return { supplied: false, queried: false, queryOk: false, verified: false, verifiedReserveSats: 0, outstandingBalance, detail: 'No reserve attestation was supplied with this bundle.' };
@@ -206,7 +259,34 @@ async function evaluateReserveLive(
   if (!live.ok) {
     return { supplied: true, queried: true, queryOk: false, verified: false, verifiedReserveSats: 0, outstandingBalance, detail: live.detail };
   }
-  const evalResult = evaluateReserveAttestation(attestation, live.chainState, outstandingBalance, live.tipHeight + 1);
+  const evalResult = evaluateReserveAttestation(attestation, live.chainState, outstandingBalance, live.tipHeight + 1, undefined, RESERVE_NETWORK_LABEL);
+  if (evalResult.verified && bindingContext) {
+    // Phase 3B: the reserve must be bound, by the authorized manifest key, to
+    // this exact mint, epoch and manifest — a valid reserve statement alone
+    // could be transplanted onto any accounting state.
+    const { bundle } = bindingContext;
+    const binding = bindingContext.mintIdentityPubkey
+      ? verifyReserveBinding(bindingContext.binding, {
+          manifestPubkey: bundle.masterPublicKeyHex,
+          mintUrl: bundle.mint,
+          mintIdentityPubkey: bindingContext.mintIdentityPubkey,
+          epochIndex: bundle.manifest.epoch_index,
+          manifestDigest: manifestDigestHex(bundle.manifest),
+          globalDigest: computeGlobalDigestHex(bundle.manifest),
+          reserveStatementDigest: reserveStatementDigestHex(attestation.statement),
+          reservePubkey: attestation.statement.reserve_pubkey,
+          reserveNetwork: RESERVE_NETWORK_LABEL,
+          nowSeconds: bindingContext.nowSeconds,
+        })
+      : ({ ok: false, detail: "the mint's NUT-06 identity could not be observed" } as const);
+    if (!binding.ok) {
+      return {
+        supplied: true, queried: true, queryOk: true, verified: false, reasonCode: 'REFUSE_RESERVE_BINDING_INVALID',
+        verifiedReserveSats: evalResult.verifiedReserveSats, outstandingBalance, tipHeight: live.tipHeight,
+        detail: `Reserve verifies on chain, but ${binding.detail}.`,
+      };
+    }
+  }
   return {
     supplied: true,
     queried: true,
@@ -258,6 +338,8 @@ async function evaluateNostrIndependently(
   bundle: Pick<SubmissionBundle, 'manifest' | 'masterPublicKeyHex' | 'reserveAttestation'>,
   fetchFn: RelayFetchFn = fetchPolEvidence,
   delayFn: DelayFn = realDelay,
+  phase3b?: NostrEvidenceExpectation['phase3b'],
+  clockSeconds?: number,
 ): Promise<NostrLiveStatus> {
   if (!event) {
     return {
@@ -269,7 +351,7 @@ async function evaluateNostrIndependently(
   const manifestDigest = manifestDigestHex(bundle.manifest);
   const globalDigestHexValue = computeGlobalDigestHex(bundle.manifest);
   const reserveDigestHexValue = bundle.reserveAttestation ? reserveStatementDigestHex(bundle.reserveAttestation.statement) : '';
-  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nowSeconds = clockSeconds ?? Math.floor(Date.now() / 1000);
   const expect = {
     mintIdentityHex: bundle.masterPublicKeyHex,
     epochIndex: bundle.manifest.epoch_index,
@@ -277,6 +359,7 @@ async function evaluateNostrIndependently(
     globalDigestHex: globalDigestHexValue,
     reserveDigestHex: reserveDigestHexValue,
     nowSeconds,
+    ...(phase3b ? { phase3b } : {}),
   };
 
   // Informational only (see module header): does the bundle's OWN private
@@ -340,7 +423,17 @@ async function evaluateNostrIndependently(
   // catches a relay serving a genuinely different, conflicting valid state
   // for the same mint identity/epoch (REFUSE_NOSTR_CONFLICT) or one whose
   // digests don't match what this bundle claims (REFUSE_NOSTR_STATE_MISMATCH).
-  const liveResult = evaluatePolEvidence(fetchedEvents, expect);
+  let liveResult = evaluatePolEvidence(fetchedEvents, expect);
+  // Phase 3B: for a real mint the EXACT published event must come back — a
+  // different event that happens to carry the same state is not this one.
+  if (phase3b && liveResult.verified && !eventFetched) {
+    liveResult = {
+      verified: false,
+      reasonCode: 'REFUSE_NOSTR_STATE_MISMATCH',
+      detail: `Relays returned a different event (${liveResult.matchedEvent?.id ?? 'unknown'}) than the bundle's ${event.id}.`,
+      matchedEvent: liveResult.matchedEvent,
+    };
+  }
 
   // evaluatePolEvidence() (locked Gate 5 logic, unchanged) reports
   // REFUSE_NOSTR_UNAVAILABLE both when it was handed zero candidate events
@@ -385,10 +478,35 @@ export async function verifySubmission(
   relayFetchFn: RelayFetchFn = fetchPolEvidence,
   chainStateFetchFn: ChainStateFetchFn = queryLiveChainState,
   delayFn: DelayFn = realDelay,
+  phase3bOptions: Phase3bOptions = {},
 ): Promise<SubmissionVerification> {
+  // Phase 3B applies to real mints only (addressed by URL).
+  const realMint = isMintUrl(bundle.mint);
+  let mintIdentityLive: MintIdentityLiveStatus | undefined;
+  if (realMint) {
+    const r = await (phase3bOptions.mintInfoFetchFn ?? fetchMintIdentity)(bundle.mint);
+    mintIdentityLive = r.ok
+      ? { queried: true, ok: true, pubkey: r.pubkey, detail: `NUT-06 identity ${r.pubkey}` }
+      : { queried: true, ok: false, detail: r.detail };
+  }
+  const nowSeconds = (phase3bOptions.nowSeconds ?? (() => Math.floor(Date.now() / 1000)))();
+  const phase3bNostr = realMint
+    ? {
+        mintNut06Pubkey: mintIdentityLive?.pubkey ?? '',
+        manifestKeyDelegationDigest: safeDigest(() => delegationDigestHex(bundle.delegation!)),
+        reserveBindingDigest: safeDigest(() => reserveBindingDigestHex(bundle.reserveBinding!)),
+        keysetCount: bundle.epochKeysetCount ?? -1,
+      }
+    : undefined;
+
   const [reserveLive, nostrLive] = await Promise.all([
-    evaluateReserveLive(bundle.reserveAttestation, bundle.manifest.outstanding_balance, chainStateFetchFn),
-    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn),
+    evaluateReserveLive(
+      bundle.reserveAttestation,
+      bundle.manifest.outstanding_balance,
+      chainStateFetchFn,
+      realMint ? { binding: bundle.reserveBinding, bundle, mintIdentityPubkey: mintIdentityLive?.pubkey, nowSeconds } : undefined,
+    ),
+    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn, phase3bNostr, nowSeconds),
   ]);
 
   const verifyInput: VerifyInput = {
@@ -408,10 +526,26 @@ export async function verifySubmission(
     // reaches verify()'s existing REFUSE_UNVERIFIABLE fail-closed default.
     ...(reserveLive.supplied && reserveLive.queryOk ? { reserve: { verified: reserveLive.verified, reserveSats: reserveLive.verifiedReserveSats, reasonCode: reserveLive.reasonCode } } : {}),
     ...(nostrLive.supplied ? { nostr: { verified: nostrLive.verified, reasonCode: nostrLive.reasonCode } } : {}),
+    ...(realMint
+      ? {
+          mintIdentityPubkey: mintIdentityLive?.pubkey,
+          delegation: bundle.delegation ?? null,
+          epochKeysetCount: bundle.epochKeysetCount,
+        }
+      : {}),
   };
 
   const result = verify(verifyInput);
-  return { verifyInput, result, reserveLive, nostrLive };
+  return { verifyInput, result, reserveLive, nostrLive, ...(mintIdentityLive ? { mintIdentityLive } : {}) };
+}
+
+/** A digest of a missing/malformed Phase 3B artifact is '' — which never matches a published digest. */
+function safeDigest(fn: () => string): string {
+  try {
+    return fn();
+  } catch {
+    return '';
+  }
 }
 
 // ---------------------------------------------------------------------

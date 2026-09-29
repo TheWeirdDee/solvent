@@ -1,0 +1,649 @@
+diff --git a/crates/cdk-mintd/src/cli.rs b/crates/cdk-mintd/src/cli.rs
+index 6eff313d..290edd94 100644
+--- a/crates/cdk-mintd/src/cli.rs
++++ b/crates/cdk-mintd/src/cli.rs
+@@ -52,6 +52,35 @@ pub struct CLIArgs {
+ pub enum Commands {
+     /// Manage the database-backed mintd configuration.
+     Config(ConfigArgs),
++    /// SOLVENT operator commands (never exposed over HTTP).
++    Solvent(SolventArgs),
++}
++
++/// SOLVENT operator commands.
++#[derive(Debug, Args)]
++pub struct SolventArgs {
++    #[command(subcommand)]
++    pub command: SolventCommands,
++}
++
++/// SOLVENT operator operations.
++#[derive(Debug, Subcommand)]
++pub enum SolventCommands {
++    /// Sign a manifest key delegation with this mint's identity (NUT-06) key
++    /// and print it as JSON. Uses the same stored configuration and seed as
++    /// the daemon; the identity key never leaves the signatory.
++    DelegateManifestKey(DelegateManifestKeyArgs),
++}
++
++/// Arguments for `solvent delegate-manifest-key`.
++#[derive(Debug, Args)]
++pub struct DelegateManifestKeyArgs {
++    /// The SOLVENT manifest public key to authorize (33-byte compressed, hex).
++    #[arg(long)]
++    pub manifest_pubkey: String,
++    /// First PoL epoch the delegation covers (>= 1).
++    #[arg(long)]
++    pub valid_from_epoch: u64,
+ }
+ 
+ /// Arguments for database-backed configuration management.
+diff --git a/crates/cdk-mintd/src/lib.rs b/crates/cdk-mintd/src/lib.rs
+index 0c4067ef..eca50a28 100644
+--- a/crates/cdk-mintd/src/lib.rs
++++ b/crates/cdk-mintd/src/lib.rs
+@@ -2802,6 +2802,90 @@ pub async fn stored_configuration_document(
+         .await?)
+ }
+ 
++/// SOLVENT Phase 3B: `cdk-mintd solvent delegate-manifest-key`. Loads the
++/// stored configuration exactly as daemon startup does, builds the same
++/// signatory from the same seed (or connects the same remote signatory),
++/// checks it is the configured signing identity — the key NUT-06 advertises
++/// — and asks it to sign a manifest key delegation. Returns the delegation
++/// as JSON. Never exposed over HTTP; the identity key never leaves the
++/// signatory. A remote signatory has no matching RPC and fails closed. See
++/// solvent/docs/manifest-key-delegation.md.
++pub async fn solvent_delegate_manifest_key(
++    work_dir: &Path,
++    db_password: Option<String>,
++    manifest_pubkey_hex: &str,
++    valid_from_epoch: u64,
++) -> Result<String> {
++    if manifest_pubkey_hex.len() != 66 {
++        bail!("--manifest-pubkey must be a 33-byte compressed public key (66 hex characters)");
++    }
++    let manifest_pubkey = cdk::nuts::PublicKey::from_hex(manifest_pubkey_hex)
++        .map_err(|e| anyhow!("--manifest-pubkey is not a valid public key: {e}"))?;
++
++    let bootstrap = load_database_bootstrap_settings()?;
++    let (_localstore, keystore, _kv, configuration_store) =
++        initial_setup(work_dir, &bootstrap, db_password).await?;
++    let startup = configuration_service(configuration_store, &bootstrap)
++        .startup()
++        .await?;
++    let settings = startup.resolved.settings;
++
++    let signatory: DynSignatory = if settings.enabled_signatory().is_some() {
++        match startup.remote_signatory {
++            Some(remote) => remote,
++            None => bail!("remote signatory configured but not connected"),
++        }
++    } else {
++        let seed: Vec<u8> = if let Some(seed) =
++            settings.info.seed.clone().filter(|seed| !seed.is_empty())
++        {
++            seed.into()
++        } else if let Some(mnemonic) = settings
++            .info
++            .mnemonic
++            .clone()
++            .map(|s| Mnemonic::from_str(&s))
++            .transpose()?
++        {
++            mnemonic.to_seed_normalized("").to_vec()
++        } else {
++            bail!("No seed nor remote signatory set");
++        };
++        let db_signatory = cdk_signatory::db_signatory::DbSignatory::new(
++            keystore,
++            &seed,
++            Default::default(),
++            Default::default(),
++        )
++        .await?;
++        Arc::new(cdk_signatory::embedded::Service::new(Arc::new(db_signatory)))
++    };
++    ensure_signatory_identity(&signatory, startup.signing_identity.pubkey).await?;
++
++    let created_at = std::time::SystemTime::now()
++        .duration_since(std::time::UNIX_EPOCH)?
++        .as_secs();
++    let delegation = signatory
++        .sign_manifest_key_delegation(
++            settings.info.url.clone(),
++            manifest_pubkey,
++            valid_from_epoch,
++            created_at,
++        )
++        .await?;
++
++    Ok(serde_json::to_string_pretty(&serde_json::json!({
++        "schema": delegation.schema,
++        "mint_url": delegation.mint_url,
++        "mint_identity_pubkey": delegation.mint_identity_pubkey.to_hex(),
++        "mint_identity_xonly_pubkey": delegation.mint_identity_pubkey.x_only_public_key().to_string(),
++        "manifest_pubkey": delegation.manifest_pubkey.to_hex(),
++        "valid_from_epoch": delegation.valid_from_epoch,
++        "created_at": delegation.created_at,
++        "signature": delegation.signature.to_string(),
++    }))?)
++}
++
+ /// Runs mintd using only the configuration stored in its primary database.
+ pub async fn run_mintd_from_database(
+     work_dir: &Path,
+diff --git a/crates/cdk-mintd/src/main.rs b/crates/cdk-mintd/src/main.rs
+index bb973f8c..26dd0d5f 100644
+--- a/crates/cdk-mintd/src/main.rs
++++ b/crates/cdk-mintd/src/main.rs
+@@ -4,7 +4,7 @@ use std::io::Write;
+ use std::sync::Arc;
+ 
+ use anyhow::{bail, Context, Result};
+-use cdk_mintd::cli::{CLIArgs, Commands, ConfigCommands};
++use cdk_mintd::cli::{CLIArgs, Commands, ConfigCommands, SolventCommands};
+ use cdk_mintd::{get_work_directory, BdkWalletPolicy, MintInitializationMode};
+ use clap::Parser;
+ use tokio::runtime::Runtime;
+@@ -163,6 +163,22 @@ fn main() -> Result<()> {
+                     Ok(())
+                 }
+             },
++            Some(Commands::Solvent(solvent)) => match solvent.command {
++                SolventCommands::DelegateManifestKey(args) => {
++                    let work_dir = work_dir
++                        .as_deref()
++                        .expect("database commands have a work directory");
++                    let json = cdk_mintd::solvent_delegate_manifest_key(
++                        work_dir,
++                        password,
++                        &args.manifest_pubkey,
++                        args.valid_from_epoch,
++                    )
++                    .await?;
++                    println!("{json}");
++                    Ok(())
++                }
++            },
+             None => {
+                 let work_dir = work_dir
+                     .as_deref()
+diff --git a/crates/cdk-signatory/src/db_signatory.rs b/crates/cdk-signatory/src/db_signatory.rs
+index c82459c4..496b579e 100644
+--- a/crates/cdk-signatory/src/db_signatory.rs
++++ b/crates/cdk-signatory/src/db_signatory.rs
+@@ -28,7 +28,10 @@ use tracing::instrument;
+ use crate::common::{
+     check_unit_string_collision, create_new_keyset, derivation_path_from_unit, init_keysets,
+ };
+-use crate::signatory::{RotateKeyArguments, Signatory, SignatoryKeySet, SignatoryKeysets};
++use crate::signatory::{
++    manifest_key_delegation_message, ManifestKeyDelegation, RotateKeyArguments, Signatory,
++    SignatoryKeySet, SignatoryKeysets, MANIFEST_KEY_DELEGATION_SCHEMA,
++};
+ 
+ /// Immutable in-memory view of the keysets, swapped atomically on every change.
+ ///
+@@ -412,6 +415,44 @@ impl Signatory for DbSignatory {
+         Ok(key_pair.secret_key.sign(&message)?)
+     }
+ 
++    // SOLVENT Phase 3B: signs with the master key (`self.xpriv`), whose
++    // public key `self.xpub` is exactly what `keysets()` reports and what
++    // the mint publishes as its NUT-06 `pubkey`. The identity pubkey in the
++    // message is always `self.xpub`, never caller-supplied, and the message
++    // is built here from typed fields only — see
++    // `manifest_key_delegation_message` and
++    // solvent/docs/manifest-key-delegation.md's signing-oracle audit.
++    #[instrument(skip_all)]
++    async fn sign_manifest_key_delegation(
++        &self,
++        mint_url: String,
++        manifest_pubkey: PublicKey,
++        valid_from_epoch: u64,
++        created_at: u64,
++    ) -> Result<ManifestKeyDelegation, Error> {
++        let message = manifest_key_delegation_message(
++            &mint_url,
++            &self.xpub,
++            &manifest_pubkey,
++            valid_from_epoch,
++            created_at,
++        )?;
++        let identity_key = cdk_common::nuts::SecretKey::from(self.xpriv.private_key);
++        let signature = identity_key.sign(&message)?;
++        // Defense in depth: never return a signature that does not verify
++        // against the advertised identity.
++        self.xpub.verify(&message, &signature)?;
++        Ok(ManifestKeyDelegation {
++            schema: MANIFEST_KEY_DELEGATION_SCHEMA.to_string(),
++            mint_url,
++            mint_identity_pubkey: self.xpub,
++            manifest_pubkey,
++            valid_from_epoch,
++            created_at,
++            signature,
++        })
++    }
++
+     #[tracing::instrument(skip_all)]
+     async fn verify_proofs(&self, proofs: Vec<Proof>) -> Result<(), Error> {
+         let keysets = self.keysets.load();
+@@ -1790,3 +1831,193 @@ mod test {
+         );
+     }
+ }
++
++// SOLVENT Phase 3B: direct tests of the mint-identity delegation capability
++// (patches/cdk/0008). Not reachable over HTTP at all — see
++// solvent/docs/manifest-key-delegation.md.
++#[cfg(test)]
++mod solvent_manifest_key_delegation_tests {
++    use std::sync::Arc;
++
++    use bitcoin::bip32::Xpriv;
++    use bitcoin::secp256k1::Secp256k1;
++    use cdk_common::nuts::{BlindSignature, BlindedMessage, Proof};
++    use cdk_common::{Error, PublicKey};
++
++    use super::DbSignatory;
++    use crate::signatory::{
++        manifest_key_delegation_message, RotateKeyArguments, Signatory, SignatoryKeySet,
++        SignatoryKeysets, MANIFEST_KEY_DELEGATION_SCHEMA,
++    };
++
++    const SEED: &[u8] = b"test-seed-solvent-manifest-key-delegation";
++    const MINT_URL: &str = "https://mint.example";
++
++    fn manifest_key() -> PublicKey {
++        // 2G — any valid point that is not the identity key.
++        PublicKey::from_hex("02c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee5")
++            .expect("valid point")
++    }
++
++    async fn signatory(seed: &[u8]) -> DbSignatory {
++        let store = Arc::new(
++            cdk_sqlite::mint::memory::empty()
++                .await
++                .expect("in-memory db"),
++        );
++        DbSignatory::new(store, seed, Default::default(), Default::default())
++            .await
++            .expect("DbSignatory::new")
++    }
++
++    /// J: the signing identity is the BIP32 master key of the seed, and it is
++    /// exactly the pubkey `keysets()` (and therefore NUT-06) exposes. A: a
++    /// valid delegation verifies under the x-only form of that key.
++    #[tokio::test]
++    async fn identity_is_the_seed_master_key_exposed_by_keysets() {
++        let s = signatory(SEED).await;
++        let secp = Secp256k1::new();
++        let master: PublicKey = Xpriv::new_master(bitcoin::Network::Bitcoin, SEED)
++            .expect("master")
++            .to_keypair(&secp)
++            .public_key()
++            .into();
++        let advertised = s.keysets().await.expect("keysets").pubkey;
++        assert_eq!(advertised, master);
++
++        let d = s
++            .sign_manifest_key_delegation(MINT_URL.to_string(), manifest_key(), 1, 1_790_000_000)
++            .await
++            .expect("delegation");
++        assert_eq!(d.mint_identity_pubkey, advertised);
++        let msg =
++            manifest_key_delegation_message(MINT_URL, &advertised, &manifest_key(), 1, 1_790_000_000)
++                .expect("message");
++        advertised
++            .verify(&msg, &d.signature)
++            .expect("A: verifies under the NUT-06 identity");
++        assert_eq!(
++            advertised.x_only_public_key().serialize().to_vec(),
++            advertised.to_bytes()[1..].to_vec()
++        );
++    }
++
++    /// A-E, H: the signature covers exactly the canonical message; changing
++    /// any field breaks it, and no other message verifies.
++    #[tokio::test]
++    async fn signature_binds_every_field() {
++        let s = signatory(SEED).await;
++        let id = s.keysets().await.expect("keysets").pubkey;
++        let d = s
++            .sign_manifest_key_delegation(MINT_URL.to_string(), manifest_key(), 5, 1_790_000_000)
++            .await
++            .expect("delegation");
++        assert_eq!(d.schema, MANIFEST_KEY_DELEGATION_SCHEMA);
++        let ok = |url: &str, man: &PublicKey, epoch: u64, at: u64| {
++            let m = manifest_key_delegation_message(url, &id, man, epoch, at).expect("message");
++            id.verify(&m, &d.signature).is_ok()
++        };
++        assert!(ok(MINT_URL, &manifest_key(), 5, 1_790_000_000));
++        let other_key = PublicKey::from_hex(
++            "02f9308a019258c31049344f85f89d5229b531c845836f99b08601f113bce036f9",
++        )
++        .expect("3G");
++        assert!(!ok(MINT_URL, &other_key, 5, 1_790_000_000), "B");
++        assert!(!ok("https://other.example", &manifest_key(), 5, 1_790_000_000), "C");
++        assert!(!ok(MINT_URL, &manifest_key(), 6, 1_790_000_000), "D");
++        assert!(!ok(MINT_URL, &manifest_key(), 5, 1_790_000_001), "E");
++        // H: the raw field bytes, or any non-canonical encoding, never verify.
++        assert!(id.verify(MINT_URL.as_bytes(), &d.signature).is_err());
++        assert!(id.verify(&manifest_key().to_bytes(), &d.signature).is_err());
++    }
++
++    /// F: a delegation from an unrelated mint does not verify under this mint's identity.
++    #[tokio::test]
++    async fn unrelated_mint_identity_does_not_verify() {
++        let ours = signatory(SEED).await;
++        let theirs = signatory(b"some-other-mint-seed").await;
++        let our_id = ours.keysets().await.expect("keysets").pubkey;
++        let foreign = theirs
++            .sign_manifest_key_delegation(MINT_URL.to_string(), manifest_key(), 1, 1_790_000_000)
++            .await
++            .expect("delegation");
++        assert_ne!(foreign.mint_identity_pubkey, our_id);
++        let m =
++            manifest_key_delegation_message(MINT_URL, &our_id, &manifest_key(), 1, 1_790_000_000)
++                .expect("message");
++        assert!(our_id.verify(&m, &foreign.signature).is_err());
++    }
++
++    /// Fields a delegation must never carry are refused before signing.
++    #[tokio::test]
++    async fn rejects_invalid_fields() {
++        let s = signatory(SEED).await;
++        let id = s.keysets().await.expect("keysets").pubkey;
++        for (url, man, epoch, at) in [
++            ("", manifest_key(), 1, 1),
++            ("ftp://mint.example", manifest_key(), 1, 1),
++            (MINT_URL, manifest_key(), 0, 1),
++            (MINT_URL, manifest_key(), 1, 0),
++            (MINT_URL, id, 1, 1),
++        ] {
++            assert!(s
++                .sign_manifest_key_delegation(url.to_string(), man, epoch, at)
++                .await
++                .is_err());
++        }
++    }
++
++    /// Cross-language vector: SOLVENT's TypeScript encoder must produce the
++    /// same bytes (tests/epoch/delegation.test.ts).
++    #[test]
++    fn canonical_encoding_vector() {
++        let g = PublicKey::from_hex(
++            "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
++        )
++        .expect("G");
++        let m = manifest_key_delegation_message(MINT_URL, &g, &manifest_key(), 3, 1_790_000_000)
++            .expect("message");
++        let hex: String = m.iter().map(|b| format!("{:02x}", b)).collect();
++        assert_eq!(
++            hex,
++            "0022736f6c76656e742f6d616e69666573742d6b65792d64656c65676174696f6e2f7631001468747470733a2f2f6d696e742e6578616d706c650279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f8179802c6047f9441ed7d6d3045406e95c07cd85c778e4b8cef3ca7abac09b95c709ee50000000000000003000000006ab13b80"
++        );
++    }
++
++    /// I: a Signatory that does not implement the capability fails closed —
++    /// it never falls back to any other key.
++    struct NoDelegation;
++
++    #[async_trait::async_trait]
++    impl Signatory for NoDelegation {
++        fn name(&self) -> String {
++            "no-delegation".to_string()
++        }
++        async fn blind_sign(&self, _: Vec<BlindedMessage>) -> Result<Vec<BlindSignature>, Error> {
++            unimplemented!()
++        }
++        async fn verify_proofs(&self, _: Vec<Proof>) -> Result<(), Error> {
++            unimplemented!()
++        }
++        async fn keysets(&self) -> Result<SignatoryKeysets, Error> {
++            unimplemented!()
++        }
++        async fn subscribe_keysets(
++            &self,
++        ) -> Result<tokio::sync::watch::Receiver<SignatoryKeysets>, Error> {
++            unimplemented!()
++        }
++        async fn rotate_keyset(&self, _: RotateKeyArguments) -> Result<SignatoryKeySet, Error> {
++            unimplemented!()
++        }
++    }
++
++    #[tokio::test]
++    async fn unsupported_signatory_fails_closed() {
++        let err = NoDelegation
++            .sign_manifest_key_delegation(MINT_URL.to_string(), manifest_key(), 1, 1)
++            .await
++            .expect_err("must be unsupported");
++        assert!(err.to_string().contains("not supported"));
++    }
++}
+diff --git a/crates/cdk-signatory/src/embedded.rs b/crates/cdk-signatory/src/embedded.rs
+index 7de588c2..03e229e5 100644
+--- a/crates/cdk-signatory/src/embedded.rs
++++ b/crates/cdk-signatory/src/embedded.rs
+@@ -3,11 +3,13 @@
+ use std::sync::Arc;
+ 
+ use bitcoin::secp256k1::schnorr::Signature;
+-use cdk_common::{Amount, BlindSignature, BlindedMessage, Error, Id, Proof};
++use cdk_common::{Amount, BlindSignature, BlindedMessage, Error, Id, Proof, PublicKey};
+ use tokio::sync::{mpsc, oneshot, watch};
+ use tokio::task::JoinHandle;
+ 
+-use crate::signatory::{RotateKeyArguments, Signatory, SignatoryKeySet, SignatoryKeysets};
++use crate::signatory::{
++    ManifestKeyDelegation, RotateKeyArguments, Signatory, SignatoryKeySet, SignatoryKeysets,
++};
+ 
+ enum Request {
+     BlindSign(
+@@ -36,6 +38,17 @@ enum Request {
+             oneshot::Sender<Result<Signature, Error>>,
+         ),
+     ),
++    // SOLVENT Phase 3B: typed fields only — the master key never leaves the
++    // DbSignatory task, and it builds the signed message itself.
++    SignManifestKeyDelegation(
++        (
++            String,
++            PublicKey,
++            u64,
++            u64,
++            oneshot::Sender<Result<ManifestKeyDelegation, Error>>,
++        ),
++    ),
+ }
+ 
+ /// Creates a service-like to wrap an implementation of the Signatory
+@@ -115,6 +128,27 @@ impl Service {
+                         tracing::error!("Error sending PoL receipt signature: receiver dropped");
+                     }
+                 }
++                Request::SignManifestKeyDelegation((
++                    mint_url,
++                    manifest_pubkey,
++                    valid_from_epoch,
++                    created_at,
++                    response,
++                )) => {
++                    let output = handler
++                        .sign_manifest_key_delegation(
++                            mint_url,
++                            manifest_pubkey,
++                            valid_from_epoch,
++                            created_at,
++                        )
++                        .await;
++                    if response.send(output).is_err() {
++                        tracing::error!(
++                            "Error sending manifest key delegation: receiver dropped"
++                        );
++                    }
++                }
+             }
+         }
+     }
+@@ -199,4 +233,27 @@ impl Signatory for Service {
+ 
+         rx.await.map_err(|e| Error::RecvError(e.to_string()))?
+     }
++
++    #[tracing::instrument(skip_all)]
++    async fn sign_manifest_key_delegation(
++        &self,
++        mint_url: String,
++        manifest_pubkey: PublicKey,
++        valid_from_epoch: u64,
++        created_at: u64,
++    ) -> Result<ManifestKeyDelegation, Error> {
++        let (tx, rx) = oneshot::channel();
++        self.pipeline
++            .send(Request::SignManifestKeyDelegation((
++                mint_url,
++                manifest_pubkey,
++                valid_from_epoch,
++                created_at,
++                tx,
++            )))
++            .await
++            .map_err(|e| Error::SendError(e.to_string()))?;
++
++        rx.await.map_err(|e| Error::RecvError(e.to_string()))?
++    }
+ }
+diff --git a/crates/cdk-signatory/src/signatory.rs b/crates/cdk-signatory/src/signatory.rs
+index 708ccb6f..6d06bff9 100644
+--- a/crates/cdk-signatory/src/signatory.rs
++++ b/crates/cdk-signatory/src/signatory.rs
+@@ -137,6 +137,93 @@ impl From<&(MintKeySetInfo, MintKeySet)> for SignatoryKeySet {
+     }
+ }
+ 
++/// SOLVENT Phase 3B: schema identifier of a manifest key delegation — the
++/// first field of, and the domain separator for, every delegation message.
++pub const MANIFEST_KEY_DELEGATION_SCHEMA: &str = "solvent/manifest-key-delegation/v1";
++
++/// SOLVENT Phase 3B: a delegation, signed by the mint's identity key (the
++/// signatory master key whose public key NUT-06 advertises), authorizing one
++/// SOLVENT manifest signing key from `valid_from_epoch` onwards. See
++/// `solvent/docs/manifest-key-delegation.md`.
++#[derive(Debug, Clone)]
++pub struct ManifestKeyDelegation {
++    /// Always [`MANIFEST_KEY_DELEGATION_SCHEMA`]
++    pub schema: String,
++    /// The mint URL this delegation is bound to
++    pub mint_url: String,
++    /// The mint identity (NUT-06) public key — set by the signatory, never by the caller
++    pub mint_identity_pubkey: PublicKey,
++    /// The authorized SOLVENT manifest public key
++    pub manifest_pubkey: PublicKey,
++    /// First PoL epoch this delegation covers
++    pub valid_from_epoch: u64,
++    /// Unix seconds
++    pub created_at: u64,
++    /// BIP-340 signature over SHA256(message) by the mint identity key
++    pub signature: Signature,
++}
++
++/// SOLVENT Phase 3B: the exact bytes a manifest key delegation signs.
++/// Deterministic, length-prefixed, fixed-width; the schema comes first as
++/// the domain separator:
++///
++/// ```text
++/// u16be(len(schema))   || schema (UTF-8)
++/// u16be(len(mint_url)) || mint_url (UTF-8)
++/// mint_identity_pubkey (33-byte compressed SEC1)
++/// manifest_pubkey      (33-byte compressed SEC1)
++/// u64be(valid_from_epoch)
++/// u64be(created_at)
++/// ```
++///
++/// Rejects inputs the delegation must never carry: an empty/oversized or
++/// non-http(s) mint URL, epoch 0 (SOLVENT epochs start at 1), a zero
++/// timestamp, and a manifest key equal to the identity key itself.
++pub fn manifest_key_delegation_message(
++    mint_url: &str,
++    mint_identity_pubkey: &PublicKey,
++    manifest_pubkey: &PublicKey,
++    valid_from_epoch: u64,
++    created_at: u64,
++) -> Result<Vec<u8>, Error> {
++    if mint_url.is_empty()
++        || mint_url.len() > u16::MAX as usize
++        || !(mint_url.starts_with("https://") || mint_url.starts_with("http://"))
++    {
++        return Err(Error::Custom(
++            "manifest key delegation: mint_url must be a non-empty http(s) URL".to_string(),
++        ));
++    }
++    if valid_from_epoch == 0 {
++        return Err(Error::Custom(
++            "manifest key delegation: valid_from_epoch must be >= 1".to_string(),
++        ));
++    }
++    if created_at == 0 {
++        return Err(Error::Custom(
++            "manifest key delegation: created_at must be set".to_string(),
++        ));
++    }
++    if manifest_pubkey == mint_identity_pubkey {
++        return Err(Error::Custom(
++            "manifest key delegation: the manifest key must differ from the mint identity key"
++                .to_string(),
++        ));
++    }
++    let schema = MANIFEST_KEY_DELEGATION_SCHEMA.as_bytes();
++    let url = mint_url.as_bytes();
++    let mut message = Vec::with_capacity(2 + schema.len() + 2 + url.len() + 33 + 33 + 8 + 8);
++    message.extend_from_slice(&(schema.len() as u16).to_be_bytes());
++    message.extend_from_slice(schema);
++    message.extend_from_slice(&(url.len() as u16).to_be_bytes());
++    message.extend_from_slice(url);
++    message.extend_from_slice(&mint_identity_pubkey.to_bytes());
++    message.extend_from_slice(&manifest_pubkey.to_bytes());
++    message.extend_from_slice(&valid_from_epoch.to_be_bytes());
++    message.extend_from_slice(&created_at.to_be_bytes());
++    Ok(message)
++}
++
+ #[async_trait::async_trait]
+ /// Signatory trait
+ pub trait Signatory {
+@@ -194,6 +281,30 @@ pub trait Signatory {
+             "sign_pol_receipt is not supported by this Signatory implementation".to_string(),
+         ))
+     }
++
++    /// SOLVENT Phase 3B: signs a manifest key delegation with the mint
++    /// identity key — the master key whose public key NUT-06 advertises.
++    /// The caller supplies typed fields only; the signatory fills in its own
++    /// identity public key and builds the exact message itself
++    /// ([`manifest_key_delegation_message`]), so this can never sign
++    /// caller-chosen bytes. Only the signature and public fields are
++    /// returned.
++    ///
++    /// Default: unsupported (fails closed). Only `DbSignatory` implements it;
++    /// the remote/gRPC signatory has no matching RPC. See
++    /// `solvent/docs/manifest-key-delegation.md`.
++    async fn sign_manifest_key_delegation(
++        &self,
++        _mint_url: String,
++        _manifest_pubkey: PublicKey,
++        _valid_from_epoch: u64,
++        _created_at: u64,
++    ) -> Result<ManifestKeyDelegation, Error> {
++        Err(Error::Custom(
++            "sign_manifest_key_delegation is not supported by this Signatory implementation"
++                .to_string(),
++        ))
++    }
+ }
+ 
+ #[cfg(test)]

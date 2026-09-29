@@ -37,6 +37,11 @@ const MIGRATIONS = ['0001_nut04_issued_liability.sql', '0002_nut03_consumed_liab
   readFileSync(join(ROOT, 'migrations/solvent-accounting', f), 'utf8'),
 );
 const AMOUNTS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512];
+// File-backed tests set up the full CDK schema through ~79 autocommitted,
+// fsynced statements: ~0.3-0.6s on an idle or moderately loaded machine,
+// but fsync-bound, so heavy disk contention (e.g. a parallel Rust build) has
+// pushed them past Vitest's 5s default. Explicit, and only for these tests.
+const FILE_DB_TIMEOUT_MS = 15_000;
 
 const tempDirs: string[] = [];
 afterEach(() => {
@@ -320,7 +325,7 @@ describe('Phase 3A epoch lifecycle — receipt targets', () => {
     mintConn.exec('ROLLBACK');
     mintConn.close();
     closer.close();
-  });
+  }, FILE_DB_TIMEOUT_MS);
 });
 
 describe('Phase 3A epoch lifecycle — commitments derive from real rows', () => {
@@ -512,7 +517,7 @@ describe('Phase 3A epoch lifecycle — failure and restart', () => {
     const ev = issuanceEvidence(reopened, i!.blindedMessageHex);
     expect(ev.state === 'EPOCH_CLOSED' && ev.inclusionProof !== null).toBe(true);
     reopened.close();
-  });
+  }, FILE_DB_TIMEOUT_MS);
 
   it('16. a real SIGKILL during a fully staged close cannot leave a half-closed epoch', async () => {
     const path = newDbFile();

@@ -1,0 +1,39 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:42:35.596Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "epoch_index": 15,
+  "keyset_count": 1,
+  "manifest": {
+    "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "unit": "sat",
+    "epoch_index": 15,
+    "timestamp": "2026-09-29T15:42:33Z",
+    "previous_global_digest": "18df21e926b6f3c846e165f4e38ea6cdb75f5334dc3540b76f013d7829664adb",
+    "issued_mmr_size": 52,
+    "issued_mmr_root_hash": "978174d25d535e396b8160f4a7ef42a28f74793c5a5166a9ecb48ed4554ecd1b",
+    "issued_mmr_root_sum": 7736,
+    "spent_mmr_size": 11,
+    "spent_mmr_root_hash": "491d01f1dface295eebcce2ef7b383972bdbd069927d253fa94ee7361dd99285",
+    "spent_mmr_root_sum": 3208,
+    "outstanding_balance": 4528,
+    "active": true,
+    "deactivation_epoch": 0
+  },
+  "manifest_signature": "1c57145a76885ae58abd14a62216a9527bd6f2005d6fa3f341eeaa92b758851ea472bb0379de25a0e1035cd40a515d495e7f79bb01d7681a27cc4128b2695990",
+  "manifest_pubkey": "02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f",
+  "manifest_digest": "a9b7ce3c361eead89cb24e0024078707f9a25551c2af0aaf835ac66ad76d54cf",
+  "global_digest": "1f7b3e616e20dc747fea2b075ab412c2e334c7155b3a193ba4c95b8bc5db0795",
+  "previous_global_digest": "18df21e926b6f3c846e165f4e38ea6cdb75f5334dc3540b76f013d7829664adb",
+  "audit": {
+    "epochIndex": 15,
+    "ok": true,
+    "failures": []
+  },
+  "receipt": {
+    "target_epoch": 15,
+    "signature": "bb92aad3f89b4f2ba8c21e895a8fbb371ac56d16d088d8777599b6c02b69620fe558818182b8b11faef30ccbb53fef05c3894a0cbd7a9570526481fac46ef8f7"
+  },
+  "inclusion_proof_present": true
+}

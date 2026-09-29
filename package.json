@@ -53,7 +53,9 @@
     "verify:pol-nut03-nut07-summary": "tsx src/cli/real-cashu/pol-nut03-nut07-summary.ts",
     "verify:nut03-evidence": "tsx src/cli/real-cashu/pol-verify-nut03-evidence.ts",
     "pol:epoch-close": "tsx src/cli/real-cashu/pol-epoch-close.ts",
-    "verify:pol-epoch": "tsx src/cli/real-cashu/pol-epoch-e2e.ts"
+    "verify:pol-epoch": "tsx src/cli/real-cashu/pol-epoch-e2e.ts",
+    "phase3b:live": "tsx src/cli/real-cashu/phase3b-live.ts",
+    "verify:phase3b-evidence": "tsx src/cli/real-cashu/verify-phase3b-evidence.ts"
   },
   "repository": {
     "type": "git",
@@ -68,6 +70,8 @@
     "nostr-tools": "^2.25.2"
   },
   "devDependencies": {
+    "@scure/bip32": "^2.4.0",
+    "@scure/bip39": "^2.0.1",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.2",
     "jsdom": "^30.1.0",

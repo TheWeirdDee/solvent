@@ -1,0 +1,23 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:43:37.490Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "settlements": [
+    {
+      "quote": "01a0edd4-f939-723d-99b8-9bd69fea0874",
+      "amount": 96,
+      "settlement": "fakewallet (self-settled by the mint backend; no Lightning payment)"
+    },
+    {
+      "quote": "01a0edd5-61ae-70b2-b319-15cb507bb4f4",
+      "amount": 96,
+      "settlement": "fakewallet (self-settled by the mint backend; no Lightning payment)"
+    },
+    {
+      "quote": "01a0edd5-c394-72d7-a09d-f62f91a131b2",
+      "amount": 8,
+      "settlement": "fakewallet (self-settled by the mint backend; no Lightning payment)"
+    }
+  ]
+}

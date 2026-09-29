@@ -9,6 +9,17 @@ import { POL_EVENT_KIND, verifyPolEvidenceEvent, isPolEvidenceFresh, type PolEvi
 
 export const POL_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
 
+/**
+ * The relay set for CLI/integration runs: SOLVENT_NOSTR_RELAYS (comma-separated
+ * wss:// URLs) when set, otherwise the documented POL_RELAYS. Never adds relays
+ * on its own.
+ */
+export function configuredRelays(env: Record<string, string | undefined> = typeof process !== 'undefined' ? process.env : {}): string[] {
+  const raw = env.SOLVENT_NOSTR_RELAYS?.trim();
+  if (!raw) return POL_RELAYS;
+  return raw.split(',').map((r) => r.trim()).filter(Boolean);
+}
+
 export interface RelayPublishResult {
   relay: string;
   ok: boolean;
@@ -74,6 +85,37 @@ export async function fetchPolEvidence(
   }
 }
 
+/**
+ * Fetch-back by exact event id from every relay (used after publishing to
+ * prove the exact event is publicly retrievable). Same reachability signal
+ * as fetchPolEvidence.
+ */
+export async function fetchPolEventById(
+  eventId: string,
+  relays: string[] = POL_RELAYS,
+  timeoutMs = 5000,
+): Promise<{ events: NostrEvent[]; relayReachable: boolean; perRelay: { relay: string; found: boolean }[] }> {
+  let relayReachable = false;
+  const pool = new SimplePool({
+    onRelayConnectionSuccess: () => {
+      relayReachable = true;
+    },
+  } as unknown as ConstructorParameters<typeof SimplePool>[0]);
+  try {
+    const perRelay = await Promise.all(
+      relays.map(async (relay) => {
+        const found = await pool.querySync([relay], { ids: [eventId] }, { maxWait: timeoutMs });
+        return { relay, found: found.some((e) => e.id === eventId), events: found };
+      }),
+    );
+    const byId = new Map<string, NostrEvent>();
+    for (const r of perRelay) for (const e of r.events) byId.set(e.id, e);
+    return { events: [...byId.values()], relayReachable, perRelay: perRelay.map(({ relay, found }) => ({ relay, found })) };
+  } finally {
+    pool.destroy();
+  }
+}
+
 /** Injectable delay — lives here (not submission.ts) specifically so tests that already mock this module (main.test.ts's `vi.mock('../nostr/pol-evidence.js', ...)`) can override this SAME export to make submission.ts's bounded relay-fetch retry instant, without a separate mocking mechanism. The browser and real CLI scripts always get the real timer (the default). */
 export type DelayFn = (ms: number) => Promise<void>;
 export const realDelay: DelayFn = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -92,6 +134,13 @@ export interface NostrEvidenceExpectation {
   globalDigestHex: string;
   reserveDigestHex: string;
   nowSeconds: number;
+  /** Phase 3B: when set, the event must commit to exactly these (a real mint's evidence). */
+  phase3b?: {
+    mintNut06Pubkey: string;
+    manifestKeyDelegationDigest: string;
+    reserveBindingDigest: string;
+    keysetCount: number;
+  };
 }
 
 export interface NostrEvidenceResult {
@@ -102,7 +151,7 @@ export interface NostrEvidenceResult {
 }
 
 function contentDigestKey(c: PolEvidenceContent): string {
-  return `${c.manifest_digest}:${c.global_digest}:${c.reserve_digest}`;
+  return `${c.manifest_digest}:${c.global_digest}:${c.reserve_digest}:${c.manifest_key_delegation_digest ?? ''}:${c.reserve_binding_digest ?? ''}`;
 }
 
 /**
@@ -159,7 +208,12 @@ export function evaluatePolEvidence(events: NostrEvent[], expect: NostrEvidenceE
   if (
     content.manifest_digest !== expect.manifestDigestHex ||
     content.global_digest !== expect.globalDigestHex ||
-    content.reserve_digest !== expect.reserveDigestHex
+    content.reserve_digest !== expect.reserveDigestHex ||
+    (expect.phase3b !== undefined &&
+      (content.mint_nut06_pubkey !== expect.phase3b.mintNut06Pubkey ||
+        content.manifest_key_delegation_digest !== expect.phase3b.manifestKeyDelegationDigest ||
+        content.reserve_binding_digest !== expect.phase3b.reserveBindingDigest ||
+        content.keyset_count !== expect.phase3b.keysetCount))
   ) {
     return {
       verified: false,

@@ -1,0 +1,14 @@
+{
+  "source": "Signed by a real local patched cdk-mintd (patches 0001-0008) via `cdk-mintd solvent delegate-manifest-key`. lightning_backend = fakewallet (irrelevant to identity signing). The mint seed is the public BIP-39 test vector used by the local and CI regtest mints. Public data only.",
+  "nut06_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+  "delegation": {
+    "schema": "solvent/manifest-key-delegation/v1",
+    "mint_url": "http://127.0.0.1:8085",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_identity_xonly_pubkey": "d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "manifest_pubkey": "0394d083bd102480f6ead3457348aedc16f6e1d5a90e258cbd9122551cca1e134f",
+    "valid_from_epoch": 1,
+    "created_at": 1790692123,
+    "signature": "d41728b4ece25d460470fe57675b9845df4d4e1a3776281c048a7fe02ab42b3a060190c3c9da9372a508d81d12ae0482288018fbc5c62181022d6178e5a52c95"
+  }
+}

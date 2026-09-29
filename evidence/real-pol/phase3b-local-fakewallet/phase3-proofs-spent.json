@@ -1,0 +1,24 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:43:37.732Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "proofs": [
+    {
+      "Y": "02574d0f9baf8ee6d898a0e08b157a90bc73d929ff4f3c6fad84d6d048f9109290",
+      "amount": 64,
+      "state": "SPENT"
+    },
+    {
+      "Y": "021ea1ffd561a5f61ef1e4506d0830afca2f8524bbaa508ee5defa285fac7fd7fe",
+      "amount": 64,
+      "state": "SPENT"
+    },
+    {
+      "Y": "02372b3dd07558d6b95a2d2c01acbed8d2716e03e2efce5f691c3000b3d24e6236",
+      "amount": 8,
+      "state": "SPENT"
+    }
+  ],
+  "note": "The holder proofs inside the verify-input bundles were swapped away after verification; their secrets no longer control any ecash."
+}

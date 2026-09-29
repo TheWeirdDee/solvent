@@ -1,0 +1,61 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:43:37.488Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "expected": "REFUSE_NOSTR_UNAVAILABLE",
+  "decision": "REFUSE",
+  "reason_code": "REFUSE_NOSTR_UNAVAILABLE",
+  "relays_attempted": [
+    "ws://127.0.0.1:1",
+    "ws://127.0.0.1:2"
+  ],
+  "verify_input_file": "phase3-honest-verify-input.json",
+  "nostr_live": {
+    "supplied": true,
+    "relayReachable": false,
+    "eventFetched": false,
+    "providedCopyValid": true,
+    "publicationVerified": false,
+    "signatureValid": true,
+    "freshnessValid": true,
+    "bindingValid": false,
+    "verified": false,
+    "reasonCode": "REFUSE_NOSTR_UNAVAILABLE",
+    "detail": "Relay(s) unreachable — public retrieval could not be attempted — public retrieval could not be independently confirmed. The bundle's own signed copy is cryptographically valid, but that alone does not establish public publication. No relay returned any matching evidence event."
+  },
+  "observed": {
+    "relayQueries": [
+      {
+        "relayReachable": false,
+        "events": []
+      },
+      {
+        "relayReachable": false,
+        "events": []
+      }
+    ],
+    "now": 1790696615,
+    "nut06": {
+      "ok": true,
+      "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+    },
+    "chain": {
+      "ok": true,
+      "tipHeight": 3465815,
+      "chainState": [
+        [
+          "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+          {
+            "exists": true,
+            "confirmed": true,
+            "value": 1000000,
+            "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+            "spent": false
+          }
+        ]
+      ],
+      "detail": "live Esplora query succeeded (tip 3465815)"
+    }
+  }
+}

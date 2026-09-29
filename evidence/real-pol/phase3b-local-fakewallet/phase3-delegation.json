@@ -1,0 +1,26 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:42:32.745Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "delegation": {
+    "created_at": 1790694900,
+    "manifest_pubkey": "02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_identity_xonly_pubkey": "d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_url": "http://127.0.0.1:8085",
+    "schema": "solvent/manifest-key-delegation/v1",
+    "signature": "7c7e3ed876ec19b59c0bf5ee98ec0e4b3ce590cb2f10bf4b508b59a6e98c6da80f0da3e71efb317f4af50d21fb82c818d96cc769e74ab9a499b33b8be18d0d28",
+    "valid_from_epoch": 1
+  },
+  "nut06_observed": {
+    "ok": true,
+    "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+  },
+  "manifest_pubkey": "02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f",
+  "first_epoch_signed_by_key": 1,
+  "verification": {
+    "ok": true
+  },
+  "produced_by": "cdk-mintd solvent delegate-manifest-key (patches/cdk/0008)"
+}

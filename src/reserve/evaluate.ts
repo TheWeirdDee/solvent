@@ -45,7 +45,7 @@ export interface ChainStateEntry {
   spent: boolean;
 }
 
-export type ReserveReasonCode = 'REFUSE_RESERVE_ATTESTATION_INVALID' | 'REFUSE_RESERVE_UTXO_SPENT' | 'REFUSE_RESERVE_STATE_MISMATCH' | 'REFUSE_RESERVE_SHORT';
+export type ReserveReasonCode = 'REFUSE_RESERVE_ATTESTATION_INVALID' | 'REFUSE_RESERVE_UTXO_SPENT' | 'REFUSE_RESERVE_STATE_MISMATCH' | 'REFUSE_RESERVE_SHORT' | 'REFUSE_RESERVE_BINDING_INVALID';
 
 export interface ReserveEvaluationResult {
   verified: boolean;
@@ -107,11 +107,36 @@ export function evaluateReserveAttestation(
   outstandingBalance: number,
   currentTipHeight: number,
   freshnessPolicy: ReserveFreshnessPolicy = RESERVE_FRESHNESS_POLICY,
+  /** The network the chain state was actually queried on; a statement claiming any other network is refused. */
+  expectedNetwork?: string,
 ): ReserveEvaluationResult {
   const { statement, statementSignature, bindingSignature, masterPublicKeyHex } = attestation;
 
+  if (expectedNetwork !== undefined && statement.network !== expectedNetwork) {
+    return {
+      verified: false,
+      reasonCode: 'REFUSE_RESERVE_ATTESTATION_INVALID',
+      detail: `Reserve statement is for network "${statement.network}", but its outpoints were checked on "${expectedNetwork}".`,
+      verifiedReserveSats: 0,
+    };
+  }
+
   if (statement.outpoints.length === 0 || statement.reserve_pubkey.length !== 64 || !Number.isFinite(statement.block_height)) {
     return { verified: false, reasonCode: 'REFUSE_RESERVE_ATTESTATION_INVALID', detail: 'Reserve statement is structurally malformed.', verifiedReserveSats: 0 };
+  }
+
+  // The reserve-control key must actually control the declared outputs: a
+  // P2TR key-path output's scriptPubKey is exactly OP_1 PUSH32 <output key>.
+  // Without this, any key could sign a statement about someone else's UTXO.
+  const expectedScript = `5120${statement.reserve_pubkey}`;
+  const foreign = statement.outpoints.find((o) => o.script_pubkey_hex !== expectedScript);
+  if (foreign) {
+    return {
+      verified: false,
+      reasonCode: 'REFUSE_RESERVE_ATTESTATION_INVALID',
+      detail: `Outpoint ${foreign.txid}:${foreign.vout} is not a P2TR output of reserve_pubkey ${statement.reserve_pubkey}.`,
+      verifiedReserveSats: 0,
+    };
   }
 
   if (!verifyReserveStatementSignature(statement, statementSignature)) {

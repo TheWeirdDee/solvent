@@ -1,0 +1,105 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:43:24.558Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "expected": "REFUSE_ISSUANCE_OMITTED",
+  "decision": "REFUSE",
+  "reason_code": "REFUSE_ISSUANCE_OMITTED",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": true,
+    "dleqValid": true,
+    "bPrimeReconstructed": true,
+    "receiptValid": true,
+    "targetEpochClosed": true,
+    "manifestValid": true,
+    "inclusionValid": false,
+    "liabilityArithmeticValid": true,
+    "delegationValid": true,
+    "reserveCoverage": true,
+    "nostrEvidence": true
+  },
+  "reserve_live": {
+    "supplied": true,
+    "queried": true,
+    "queryOk": true,
+    "verified": true,
+    "verifiedReserveSats": 1000000,
+    "outstandingBalance": 4560,
+    "tipHeight": 3465815,
+    "detail": "Verified reserve 1000000 sats covers outstanding balance 4560 sats."
+  },
+  "nostr_live": {
+    "supplied": true,
+    "relayReachable": true,
+    "eventFetched": true,
+    "providedCopyValid": true,
+    "publicationVerified": true,
+    "signatureValid": true,
+    "freshnessValid": true,
+    "bindingValid": true,
+    "verified": true,
+    "detail": "Event found and independently re-verified on a public relay. Nostr evidence signature, freshness, and digest binding all verify with no conflicting state."
+  },
+  "mint_identity_live": {
+    "queried": true,
+    "ok": true,
+    "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "detail": "NUT-06 identity 03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+  },
+  "observed": {
+    "relayQueries": [
+      {
+        "relayReachable": true,
+        "events": [
+          {
+            "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"http://127.0.0.1:8085\",\"mint_identity\":\"02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f\",\"keyset_id\":\"01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e\",\"epoch_index\":16,\"manifest_digest\":\"ef8b6d187f3aeba429b4d7e7b4365d7578ac126cf0434afdae7e0d996ae031f9\",\"manifest_signature\":\"450cf350785bb30c2e8475a53eb7f1badeacf9f35a447e2c50426167afba73bdc60798eb0000ba48da8d30d9a4ff67c3e6fdb3c9a66e7ceda83c49ae4d696c16\",\"global_digest\":\"3a31cc4a379b90c08c4635a3bbb21fff24a79b7bdfc45b3f5abd1b78271c0a2f\",\"issued_mmr_root_hash\":\"bd037e8c2ac5ff927b8d86f1e077257a70caa914dda83765a1ef0d5ef793706f\",\"issued_mmr_root_sum\":7768,\"spent_mmr_root_hash\":\"491d01f1dface295eebcce2ef7b383972bdbd069927d253fa94ee7361dd99285\",\"spent_mmr_root_sum\":3208,\"outstanding_balance\":4560,\"reserve_digest\":\"22617be2e4a1cd64e4be811aed9dfd3f2bb986fde3877c7439108bfc4449522b\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790696581,\"valid_until\":1790700181,\"proof_uri\":\"solvent-phase3b://phase3b-local-fakewallet/phase3-omission\",\"mint_nut06_pubkey\":\"03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494\",\"manifest_key_delegation_digest\":\"c1711ef0899e8420c2268da5a8dc2232f19a00ab236a4e1037ee104d7e8b9415\",\"reserve_binding_digest\":\"3b7fe9e1f4b28fe009bb3d08edbbac290be602f9196a3808761b39ec103a7bb4\",\"previous_global_digest\":\"1f7b3e616e20dc747fea2b075ab412c2e334c7155b3a193ba4c95b8bc5db0795\",\"keyset_count\":1}",
+            "created_at": 1790696581,
+            "id": "6839f5e6dfa1b3d6b8bcb62e8759bb5ba4c955a52d4d43b6ec61232f65110807",
+            "kind": 8181,
+            "pubkey": "adb0210e958a5384c445dddcb31a2ed526d025b4cda183da7770cd8b7daacd8d",
+            "sig": "bb0de79f00a35fdbdacd401ebb58ddb64c3bcc012c0f496981bd802dc0bae9a499ec25539938da496e696b4d4e70b7d383523bec5ab3862ab2637335d5a811f0",
+            "tags": [
+              [
+                "M",
+                "02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f"
+              ],
+              [
+                "E",
+                "16"
+              ],
+              [
+                "K",
+                "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e"
+              ]
+            ]
+          }
+        ]
+      }
+    ],
+    "now": 1790696600,
+    "nut06": {
+      "ok": true,
+      "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+    },
+    "chain": {
+      "ok": true,
+      "tipHeight": 3465815,
+      "chainState": [
+        [
+          "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+          {
+            "exists": true,
+            "confirmed": true,
+            "value": 1000000,
+            "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+            "spent": false
+          }
+        ]
+      ],
+      "detail": "live Esplora query succeeded (tip 3465815)"
+    }
+  }
+}

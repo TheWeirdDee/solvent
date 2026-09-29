@@ -26,6 +26,16 @@ export type ReasonCode =
   | 'REFUSE_NOSTR_CONFLICT'
   | 'REFUSE_NOSTR_UNAVAILABLE'
   | 'REFUSE_NOSTR_EVENT_NOT_FOUND'
+  // Phase 3B: mint identity -> manifest key delegation (docs/manifest-key-delegation.md)
+  | 'REFUSE_DELEGATION_MISSING'
+  | 'REFUSE_DELEGATION_MALFORMED'
+  | 'REFUSE_DELEGATION_INVALID_SIGNATURE'
+  | 'REFUSE_DELEGATION_MINT_IDENTITY_MISMATCH'
+  | 'REFUSE_DELEGATION_MANIFEST_KEY_MISMATCH'
+  | 'REFUSE_DELEGATION_EPOCH_OUT_OF_SCOPE'
+  // Phase 3B: epoch-scoped reserve binding and single-keyset limit (docs/phase3b-public-evidence.md)
+  | 'REFUSE_RESERVE_BINDING_INVALID'
+  | 'REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE'
   | 'REFUSE_UNVERIFIABLE';
 
 export const REASON_TEXT: Record<ReasonCode, string> = {
@@ -55,5 +65,13 @@ export const REASON_TEXT: Record<ReasonCode, string> = {
   REFUSE_NOSTR_CONFLICT: 'Conflicting valid signed state was found for the same epoch/reporting scope.',
   REFUSE_NOSTR_UNAVAILABLE: 'No configured relay could be reached to check for public evidence.',
   REFUSE_NOSTR_EVENT_NOT_FOUND: 'Public relays were reachable, but none returned the required accounting event for this mint and epoch.',
+  REFUSE_DELEGATION_MISSING: "This mint's manifest key carries no delegation from the mint's own identity key, so nothing ties its accounting to the mint.",
+  REFUSE_DELEGATION_MALFORMED: 'The manifest key delegation is malformed.',
+  REFUSE_DELEGATION_INVALID_SIGNATURE: "The manifest key delegation is not validly signed by the mint's identity key.",
+  REFUSE_DELEGATION_MINT_IDENTITY_MISMATCH: 'The manifest key delegation was issued for a different mint or mint identity than the one being verified.',
+  REFUSE_DELEGATION_MANIFEST_KEY_MISMATCH: 'The epoch manifest was signed by a key the mint never delegated.',
+  REFUSE_DELEGATION_EPOCH_OUT_OF_SCOPE: "The epoch precedes the manifest key delegation's valid_from_epoch.",
+  REFUSE_RESERVE_BINDING_INVALID: "The reserve statement is not bound, by the mint's authorized manifest key, to this exact epoch and manifest.",
+  REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE: 'This epoch spans more than one keyset, which this build cannot aggregate correctly; it refuses rather than check a partial state.',
   REFUSE_UNVERIFIABLE: 'A required check could not be independently verified in this build.',
 };

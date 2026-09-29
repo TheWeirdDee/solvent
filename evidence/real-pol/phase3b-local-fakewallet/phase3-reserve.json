@@ -1,0 +1,33 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:42:35.598Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "network": "bitcoin-signet-mutinynet",
+  "observation": {
+    "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+    "vout": 0,
+    "valueSats": 1000000,
+    "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "spent": false,
+    "tipHeight": 3465814
+  },
+  "statement": {
+    "network": "bitcoin-signet-mutinynet",
+    "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "outpoints": [
+      {
+        "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+        "vout": 0,
+        "value_sats": 1000000,
+        "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+      }
+    ],
+    "timestamp": "2026-09-29T15:42:35Z",
+    "block_height": 3465814
+  },
+  "statement_signature": "60c7a56e08f83c98f9bf6ccaa0ff3e20d3d34f4a788fa842db6536a1e103bfaa9d753d3747a43c7539d777ab630d13575f82cc21a43c6e7c15461e3530725062",
+  "reserve_control_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+  "outstanding_balance": 4528,
+  "covers_outstanding": true
+}

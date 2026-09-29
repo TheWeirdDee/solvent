@@ -34,6 +34,16 @@ Source: `src/nostr/pol-event.ts`, `src/nostr/pol-evidence.ts`. Distinct from SOL
 }
 ```
 
+**Phase 3B optional fields** (backward compatible — v2 consumers ignore unknown fields, and no existing field changes meaning). Present on evidence for a real (URL) mint, where the verifier requires each to match what it independently checked; see `docs/phase3b-public-evidence.md`:
+
+```ts
+  mint_nut06_pubkey?: string;               // the mint's NUT-06 identity (compressed)
+  manifest_key_delegation_digest?: string;  // SHA256 of the delegation's canonical signed bytes
+  reserve_binding_digest?: string;          // SHA256 of the solvent/reserve-binding/v1 signed bytes
+  previous_global_digest?: string;
+  keyset_count?: number;
+```
+
 Every field in PRD §12.1's required list is present: mint identity reference, epoch index, manifest digest, issued/spent root hashes+sums, outstanding liability, reserve-attestation digest, reserve amount/network, freshness/expiry, a proof-bundle URI, and schema/version. No token owners or raw owner mappings are published.
 
 ## Tags

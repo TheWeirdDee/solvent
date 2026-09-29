@@ -1,0 +1,22 @@
+{
+  "run_id": "phase3b-local-fakewallet",
+  "generated_at": "2026-09-29T15:42:35.600Z",
+  "lightning_backend": "fakewallet",
+  "pass": true,
+  "binding": {
+    "schema": "solvent/reserve-binding/v1",
+    "mint_url": "http://127.0.0.1:8085",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "epoch_index": 15,
+    "manifest_digest": "a9b7ce3c361eead89cb24e0024078707f9a25551c2af0aaf835ac66ad76d54cf",
+    "global_digest": "1f7b3e616e20dc747fea2b075ab412c2e334c7155b3a193ba4c95b8bc5db0795",
+    "reserve_statement_digest": "77fd7dd5022d002b4c6f132cb38f6a613729294b48ee2d2959ac29170bb7f3d2",
+    "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "reserve_network": "bitcoin-signet-mutinynet",
+    "created_at": 1790696555,
+    "valid_until": 1790700155,
+    "signature": "0068d198297140e75c46c364b35e67452c8ef52d062940b549c6eeb6c4677a103f0ffb74a35b7dc33f7c6dfbfd0a574131823104a26933f820133ac9f72ec0cf"
+  },
+  "binding_digest": "14420cbfeef553c8bd6904b55a81dc23d8404190cb1711ba9b065c0fbada2659",
+  "signer": "02d8a6926747d440323c88fbdddf13694b1277be412d292ebee8e34818fa025c4f"
+}
