@@ -74,8 +74,11 @@ jobs:
       - name: Build the site and serve it
         run: |
           npm run build
-          nohup npx vite preview --port 4173 --strictPort > /tmp/preview.log 2>&1 &
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && break; sleep 1; done
+          # Bind to 127.0.0.1 explicitly: `localhost` resolves to ::1 on the
+          # runner, and the browser flow below uses 127.0.0.1.
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4173/ >/dev/null && exit 0; sleep 1; done
+          echo "site preview never came up"; cat /tmp/preview.log; exit 1
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
