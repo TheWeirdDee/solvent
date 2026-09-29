@@ -31,7 +31,7 @@ This is a **phase, not a finished system** — the verifier above and the real C
 
 Everything described in the rest of this README (the verifier, the attack corpus, the Live Public Demo, the deployment automation) is real, unchanged, and already documented in detail below and in `docs/trust-boundaries.md` — Phase 1 adds to it, it does not replace or weaken any of it.
 
-## PHASE 2 MINT-NATIVE ACCOUNTING + DURABLE PoL RECEIPTS (NUT-04 only — STEP 8 VERIFIED)
+## PHASE 2 MINT-NATIVE ACCOUNTING + DURABLE PoL RECEIPTS (NUT-04 STEP 8 VERIFIED · NUT-03 VERIFIED · NUT-05 NOT STARTED)
 
 Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic transitions, inside the mint's real database transaction; sign real Proof-of-Liability receipts with the mint's real amount key; and prove the receipt obligation survives a real crash and is genuinely retrievable — not a sidecar that could lose it, not a fixture signature, not merely "synchronous, so probably fine." See `docs/cdk-integration-seams.md`, `docs/cdk-signatory-audit.md`, `docs/receipt-lifecycle.md`, `docs/accounting-model.md`, and `DECISIONS.md`'s Phase 2 entries for the full architecture.
 
@@ -45,7 +45,22 @@ Phase 2's goal: couple SOLVENT's own accounting durably to CDK's real economic t
 - **direct, real negative tests of the signing capability itself** (`cargo test`, not HTTP-simulated, since it has no HTTP route): refuses a nonexistent keyset, an out-of-range amount, and an expired keyset — 4/4 real tests pass
 - real atomicity, real reconciliation, real retry idempotency, real restart persistence — all unchanged and still passing
 
-**NUT-03 (swap) — real accounting, verified in CI**: a real patch (`patches/cdk/0006-*.patch`) wires consumed-liability, replacement issued-liability, and PoL receipt signing into CDK's real `SwapSaga::finalize()` transaction, reusing the existing NUT-04 issued-liability trigger and adding a new consumed-liability trigger (`migrations/solvent-accounting/0002_*.sql`). Confirmed by real execution in [run 36008787769](https://github.com/TheWeirdDee/solvent/actions/runs/36008787769) (2026-09-24): a real swap (1000 = 1000 + 0, 6/6 receipts signed and independently verified), a real failed-swap/double-spend-after-swap (refused with `Token Already Spent`, zero new accounting), real NUT-09 `POST /v1/restore`-based response-loss recovery (CDK's own existing endpoint), a genuine `kill -9` crash drill inside `finalize()` before commit (identical row counts before/after), two real consecutive swaps with outstanding liability provably unchanged, and swap-scoped restart persistence plus one more real swap after restart. Those results are recorded in that run's CI step logs; the run's `evidence/real-pol/` artifact holds NUT-04 evidence only. Dedicated machine-readable NUT-03 evidence (`nut03-*.json`, checked by `npm run verify:nut03-evidence`) has been added but has not yet been produced by any real CI run. See `docs/receipt-lifecycle.md`'s NUT-03 section and `DECISIONS.md` for the architecture and the evidence correction.
+**NUT-03 (swap) — NUT-03 VERIFIED. Real NUT-03 swap accounting is now backed by machine-readable CI evidence.** A real patch (`patches/cdk/0006-*.patch`) wires consumed-liability, replacement issued-liability, and PoL receipt signing into CDK's real `SwapSaga::finalize()` transaction, reusing the existing NUT-04 issued-liability trigger and adding a new consumed-liability trigger (`migrations/solvent-accounting/0002_*.sql`).
+
+Verified by [CI run 36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) on commit `4a802bc444fb6b0d3f31032336af19129950508b`. Result: SUCCESS.
+- **Evidence contract:** 15/15 required NUT-03 JSON files produced, in `evidence/real-pol/36150315347/` inside the run's `real-cashu-evidence` artifact.
+- **Evidence verifier:** `npm run verify:nut03-evidence -- 36150315347` ran 165 checks, 0 failed, exit code 0.
+- **Regression at that commit:** 285/285 tests, build PASS, 25/25 attacks.
+
+The evidence covers:
+- a real swap;
+- a real failed swap and double-spend after swap;
+- a genuine `kill -9` inside `finalize()`, before commit;
+- NUT-09 `POST /v1/restore` recovery after a lost response;
+- swap accounting persisting across a real restart, plus a real swap afterwards;
+- two consecutive swaps with outstanding liability unchanged.
+
+An earlier run ([36008787769](https://github.com/TheWeirdDee/solvent/actions/runs/36008787769)) passed the same scenarios but recorded them only in CI step logs. Not covered: a keyset-rotation swap test, which was deferred and has not been run. See `docs/receipt-lifecycle.md`'s NUT-03 section for the architecture, and `DECISIONS.md`'s 2026-09-25 entry for the evidence correction.
 
 **Not yet built**: NUT-05 (melt) accounting — Phase 2's explicit build-order instruction is NUT-04, then NUT-03, then NUT-05, one milestone reviewed at a time.
 
