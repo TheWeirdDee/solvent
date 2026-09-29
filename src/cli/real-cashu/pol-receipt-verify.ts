@@ -108,11 +108,18 @@ async function main() {
   console.log(line('Baseline (unmutated) receipt', baselineOk));
 
   const tamperedAmountPubkey = sampleKeys[String(sample.amount)] ? Object.values(sampleKeys).find((k) => k !== samplePubkey) : undefined;
+  // Forge the epoch relative to the receipt's real target, never a fixed
+  // value — a fixed value can coincide with a genuine epoch and turn this
+  // negative test into a re-check of the real signed message.
+  const tamperedEpoch = sample.target_epoch + 1;
+  if (tamperedEpoch === sample.target_epoch) {
+    throw new Error(`tampered epoch ${tamperedEpoch} equals the genuine target epoch — the negative test would verify the real message`);
+  }
   const tests: { label: string; ok: boolean }[] = [
     { label: 'Tampered public key (wrong amount)', ok: !verify(tamperedAmountPubkey ?? '02' + '00'.repeat(32), sample.blinded_message_hex, sample.target_epoch, sample.signature_hex) },
     { label: 'Tampered blinded message', ok: !verify(samplePubkey, sample.blinded_message_hex.slice(0, -2) + '00', sample.target_epoch, sample.signature_hex) },
     { label: 'Tampered signature', ok: !verify(samplePubkey, sample.blinded_message_hex, sample.target_epoch, sample.signature_hex.slice(0, -2) + '00') },
-    { label: 'Tampered epoch (message forged with :1 instead of :0)', ok: !schnorrVerifyDigest(sample.signature_hex, sha256(new TextEncoder().encode(`Cashu_PoL_Receipt_Issued:${sample.blinded_message_hex}:1`)), samplePubkey, false) },
+    { label: 'Tampered epoch (message forged with a different epoch)', ok: !verify(samplePubkey, sample.blinded_message_hex, tamperedEpoch, sample.signature_hex) },
   ];
   for (const t of tests) {
     console.log(line(t.label, t.ok, t.ok ? 'correctly REFUSED' : 'incorrectly accepted a tampered receipt'));
