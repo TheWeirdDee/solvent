@@ -8,6 +8,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { verifyCanonicalLiveDemo } from '../app/submission.js';
+import { DOC_REGISTRY as DOCS } from '../app/docs-registry.js';
+import { checkSubmissionMaterials, USER_FACING_FILES } from './submission-materials.js';
 import { runSubmissionChecks, type ExternalEvidenceStatus } from './verify-submission-core.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
@@ -74,8 +76,29 @@ async function main() {
   console.log('The "Canonical Live Public Demo" line is a real, right-now check (see `npm run verify:live-demo` for the same check with full diagnostic detail) — everything else above it reads previously-recorded evidence files.');
   console.log('See docs/draft-alignment.md and docs/trust-boundaries.md for exactly what is real vs. not yet implemented.');
 
-  console.log(`\n${ready ? 'SUBMISSION READY' : `NOT SUBMISSION READY — ${failures} required item(s) failing`}`);
-  process.exit(ready ? 0 : 1);
+  // ---- Submission materials: what a judge actually meets.
+  const docFiles = new Set([...USER_FACING_FILES, ...DOCS.map((d) => d.path)]);
+  const files: Record<string, string> = {};
+  for (const f of docFiles) if (existsSync(path.join(ROOT, f))) files[f] = readFileSync(path.join(ROOT, f), 'utf8');
+  const materials = checkSubmissionMaterials(files, (p) => existsSync(path.join(ROOT, p)), (id) => id === 'faq' || DOCS.some((d) => d.id === id));
+  console.log('\nSubmission materials:');
+  for (const m of materials) console.log(`${m.label.padEnd(42)} ${m.ok ? 'PASS' : m.kind === 'submission' ? 'PENDING' : 'FAIL'}${m.extra ? '  ' + m.extra : ''}`);
+  const engineeringFails = materials.filter((m) => !m.ok && m.kind === 'engineering').length;
+  const blockers = materials.filter((m) => !m.ok && m.kind === 'submission');
+
+  const engineeringReady = ready && engineeringFails === 0;
+  if (!engineeringReady) {
+    console.log(`\nNOT SUBMISSION READY - ${failures + engineeringFails} required item(s) failing`);
+    process.exit(1);
+  }
+  if (blockers.length > 0) {
+    console.log('\nENGINEERING READY');
+    console.log(`SUBMISSION BLOCKED: ${blockers.map((b) => b.label.replace(/^README: /, '').toUpperCase()).join(', ')}`);
+    // CI gates on engineering; --strict demands the complete submission.
+    process.exit(process.argv.includes('--strict') ? 1 : 0);
+  }
+  console.log('\nENGINEERING READY\nSUBMISSION READY');
+  process.exit(0);
 }
 
 main().catch((err) => {
