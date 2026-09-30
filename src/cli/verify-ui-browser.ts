@@ -8,23 +8,30 @@
 // ACCEPT — verify-deployed-browser.ts is the strict ACCEPT check.
 //
 // Checks: every route renders without JS errors; /verify offers exactly
-// Live check and Verify evidence; the landing page states the problem and
-// the solution; no primary route shows reference-lab/test wording; no
-// horizontal overflow at 1440/1024/768/390; the docs sidebar is sticky on
-// desktop and replaced by a working menu on mobile; the live check runs
-// all nine steps, shows the exact event id and reserve outpoint, and
-// updates "Last checked" when re-run; the decision outweighs its headline;
-// the lab keeps one mint identity across issuances.
+// Re-check published evidence and Verify evidence; the landing page states
+// the problem and the solution; no primary route shows reference-lab/test
+// wording; no horizontal overflow at 1440/1024/768/390; the docs sidebar is
+// sticky on desktop and replaced by a working menu on mobile; the reference
+// check shows one compact progress line and one nine-check list, the exact
+// event id and reserve outpoint, and updates "Last checked" when re-run; the
+// decision outweighs its headline; the lab keeps one mint identity across
+// issuances. Plus (September 30 audit): route titles, landing-only anchors,
+// global navigation, the Protocol section index, external-link behaviour,
+// an internal-link crawl of every rendered doc, the two hero experiences,
+// JSON upload / wrong type / empty / malformed / drag-and-drop as INPUT
+// errors, and a phone pass (burger navigation, touch targets, upload,
+// overflow) in Chromium AND WebKit at 390px.
 //
 // Requires Playwright's Chromium (`npx playwright install --with-deps
 // chromium`). Uses process.exitCode, never a forced exit — see
 // verify-deployed.ts.
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { chromium, type Page } from 'playwright';
+import { chromium, webkit, type BrowserType, type Page } from 'playwright';
 
 const ROUTES: { hash: string; panel: string }[] = [
   { hash: '#/', panel: 'panel-home' },
+  { hash: '#/mint', panel: 'panel-mint' },
   { hash: '#/verify', panel: 'panel-verify' },
   { hash: '#/docs', panel: 'panel-docs' },
   { hash: '#/protocol', panel: 'panel-protocol' },
@@ -42,7 +49,17 @@ const WIDTHS: { width: number; height: number }[] = [
 // (collapsed JSON, a pasted bundle) is data, not product copy, and is
 // excluded because innerText skips closed <details> and textarea values.
 const FORBIDDEN_PRIMARY = [/solvent-fixture-mint/i, /test environment/i, /fresh identity every time/i, /\bfixture\b/i, /\btest mint\b/i, /demo scenario/i, /fresh demo identity/i, /create test ecash/i];
-const EXPECTED_DOCS_NAV = ['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'FAQ'];
+const EXPECTED_DOCS_NAV = ['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ'];
+const TITLES: Record<string, string> = {
+  'panel-home': 'SOLVENT — Auditable Ecash',
+  'panel-mint': 'SOLVENT — Live Mint',
+  'panel-verify': 'SOLVENT — Verify',
+  'panel-docs': 'SOLVENT — Docs',
+  'panel-protocol': 'SOLVENT — Protocol',
+  'panel-publish': 'SOLVENT — Evidence',
+  'panel-lab': 'SOLVENT — Reference Lab',
+};
+const APP_ROUTES = new Set(['', 'mint', 'verify', 'publish', 'protocol', 'docs', 'lab']);
 
 interface Result {
   name: string;
@@ -91,6 +108,97 @@ async function overflowOffenders(page: Page): Promise<string[]> {
   });
 }
 
+function window_hash_is(hash: string): boolean {
+  return hash === '#/protocol';
+}
+
+async function tap(page: Page, sel: string): Promise<void> {
+  await page.$eval(sel, (e) => e.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior }));
+  await page.click(sel);
+}
+
+/** JSON upload / drop paths: a valid bundle verifies; bad files are INPUT errors, never a verdict about a mint. */
+async function uploadChecks(page: Page, base: string, validBundle: string, tag: string): Promise<void> {
+  const badge = async () => ((await page.textContent('#manual-decision-badge')) ?? '').trim();
+  await go(page, base, '#/verify?mode=evidence', 'panel-verify');
+  await page.setInputFiles('#manual-bundle-file', { name: 'bundle.json', mimeType: 'application/json', buffer: Buffer.from(validBundle) });
+  await page.waitForFunction(() => /bundle\.json/.test(document.getElementById('manual-bundle-summary')?.textContent ?? ''), undefined, { timeout: 10000 });
+  await tap(page, '#manual-verify-btn');
+  await page.waitForFunction(() => !document.getElementById('manual-result')?.hidden && (document.getElementById('manual-decision-badge')?.textContent ?? '').length > 0, undefined, { timeout: 60000 });
+  record(`${tag}: a valid uploaded bundle is verified`, /^(✓ ACCEPT|✕ REFUSE|⟳ NOT ACCEPTED — COULD NOT COMPLETE)$/.test(await badge()) && (await badge()) !== 'INPUT ERROR', await badge());
+
+  await page.setInputFiles('#manual-bundle-file', { name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{ "proof": ') });
+  await page.waitForFunction(() => /broken\.json/.test(document.getElementById('manual-bundle-summary')?.textContent ?? ''), undefined, { timeout: 10000 });
+  await tap(page, '#manual-verify-btn');
+  await page.waitForTimeout(300);
+  record(`${tag}: a malformed file is an INPUT ERROR`, (await badge()) === 'INPUT ERROR', await badge());
+
+  await page.setInputFiles('#manual-bundle-file', { name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('hello') });
+  await page.waitForTimeout(300);
+  record(`${tag}: a non-JSON file type is an INPUT ERROR`, (await badge()) === 'INPUT ERROR' && /not a \.json file/.test((await page.textContent('#manual-decision-body')) ?? ''), (await page.textContent('#manual-decision-body')) ?? '');
+
+  await page.setInputFiles('#manual-bundle-file', { name: 'empty.json', mimeType: 'application/json', buffer: Buffer.alloc(0) });
+  await page.waitForTimeout(300);
+  record(`${tag}: an empty file is an INPUT ERROR`, (await badge()) === 'INPUT ERROR' && /is empty/.test((await page.textContent('#manual-decision-body')) ?? ''));
+
+  await page.evaluate((text) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([text], 'dropped.json', { type: 'application/json' }));
+    document.getElementById('bundle-drop')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, validBundle);
+  await page.waitForFunction(() => /dropped\.json/.test(document.getElementById('manual-bundle-summary')?.textContent ?? ''), undefined, { timeout: 10000 }).catch(() => {});
+  record(`${tag}: drag-and-drop loads a bundle`, /dropped\.json/.test((await page.textContent('#manual-bundle-summary')) ?? '') && (await page.inputValue('#manual-bundle-input')).length > 100);
+}
+
+/** Every route at 390px in one browser engine: overflow, JS errors, burger navigation, touch targets, upload. */
+async function phoneSuite(browser: import('playwright').Browser, base: string, name: string, shotsDir: string | undefined): Promise<void> {
+  const tag = `${name} 390px`;
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  for (const route of ROUTES) {
+    await go(page, base, route.hash, route.panel);
+    await page.waitForTimeout(250);
+    const offenders = await overflowOffenders(page);
+    record(`${tag} ${route.hash}: no horizontal overflow`, offenders.length === 0, offenders.join('; '));
+    if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `${name}-390-${route.panel}.png`), fullPage: true });
+  }
+  record(`${tag}: no JS errors across all routes`, errors.length === 0, errors.slice(0, 3).join(' | '));
+
+  // burger navigation
+  await go(page, base, '#/', 'panel-home');
+  await tap(page, '#nav-burger');
+  await page.waitForFunction(() => document.getElementById('nav-drawer')?.hidden === false);
+  const drawerLinks = (await page.locator('#nav-drawer a').allInnerTexts()).map((t) => t.trim());
+  await page.locator('#nav-drawer a[href="#/mint"]').first().click();
+  await page.waitForFunction(() => document.getElementById('panel-mint')?.hidden === false, undefined, { timeout: 10000 });
+  await page.waitForTimeout(600);
+  record(`${tag}: the burger menu reaches every section and closes after navigating`, ['Home', 'Live mint', 'Verify', 'Protocol', 'Evidence', 'Docs'].every((l) => drawerLinks.includes(l)) && (await page.locator('#nav-drawer').isHidden()), drawerLinks.join(' | '));
+
+  // touch targets on the primary controls
+  const small = await page.evaluate(() =>
+    Array.from(document.querySelectorAll<HTMLElement>('#panel-mint:not([hidden]) .btn, .topbar .nav-burger'))
+      .filter((b) => b.offsetParent !== null)
+      .map((b) => ({ id: b.id || b.className, h: b.getBoundingClientRect().height }))
+      .filter((b) => b.h < 40),
+  );
+  record(`${tag}: primary controls are at least 40px tall`, small.length === 0, JSON.stringify(small));
+
+  // protocol jump menu
+  await go(page, base, '#/protocol', 'panel-protocol');
+  record(`${tag}: protocol uses a jump menu`, (await page.locator('#protocol-toc-select').isVisible()) && (await page.locator('#protocol-toc-list').isHidden()));
+
+  // upload on the phone
+  await go(page, base, '#/verify?mode=evidence', 'panel-verify');
+  await tap(page, '#manual-load-example-btn');
+  const bundle = await page.inputValue('#manual-bundle-input');
+  await uploadChecks(page, base, bundle, tag);
+  const offenders = await overflowOffenders(page);
+  record(`${tag}: results and errors fit the screen`, offenders.length === 0, offenders.join('; '));
+  await ctx.close();
+}
+
 async function main(): Promise<boolean> {
   const url = process.argv[2] || process.env.SITE_URL;
   if (!url || url.startsWith('--')) {
@@ -121,6 +229,20 @@ async function main(): Promise<boolean> {
           const hits = FORBIDDEN_PRIMARY.filter((re) => re.test(text)).map(String);
           record(`${route.hash} shows no reference-lab/test wording`, hits.length === 0, hits.join(', '));
         }
+        if (size.width === 1440) {
+          const title = await page.title();
+          record(`${route.hash} sets its page title`, title === TITLES[route.panel], title);
+          const anchorsShown = await page.locator('.topbar .nav-landing-anchor').first().isVisible();
+          record(`${route.hash}: landing-section anchors ${route.panel === 'panel-home' ? 'shown' : 'hidden'}`, anchorsShown === (route.panel === 'panel-home'));
+          const badLinks = await page.evaluate((panel) => {
+            const scope = [document.querySelector('.topbar'), document.getElementById(panel), document.querySelector('footer')].filter(Boolean) as Element[];
+            return scope.flatMap((root) => Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="http"]')))
+              .filter((a) => a.target !== '_blank' || !/noopener/.test(a.rel))
+              .map((a) => a.href)
+              .slice(0, 5);
+          }, route.panel);
+          record(`${route.hash}: external links open in a new tab with noopener`, badLinks.length === 0, badLinks.join(' '));
+        }
         if (shotsDir) await page.screenshot({ path: path.join(shotsDir, `${size.width}-${route.panel}.png`), fullPage: route.panel !== 'panel-home' });
       }
       record(`${size.width}px: no JS errors across all routes`, errors.length === 0, errors.slice(0, 3).join(' | '));
@@ -136,13 +258,22 @@ async function main(): Promise<boolean> {
     const solution = await page.locator('#solution').innerText();
     const builtFor = await page.locator('#built-for').innerText();
     record('landing states THE PROBLEM', /the problem/i.test(problem) && /a valid cashu token/i.test(problem) && /the gap/i.test(problem));
-    record('landing states THE SOLUTION', /the solution/i.test(solution) && /checkable/i.test(solution) && /valid token ≠ solvent mint/i.test(solution));
+    record('landing states THE SOLUTION', /the solution/i.test(solution) && /checkable/i.test(solution) && /does not show that this issuance was counted/i.test(solution));
+    const heroCtas = (await page.locator('.hero .hero-ctas a').allInnerTexts()).map((t) => t.trim());
+    const explain = (await page.textContent('.hero-cta-explain')) ?? '';
+    record('landing distinguishes the live mint from the published-evidence re-check', JSON.stringify(heroCtas) === JSON.stringify(['Try the live mint', 'Re-check published evidence']) && /mints fresh ecash/i.test(explain) && /mints nothing/i.test(explain), heroCtas.join(' | '));
+    await page.waitForFunction(() => /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(document.getElementById('reserve-source')?.textContent ?? '') && /UTC/.test(document.getElementById('reserve-checked')?.textContent ?? ''), undefined, { timeout: 30000 }).catch(() => {});
+    const reserveSrc = (await page.textContent('#reserve-source')) ?? '';
+    const nostrSrc = (await page.textContent('#nostr-source')) ?? '';
+    record('landing evidence is labelled live or captured, with times', /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(reserveSrc) && /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(nostrSrc) && /UTC/.test((await page.textContent('#reserve-checked')) ?? '') && /UTC/.test(nostrSrc), `${reserveSrc.slice(0, 60)} | ${nostrSrc.slice(0, 60)}`);
+    const navText = (await page.locator('.topbar').innerText()).replace(/\s+/g, ' ');
+    record('global navigation reaches Live mint, Verify, Protocol, Evidence and Docs', ['Live mint', 'Verify', 'Protocol', 'Evidence', 'Docs'].every((l) => navText.includes(l)), navText);
     record('landing says who it is BUILT FOR', /built for/i.test(builtFor) && /cashu wallets/i.test(builtFor) && /mint operators/i.test(builtFor));
 
     // ---- /verify: exactly two modes ----
     await go(page, base, '#/verify', 'panel-verify');
     const tabs = await page.locator('#panel-verify .mode-tab').allInnerTexts();
-    record('/verify offers exactly Live check + Verify evidence', JSON.stringify(tabs.map((t) => t.trim())) === JSON.stringify(['Live check', 'Verify evidence']), tabs.join(' | '));
+    record('/verify offers exactly Re-check published evidence + Verify evidence', JSON.stringify(tabs.map((t) => t.trim())) === JSON.stringify(['Re-check published evidence', 'Verify evidence']), tabs.join(' | '));
 
     // ---- live check ----
     await go(page, base, '#/verify?mode=live', 'panel-verify');
@@ -151,10 +282,11 @@ async function main(): Promise<boolean> {
     await page.waitForFunction(() => (document.getElementById('decision-badge')?.textContent ?? '').trim().length > 0, undefined, { timeout: 60000 });
     const badge = (await page.textContent('#decision-badge'))?.trim() ?? '';
     const headline = (await page.textContent('#decision-headline'))?.trim() ?? '';
-    const steps = await page.locator('#progress-steps .progress-step.visible').count();
+    const steps = await page.locator('#decision-chain .chain-step').count();
+    const progressRows = await page.locator('#progress-steps .progress-step').count();
     const ids = (await page.textContent('#live-checked-ids')) ?? '';
-    record('live check reaches a real decision', /^(✓ ACCEPT|✕ REFUSE)$/.test(badge), `${badge} — ${headline}`);
-    record('live check runs all nine steps', steps === 9, `${steps} steps shown`);
+    record('live check reaches a real decision', /^(✓ ACCEPT|✕ REFUSE|⟳ NOT ACCEPTED — COULD NOT COMPLETE)$/.test(badge), `${badge} — ${headline}`);
+    record('live check: one compact progress line, one nine-check list', steps === 9 && progressRows === 1 && (await page.locator('#progress-panel').isHidden()), `${steps} checks in the result, ${progressRows} progress row(s)`);
     record('live check shows the exact Nostr event id and reserve txid:vout', /[0-9a-f]{64}/.test(ids) && /[0-9a-f]{64}:\d+/.test(ids));
     const nostr = (await page.textContent('#live-status-nostr'))?.trim() ?? '';
     const reserve = (await page.textContent('#live-status-reserve'))?.trim() ?? '';
@@ -181,7 +313,11 @@ async function main(): Promise<boolean> {
     await page.fill('#manual-bundle-input', 'cashuBo2FteBtodHRwczovL21pbnQuZXhhbXBsZS5jb20');
     await page.click('#manual-verify-btn');
     const unsupported = (await page.textContent('#manual-decision-headline'))?.trim() ?? '';
-    record('a plain Cashu token is refused as UNSUPPORTED MINT', unsupported === 'UNSUPPORTED MINT.', unsupported);
+    const unsupportedBadge = (await page.textContent('#manual-decision-badge'))?.trim() ?? '';
+    record('a plain Cashu token is an INPUT ERROR (unsupported mint), not a verdict', unsupportedBadge === 'INPUT ERROR' && /unsupported mint/i.test(unsupported), `${unsupportedBadge} — ${unsupported}`);
+
+    // ---- uploads: valid, malformed, wrong type, empty, drag-and-drop ----
+    await uploadChecks(page, base, loaded, '1440px');
 
     // ---- docs: sticky sidebar on desktop ----
     await go(page, base, '#/docs?doc=trust-boundaries', 'panel-docs');
@@ -196,6 +332,42 @@ async function main(): Promise<boolean> {
     const topbarBottom = await page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().bottom);
     record('docs sidebar stays in view while reading (sticky)', Math.abs(top1 - 100) <= 2 && top1 >= topbarBottom, `top ${Math.round(top0)} -> ${Math.round(top1)} after scrolling; topbar bottom ${Math.round(topbarBottom)}`);
     if (shotsDir) await page.screenshot({ path: path.join(shotsDir, '1440-docs-scrolled.png') });
+
+    // ---- internal-link crawl of every rendered doc ----
+    const docIds = await page.$$eval('#docs-mobile-select option', (os) => os.map((o) => (o as HTMLOptionElement).value));
+    const broken: string[] = [];
+    let crawled = 0;
+    for (const id of docIds) {
+      await go(page, base, `#/docs?doc=${id}`, 'panel-docs');
+      const links = await page.$$eval('#docs-doc-content a[href], #docs-faq-content a[href]', (as) => as.map((a) => a.getAttribute('href') ?? ''));
+      for (const href of links) {
+        crawled++;
+        if (href.startsWith('#/')) {
+          const route = href.slice(2).split(/[?#]/)[0]!;
+          const doc = /[?&]doc=([\w-]+)/.exec(href)?.[1];
+          if (!APP_ROUTES.has(route) || (doc && !docIds.includes(doc))) broken.push(`${id}: ${href}`);
+        } else if (href.startsWith('#')) {
+          // in-page anchor
+        } else if (!/^(https?:|mailto:)/.test(href)) {
+          broken.push(`${id}: ${href} (unresolved relative link)`);
+        }
+      }
+    }
+    record('every in-app link in every rendered doc resolves', broken.length === 0, `${crawled} links; ${broken.slice(0, 5).join(', ')}`);
+
+    // ---- protocol: a visible section index ----
+    await go(page, base, '#/protocol', 'panel-protocol');
+    const tocItems = await page.locator('#protocol-toc-list a').count();
+    const tocVisible = await page.locator('#protocol-toc-list').isVisible();
+    await page.locator('#protocol-toc-list a[data-target="p-reserve"]').click();
+    await page.waitForTimeout(900);
+    const reserveTop = await page.locator('#p-reserve').evaluate((el) => el.getBoundingClientRect().top);
+    record('protocol: sticky section index jumps to a section without leaving the route', tocVisible && tocItems >= 12 && reserveTop < 300 && window_hash_is(await page.evaluate(() => window.location.hash)), `${tocItems} items, target top ${Math.round(reserveTop)}`);
+
+    // ---- live mint: judge path + two-experience copy ----
+    await go(page, base, '#/mint', 'panel-mint');
+    const judge = (await page.locator('.judge-path').innerText()).replace(/\s+/g, ' ');
+    record('live mint shows the judge path in order', /1\. Mint an honest issuance.*ACCEPT_VERIFIED.*2\. Break the promise.*REFUSE_ISSUANCE_OMITTED.*3\. Inspect the evidence.*4\. Real-Lightning proof/.test(judge), judge.slice(0, 120));
 
     // ---- lab: one identity across issuances ----
     await go(page, base, '#/lab', 'panel-lab');
@@ -238,6 +410,21 @@ async function main(): Promise<boolean> {
     await browser.close();
   }
 
+  // ---- phone pass, Chromium and WebKit ----
+  for (const [name, type] of [['chromium', chromium], ['webkit', webkit]] as [string, BrowserType][]) {
+    let b;
+    try {
+      b = await type.launch();
+    } catch (err) {
+      record(`${name} 390px: browser available`, false, (err as Error).message.split('\n')[0]);
+      continue;
+    }
+    try {
+      await phoneSuite(b, base, name, shotsDir);
+    } finally {
+      await b.close();
+    }
+  }
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${results.length - failed.length}/${results.length} checks passed.`);
   return failed.length === 0;
