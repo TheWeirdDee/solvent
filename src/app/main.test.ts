@@ -289,12 +289,17 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
   it('I. follows the problem with the solution: issuance through to ACCEPT / REFUSE', async () => {
     await goHome();
     const section = byId<HTMLElement>('solution');
-    expect(byId<HTMLElement>('problem').nextElementSibling).toBe(section);
+    // The plain-words primer sits between the problem and the solution.
+    expect(byId<HTMLElement>('problem').nextElementSibling).toBe(byId<HTMLElement>('primer'));
+    expect(byId<HTMLElement>('primer').nextElementSibling).toBe(section);
+    expect(byId<HTMLElement>('primer').textContent).toMatch(/cashu proof[\s\S]*receipt[\s\S]*epoch[\s\S]*liability commitment[\s\S]*reserve/i);
     expect(section.querySelector('.eyebrow')?.textContent).toMatch(/^the solution$/i);
     expect(section.querySelector('.section-heading')?.textContent).toMatch(/solvent makes\s*the mint.s promise\s*checkable/i);
     const flow = Array.from(section.querySelectorAll('.solution-flow li')).map((li) => li.textContent?.trim());
     expect(flow).toEqual(['Issuance', 'Signed liability receipt', 'Closed accounting state', 'Public Nostr evidence', 'Live Bitcoin reserve', 'Accept / Refuse']);
-    expect(section.textContent).toMatch(/valid token ≠ solvent mint\. solvent checks both\./i);
+    // Precise, not "valid token ≠ solvent mint. SOLVENT checks both."
+    expect(section.textContent).toMatch(/a valid cashu proof does not show that this issuance was counted in the mint.s committed liabilities/i);
+    expect(section.textContent).not.toMatch(/checks both/i);
   });
 
   it('says who it is built for', async () => {
@@ -319,7 +324,8 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(section.textContent).toMatch(/was this ecash really issued/i);
     expect(section.textContent).toMatch(/what did the mint promise/i);
     expect(section.textContent).toMatch(/did the closed epoch keep the promise/i);
-    expect(section.textContent).toMatch(/can the mint cover its committed liability/i);
+    expect(section.textContent).toMatch(/does the observed reserve cover the committed liabilities/i);
+    expect(section.textContent).toMatch(/nine technical checks/i);
   });
 
   it('the reserve section shows the real, live-verified Signet reserve evidence', async () => {
@@ -327,8 +333,12 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     const section = byId<HTMLElement>('reserve');
     expect(section.textContent).toMatch(/bitcoin-signet-mutinynet/i);
     expect(byId<HTMLElement>('reserve-utxo').textContent).not.toBe('unavailable');
-    expect(byId<HTMLElement>('reserve-utxo-state').textContent).toBe('UNSPENT');
-    expect(byId<HTMLElement>('reserve-coverage').textContent).toBe('PASS');
+    // No live mint configured in the test build: the captured run is shown, labelled with its date.
+    await waitFor(() => /CAPTURED REFERENCE RUN/.test(byId<HTMLElement>('reserve-source').textContent ?? ''));
+    expect(byId<HTMLElement>('reserve-source').textContent).toMatch(/Attested .* UTC/);
+    expect(byId<HTMLElement>('reserve-utxo-state').textContent).toBe('UNSPENT (at capture)');
+    expect(byId<HTMLElement>('reserve-coverage').textContent).toBe('COVERED (at capture)');
+    expect(byId<HTMLElement>('reserve-checked').textContent).toMatch(/not a current observation/);
     expect(section.textContent).toMatch(/test network/i);
   });
 
@@ -431,11 +441,12 @@ describe('SOLVENT web client (jsdom) — /verify has exactly two primary modes',
     await goToVerify();
     const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('#panel-verify .mode-tab'));
     expect(tabs.map((t) => t.dataset.mode)).toEqual(['live', 'evidence']);
-    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Live check', 'Verify evidence']);
+    expect(tabs.map((t) => t.textContent?.trim())).toEqual(['Re-check published evidence', 'Verify evidence']);
     expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/create test ecash/i);
     expect(document.getElementById('mode-create')).toBeNull();
     expect(document.getElementById('create-ecash-btn')).toBeNull();
-    expect(byId<HTMLElement>('mode-live').querySelector('.verify-intro-title')?.textContent).toBe('LIVE VERIFICATION');
+    expect(byId<HTMLElement>('mode-live').querySelector('.verify-intro-title')?.textContent).toBe('RE-CHECK PUBLISHED EVIDENCE');
+    expect(byId<HTMLElement>('mode-live').textContent).toMatch(/does not mint new ecash/i);
     expect(byId<HTMLButtonElement>('run-verification-btn').textContent).toMatch(/run live check/i);
     expect(byId<HTMLElement>('mode-evidence').querySelector('.verify-intro-title')?.textContent).toBe('VERIFY YOUR EVIDENCE');
     expect(byId<HTMLButtonElement>('manual-verify-btn').textContent).toMatch(/verify bundle/i);
@@ -482,7 +493,12 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
 
   it('the nine checks use the new wording — "signed epoch manifest", never "published accounting record"', async () => {
     await runLiveCheck();
-    const labels = Array.from(byId<HTMLElement>('progress-steps').querySelectorAll('.step-label')).map((s) => s.firstChild?.textContent?.trim());
+    // One compact progress line while running; the nine checks appear once, in the result.
+    expect(byId<HTMLElement>('progress-steps').querySelectorAll('.progress-step')).toHaveLength(1);
+    expect(byId<HTMLElement>('progress-panel').hidden).toBe(true);
+    expect(document.querySelectorAll('#mode-live .chain-step')).toHaveLength(9);
+    expect(byId<HTMLElement>('decision-chain').textContent).toMatch(/receipt[\s\S]*closed accounting state[\s\S]*public evidence[\s\S]*reserve coverage/i);
+    const labels = Array.from(byId<HTMLElement>('decision-chain').querySelectorAll('.chain-step-label')).map((s) => s.firstChild?.textContent?.trim()).slice(0, 8);
     expect(labels).toEqual([
       '1. Token format',
       '2. Mint origin / NUT-12',
@@ -492,8 +508,9 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
       '6. Liability inclusion',
       '7. Public Nostr retrieval',
       '8. Live reserve',
-      '9. Decision',
     ]);
+    // The ninth row is the decision itself.
+    expect(byId<HTMLElement>('decision-chain').querySelector('.chain-step-final .chain-step-label')?.firstChild?.textContent?.trim()).toBe('ACCEPT');
     expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/published accounting record/i);
   });
 
@@ -519,8 +536,10 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
   it('never substitutes bundled data when the reserve query fails: REFUSE, "LIVE RESERVE UNAVAILABLE", reserve UNAVAILABLE', async () => {
     mockState.reserveLive = { ok: false, spent: false };
     await runLiveCheck();
-    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('decision-headline').textContent).toBe('LIVE RESERVE UNAVAILABLE.');
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
+    expect(byId<HTMLElement>('decision-badge').dataset.resultClass).toBe('availability');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — RESERVE UNREACHABLE.');
+    expect(byId<HTMLButtonElement>('run-again-btn').textContent).toBe('Retry verification');
     expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_UNVERIFIABLE');
     expect(byId<HTMLElement>('live-status-reserve').textContent).toBe('UNAVAILABLE');
     expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
@@ -529,8 +548,9 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
   it('when relays are unreachable: REFUSE, "PUBLIC EVIDENCE UNAVAILABLE", Nostr UNAVAILABLE', async () => {
     mockState.relayOk = false;
     await runLiveCheck();
-    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('decision-headline').textContent).toBe('PUBLIC EVIDENCE UNAVAILABLE.');
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — RELAYS UNREACHABLE.');
+    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_NOSTR_UNAVAILABLE');
     expect(byId<HTMLElement>('live-status-nostr').textContent).toBe('UNAVAILABLE');
     expect(byId<HTMLButtonElement>('accept-btn').disabled).toBe(true);
   });
@@ -538,8 +558,9 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
   it('when relays answer but no longer hold the event: REFUSE, "PUBLIC EVIDENCE NOT FOUND", Nostr NOT FOUND', async () => {
     mockState.nostrEvents = [];
     await runLiveCheck();
-    expect(byId<HTMLElement>('decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
+    expect(byId<HTMLElement>('decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('status').textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
     expect(byId<HTMLElement>('live-status-nostr').textContent).toBe('NOT FOUND');
   });
 
@@ -634,8 +655,8 @@ describe('SOLVENT web client (jsdom) — Verify evidence', () => {
     mockState.nostrEvents = [];
     byId<HTMLButtonElement>('manual-verify-btn').click();
     await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — PUBLIC EVIDENCE NOT FOUND.');
   });
 
   it('D. a locally generated, never-published bundle cannot masquerade as public evidence', async () => {
@@ -646,10 +667,10 @@ describe('SOLVENT web client (jsdom) — Verify evidence', () => {
     // only kind 8181 event it holds — but nothing for this bundle's own
     // (mint identity, epoch).
     await verifyPasted(submissionBundleToJson(local.submissionBundle));
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
     expect(byId<HTMLElement>('manual-status').textContent).toContain('REFUSE_NOSTR_EVENT_NOT_FOUND');
     expect(factValue('manual-decision-facts', 'Local cryptography')).toBe('VALID');
-    expect(factValue('manual-decision-facts', 'Public Nostr retrieval')).toBe('NOT FOUND');
+    expect(factValue('manual-decision-facts', 'Public Nostr retrieval')).toBe('NOT FOUND YET');
     expect(byId<HTMLButtonElement>('manual-accept-btn').disabled).toBe(true);
     expect(byId<HTMLElement>('manual-evidence-content').textContent).toMatch(/Public retrievalNOT VERIFIED/);
   });
@@ -669,10 +690,10 @@ describe('SOLVENT web client (jsdom) — Verify evidence', () => {
     const { createTestEcash } = await import('./protocol-demo.js');
     const { submissionBundleToJson } = await import('./bundle-json.js');
     await verifyPasted(submissionBundleToJson((await createTestEcash()).submissionBundle));
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('⟳ NOT ACCEPTED — COULD NOT COMPLETE');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — PUBLIC EVIDENCE NOT FOUND.');
     expect(byId<HTMLElement>('manual-decision-body').textContent).toBe(
-      'The token and supplied signatures are cryptographically valid, but SOLVENT could not independently retrieve the required accounting event from public relays. Acceptance is blocked.',
+      'The signatures are valid, but the relays that answered did not return the accounting event. Nothing was accepted. If it was just published, retry the verification.',
     );
     expect(byId<HTMLElement>('panel-verify').textContent).not.toMatch(/cryptographic check passed/i);
     // Valid local cryptography is reported only as a secondary fact under the decision.
@@ -707,7 +728,9 @@ describe('SOLVENT web client (jsdom) — Verify evidence', () => {
     const { runScenario } = await import('./protocol-demo.js');
     const { submissionBundleToJson } = await import('./bundle-json.js');
     await verifyPasted(submissionBundleToJson((await runScenario('omitted')).submissionBundle));
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('BROKEN PROMISE.');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('REFUSE — BROKEN PROMISE.');
+    expect(factValue('manual-decision-facts', 'Promised issuance')).toMatch(/MISSING/);
+    expect(factValue('manual-decision-facts', 'Receipt signature')).toBe('VALID');
     const classes = chainStepClasses('manual-decision-chain');
     expect(classes[5]).toContain('chain-step-fail'); // 6. Liability inclusion
     expect(classes[7]).toContain('chain-step-ok'); // reserve still healthy
@@ -734,7 +757,9 @@ describe('SOLVENT web client (jsdom) — Verify evidence error taxonomy', () => 
   it('INVALID JSON: unparseable text never runs verification and never accepts', async () => {
     await verifyPasted('{ this is not json ');
     expect(byId<HTMLElement>('manual-status').textContent).toMatch(/invalid json/i);
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('INPUT ERROR');
+    expect(byId<HTMLElement>('manual-decision-badge').dataset.resultClass).toBe('input');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toMatch(/^Could not verify this input/);
     expect(byId<HTMLElement>('manual-accepted-panel').hidden).toBe(true);
   });
 
@@ -772,14 +797,14 @@ describe('SOLVENT web client (jsdom) — Verify evidence error taxonomy', () => 
   it('UNSUPPORTED MINT: a plain Cashu token carries no liability evidence', async () => {
     const { createTestEcash } = await import('./protocol-demo.js');
     await verifyPasted((await createTestEcash()).token);
-    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✕ REFUSE');
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNSUPPORTED MINT.');
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('INPUT ERROR');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('Could not verify this input — unsupported mint.');
     expect(byId<HTMLElement>('manual-decision-body').textContent).toMatch(/^This mint does not provide the SOLVENT-compatible liability evidence required for full verification\./);
   });
 
   it('UNSUPPORTED MINT: ecash JSON with none of the liability evidence', async () => {
     await verifyPasted(JSON.stringify({ proof: { id: '00ab', amount: 8, secret: 's', C: '02aa' }, mint: 'https://mint.example' }));
-    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('UNSUPPORTED MINT.');
+    expect(byId<HTMLElement>('manual-decision-headline').textContent).toBe('Could not verify this input — unsupported mint.');
   });
 
   it('UNSUPPORTED MINT: a fully-formed bundle whose keyset verify() itself rejects', async () => {
@@ -887,8 +912,8 @@ describe('SOLVENT web client (jsdom) — reference mint lab (#/lab)', () => {
     await goToLab();
     await issue(70_000);
     byId<HTMLButtonElement>('lab-full-btn').click();
-    await waitFor(() => byId<HTMLElement>('lab-decision-badge').textContent === '✕ REFUSE', 8000);
-    expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('PUBLIC EVIDENCE NOT FOUND.');
+    await waitFor(() => byId<HTMLElement>('lab-decision-badge').textContent === '⟳ NOT ACCEPTED — COULD NOT COMPLETE', 8000);
+    expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('VERIFICATION COULD NOT COMPLETE — PUBLIC EVIDENCE NOT FOUND.');
   });
 
   it('a broken promise is caught locally (liability inclusion) and by full verification (BROKEN PROMISE)', async () => {
@@ -899,7 +924,7 @@ describe('SOLVENT web client (jsdom) — reference mint lab (#/lab)', () => {
     byId<HTMLButtonElement>('lab-check-btn').click();
     expect(byId<HTMLElement>('lab-decision-headline').textContent).toBe('LOCAL CHECK FAILED — LIABILITY INCLUSION.');
     byId<HTMLButtonElement>('lab-full-btn').click();
-    await waitFor(() => byId<HTMLElement>('lab-decision-headline').textContent === 'BROKEN PROMISE.', 8000);
+    await waitFor(() => byId<HTMLElement>('lab-decision-headline').textContent === 'REFUSE — BROKEN PROMISE.', 8000);
   });
 
   it('issuing past the 1,000,000-sat reserve produces a real RESERVE SHORTFALL', async () => {
@@ -1015,7 +1040,7 @@ describe('SOLVENT web client (jsdom) — mobile burger nav (keyboard/ARIA/close 
     await goHome();
     const cta = document.querySelector<HTMLAnchorElement>('.nav-drawer-cta')!;
     expect(cta.textContent?.trim().length).toBeGreaterThan(0);
-    expect(cta.getAttribute('href')).toBe('#/verify');
+    expect(cta.getAttribute('href')).toBe('#/mint');
   });
 });
 
@@ -1369,7 +1394,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     window.location.hash = '#/docs?doc=trust-boundaries';
     await waitFor(() => byId<HTMLElement>('docs-doc-content').textContent!.includes('Trust boundaries'));
     const labels = Array.from(document.querySelectorAll('#docs-nav .docs-nav-link')).map((b) => b.textContent);
-    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'FAQ']);
+    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ']);
     expect(document.querySelector('#docs-nav .docs-nav-link.active')?.textContent).toBe('Trust boundaries');
   });
 
@@ -1394,7 +1419,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     await goToDocs();
     const select = byId<HTMLSelectElement>('docs-mobile-select');
     expect(document.querySelector('label[for="docs-mobile-select"]')?.textContent).toMatch(/docs menu/i);
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'draft-alignment', 'verify-in-5', 'deploy-real-mint', 'faq']);
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'reality-map', 'draft-alignment', 'verify-in-5', 'deploy-real-mint', 'deploy-railway', 'demo-runbook', 'readme', 'faq']);
     select.value = 'reserve-attestation';
     select.dispatchEvent(new Event('change'));
     await waitFor(() => window.location.hash.includes('reserve-attestation'));

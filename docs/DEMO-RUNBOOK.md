@@ -28,9 +28,9 @@ If `verify:submission` reports stale live evidence, run `npm run live-demo` (pub
 | --- | --- | --- |
 | 0:00 | https://solvent-ashen.vercel.app/ | "A valid Cashu token proves the mint signed it — not that the mint counted it." The hero terminal shows a reference mint that omitted a promised issuance, decided by the real verifier as the page loads: **PROMISED ISSUANCE OMITTED**. |
 | 0:45 | **Try the live mint** → `#/mint` | A real patched CDK mint on Railway, its NUT-06 identity, and "Demo fakewallet — invoices settle automatically". Nothing to paste. |
-| 1:00 | **Get 64 sats of ecash and verify it** | The mint signs a receipt promising epoch N; the evidence service closes N, publishes it to Nostr; the browser fetches it back from the relays and re-queries the Mutinynet reserve. Result: **ACCEPT_VERIFIED**. |
-| 2:15 | **Get ecash — and make the mint break its promise** | The real epoch closer is told to leave this issuance out. Every signature is still valid and the reserve is healthy. Result: **REFUSE_ISSUANCE_OMITTED**; only the inclusion check fails. |
-| 3:15 | `#/verify` → **Run live check** | The published reference case, re-checked live: **ACCEPT_VERIFIED**. |
+| 1:00 | **Mint & verify an honest issuance** | The operation card appears under the button: the mint signs a receipt promising epoch N; the card counts down to N's close, then shows which relays ACKed the publication; the browser fetches the event back and re-queries the Mutinynet reserve. Result: **ACCEPT_VERIFIED**; the Enforcement card shows accept function calls: 1. |
+| 2:15 | **Start again** → **Break the promise** | Before minting, the page registers this exact issuance for omission; the real epoch closer leaves it out. Receipt VALID, manifest VALID, delegation VALID, public evidence RETRIEVED, reserve COVERED — promised issuance MISSING. Result: **REFUSE — BROKEN PROMISE** (`REFUSE_ISSUANCE_OMITTED`); accept function calls: 0. Open the Nostr event from the result. |
+| 3:15 | `#/verify` → **Re-check published evidence** | A captured reference case, published earlier and re-checked live now (it mints nothing): **ACCEPT_VERIFIED**. |
 | 3:45 | README Evidence table | Real-LND CI runs: 36614823173 (Phase 3A/3B), 36619816959 (NUT-05). |
 
 ## Track B — self-hosted real mint (≈5 min)
@@ -57,8 +57,8 @@ npm run dev
 | Time | Show | Say |
 | --- | --- | --- |
 | 0:00 | `#/mint` header | The Lightning mode shown comes from the sidecar (e.g. "Demo fakewallet — invoices settle automatically"). |
-| 0:30 | **Get 64 sats of ecash and verify it** | Real NUT-04 mint, receipt for epoch N; the sidecar closes N, publishes to Nostr, the browser fetches it back and checks the reserve. Result: **ACCEPT_VERIFIED**. |
-| 2:00 | **Get ecash — and make the mint break its promise** | The sidecar omits this issuance from the next epoch (`SOLVENT_DEMO_ALLOW_OMISSION=1`). All signatures remain valid. Result: **REFUSE_ISSUANCE_OMITTED**, only the inclusion check fails. |
+| 0:30 | **Mint & verify an honest issuance** | Real NUT-04 mint, receipt for epoch N; the sidecar closes N, publishes to Nostr, the browser fetches it back and checks the reserve. Result: **ACCEPT_VERIFIED**. |
+| 2:00 | **Break the promise** | The sidecar omits exactly this issuance from the epoch it was promised to (`SOLVENT_DEMO_ALLOW_OMISSION=1`). All signatures remain valid. Result: **REFUSE_ISSUANCE_OMITTED**, only the inclusion check fails. |
 | 3:30 | `curl -s localhost:8086/v1/solvent/status` | Closed epochs, publication ids, backend label. |
 | 4:00 | `npm run verify:phase3b-evidence -- evidence/real-pol/phase3b-local-fakewallet` | Offline replay of a committed real run. |
 

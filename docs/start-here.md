@@ -1,39 +1,40 @@
-# Start here — check ecash with SOLVENT in 2 minutes
+# Start here — judge SOLVENT in 3 minutes
 
-This is the fastest way to see SOLVENT decide something, entirely in your browser — no terminal, no manual JSON, no account.
+No terminal, no JSON, no account. Everything below runs on the public app, <https://solvent-ashen.vercel.app/>.
 
-## Part 1 — run the live check
+## 1. Mint an honest issuance → `ACCEPT_VERIFIED`
 
-1. Go to **[Verify](#/verify)**. You land on **Live check**.
-2. Before running anything, look at **Reference case**: when the published case was published, how long its Nostr event is valid, and until when its reserve attestation stays fresh.
-3. Click **Run live check** and watch the nine checks: token format, mint origin / NUT-12, PoL receipt, promised epoch, signed epoch manifest, liability inclusion, public Nostr retrieval, live reserve, decision.
-4. Steps 7 and 8 happen now, not ahead of time. SOLVENT fetches the reference case's accounting event from real public Nostr relays and re-queries its reserve UTXO on Bitcoin Signet (Mutinynet). The status strip shows what it found — **Nostr: LIVE / NOT FOUND / UNAVAILABLE**, **Reserve: LIVE / SPENT / UNAVAILABLE** — and when.
-5. The result leads with the decision. When everything checks out you get **ACCEPT** / **ACCEPT VERIFIED**, with the exact Nostr event id and reserve txid:vout that were checked, each linked to a public explorer.
-6. Click **Accept ecash**. This calls SOLVENT's real acceptance function — a genuine, observable state change, not a UI animation — exactly once.
-7. Click **Run the live check again**. Everything is re-fetched and **Last checked** updates.
+Open **[Live mint](#/mint)** and click **Mint & verify an honest issuance**.
 
-If a relay or the reserve can't be reached, or the reference case has aged past its freshness window, the live check says so as a **REFUSE** with the exact reason. It never fills in a result from bundled data.
+- A real, patched CDK Cashu mint (hosted on Railway) issues 64 sats. Its Lightning backend is a labelled demo (**fakewallet**): the invoice settles by itself.
+- The mint signs a **receipt**: a promise to count your issuance in accounting epoch *N*.
+- The operation card shows the wait: epoch *N* closes about every 30 seconds, then its evidence is published to public Nostr relays (you see which relays acknowledged it).
+- SOLVENT then checks the promise in your browser: the closed epoch, the Nostr event fetched back from the relays, and the Bitcoin reserve re-queried on chain.
+- Result: **ACCEPT_VERIFIED**. The **Enforcement** card shows the real acceptance side effect: accept function called **once**.
 
-## Part 2 — verify evidence yourself
+## 2. Break the promise → `REFUSE_ISSUANCE_OMITTED`
 
-8. Switch to **Verify evidence**. Paste a SOLVENT verification bundle, drop a `.json` file onto the box, or click **Load live example** to load the same published reference case.
-9. Click **Verify bundle**. The same nine checks run on whatever you supplied.
-10. A bundle whose signatures are valid but whose accounting event isn't on any public relay is refused as **PUBLIC EVIDENCE NOT FOUND** — its valid local cryptography appears as a secondary fact under the REFUSE, never as the headline. A plain Cashu token with no liability evidence is refused as **UNSUPPORTED MINT**.
+Click **Start again**, then **Break the promise**.
 
-## Product, reference lab, and the real CDK mint
+- Before minting, the page asks the evidence service to have the mint's real epoch closer leave **exactly this issuance** out of the epoch it promises.
+- Every signature is still valid, the evidence is public and the reserve covers what was reported. Only the promise is broken.
+- Result: **REFUSE — BROKEN PROMISE** (`REFUSE_ISSUANCE_OMITTED`). Accept function calls: **0**.
 
-- **The product** is the verifier on `/verify`: the live reference case and SOLVENT-compatible bundles you supply.
-- **The reference mint lab** (`#/lab`, developers only) generates local SOLVENT-compatible proofs for protocol inspection. It is not a production mint and its evidence is never published, so its primary action is **Check local cryptography**, not verification.
-- **The real CDK mint integration** — SOLVENT's accounting running inside a real Cashu Development Kit mint for NUT-04 minting and NUT-03 swaps — is proven in CI. It is not yet the backend behind this web page.
+## 3. Inspect the evidence
 
-See [Trust boundaries](#/docs?doc=trust-boundaries) for the full breakdown.
+On each result, **Open Nostr event** and **Open reserve transaction** show the exact public evidence on independent explorers. **Download public evidence** saves it as JSON. **The nine checks** lists every check under the four questions: receipt, closed accounting state, public evidence, reserve coverage.
 
-## Where does a bundle come from?
+## 4. See it on real Lightning
 
-A SOLVENT-compatible mint exports it with the ecash: a signed receipt, a closed epoch manifest, an inclusion proof, a signed Bitcoin reserve attestation and a signed Nostr event. The bundle is never a claim about its own validity — SOLVENT independently re-derives the reserve and Nostr results live before it decides. See [the verification bundle schema](#/docs?doc=verification-bundle) for the full structure.
+The live mint uses demo Lightning. The same pipeline runs over **real LND** in CI:
 
-## Where to go next
+- [Phase 3A/3B run 36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173): honest `ACCEPT_VERIFIED`, broken promise `REFUSE_ISSUANCE_OMITTED`.
+- [NUT-05 run 36619816959](https://github.com/TheWeirdDee/solvent/actions/runs/36619816959): melt with change accounted for.
 
-- **[Protocol](#/protocol)** — the full technical decision chain, gate by gate.
-- **[Trust boundaries](#/docs?doc=trust-boundaries)** — what this build proves, what it does not change, and the exact published reference case.
-- **[Attack corpus](#/docs?doc=attack-corpus)** — 25 adversarial cases, each run for real.
+## If something is slow or fails
+
+- **"Could not complete"** (amber) means a relay or the reserve API could not be reached. Nothing was accepted. Click **Retry verification**: it re-checks the **same** issuance without minting again.
+- **REFUSE** (red) means the evidence was checked and the mint failed it.
+- **Input error** (grey, on Verify) means the pasted input could not be verified at all. It says nothing about any mint.
+
+Next: [Getting started](#/docs?doc=getting-started) · [Trust boundaries](#/docs?doc=trust-boundaries) · [Protocol](#/protocol)

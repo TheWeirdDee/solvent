@@ -9,12 +9,23 @@ import { renderHeroPanel } from './hero-panel.js';
 import { renderLandingEvidence } from './landing-evidence.js';
 import { initLandingMotion, refreshLandingMotion } from './landing-motion.js';
 import { initRouter, navigate, type Route } from './router.js';
+import { initProtocolToc } from './protocol-toc.js';
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`main: missing #${id}`);
   return el as T;
 }
+
+export const ROUTE_TITLES: Record<Route, string> = {
+  home: 'SOLVENT — Auditable Ecash',
+  mint: 'SOLVENT — Live Mint',
+  verify: 'SOLVENT — Verify',
+  protocol: 'SOLVENT — Protocol',
+  publish: 'SOLVENT — Evidence',
+  docs: 'SOLVENT — Docs',
+  lab: 'SOLVENT — Reference Lab',
+};
 
 function initRouting(): void {
   const routes: Record<Route, HTMLElement> = {
@@ -26,13 +37,11 @@ function initRouting(): void {
     docs: byId('panel-docs'),
     lab: byId('panel-lab'),
   };
-  // No dedicated nav-publish link in the v2 header — the evidence pipeline
-  // is reached via footer/final CTA, not primary nav — so it has nothing
-  // to highlight.
   const navLinks: Partial<Record<Route, HTMLElement>> = {
     home: byId('nav-home'),
     verify: byId('nav-verify'),
     mint: byId('nav-mint'),
+    publish: byId('nav-publish'),
     protocol: byId('nav-protocol'),
     docs: byId('nav-docs'),
   };
@@ -42,6 +51,10 @@ function initRouting(): void {
       routes[key].hidden = key !== route;
       navLinks[key]?.classList.toggle('active', key === route);
     }
+    // Landing-section anchors ("Why", "Reserve"…) are shown only on the
+    // landing page; elsewhere the header is plain site navigation.
+    document.body.dataset.route = route;
+    document.title = ROUTE_TITLES[route];
     // A #/verify?mode=... link clicked from elsewhere in the already-loaded
     // SPA is a same-document hash change, not a fresh page load — the
     // verifier panel's own one-time-at-init deep-link check would never
@@ -174,6 +187,7 @@ initPublisherPanel();
 initDocsPanel();
 initLabPanel();
 initRealMintPanel();
+initProtocolToc();
 void renderHeroPanel();
 renderLandingEvidence();
 // After renderLandingEvidence(): the attack-corpus and FAQ rows it renders

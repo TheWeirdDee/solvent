@@ -8,12 +8,59 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+export const REPO_URL = 'https://github.com/TheWeirdDee/solvent';
+const EXTERNAL = 'target="_blank" rel="noopener noreferrer"';
+
+/** Where the document being rendered lives in the repo, and which repo paths are docs the site renders itself. */
+export interface LinkContext {
+  basePath: string;
+  docIdForPath: (repoPath: string) => string | null;
+}
+
+let ctx: LinkContext = { basePath: 'README.md', docIdForPath: () => null };
+
+function normalizePath(p: string): string {
+  const out: string[] = [];
+  for (const part of p.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') out.pop();
+    else out.push(part);
+  }
+  return out.join('/');
+}
+
+/** Repo-relative links: to a doc the site renders -> in-app route; anything else -> the file on GitHub. */
+export function resolveDocLink(url: string, c: LinkContext = ctx): { href: string; external: boolean } {
+  if (/^(https?:|mailto:)/.test(url)) return { href: url, external: true };
+  if (url.startsWith('#')) return { href: url, external: false };
+  const [pathPart = '', anchor] = url.split('#');
+  const dir = c.basePath.includes('/') ? c.basePath.slice(0, c.basePath.lastIndexOf('/') + 1) : '';
+  const resolved = normalizePath(dir + pathPart);
+  const docId = c.docIdForPath(resolved);
+  if (docId) return { href: `#/docs?doc=${docId}`, external: false };
+  const kind = /\.[a-z0-9]+$/i.test(resolved) ? 'blob' : 'tree';
+  return { href: `${REPO_URL}/${kind}/main/${resolved}${anchor ? `#${anchor}` : ''}`, external: true };
+}
+
+const REPO_PATH = /^(src|evidence|patches|migrations|deploy|docs|tests|\.github)\/[\w./-]+$/;
+
 function renderInline(text: string): string {
   let out = escapeHtml(text);
-  out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+  out = out.replace(/`([^`]+)`/g, (_m, code: string) => {
+    // An inspectable repo path in code is a link to that file.
+    if (REPO_PATH.test(code)) {
+      const r = resolveDocLink(code, { ...ctx, basePath: '' });
+      return `<a href="${r.href}" ${r.external ? EXTERNAL : ''}><code>${code}</code></a>`;
+    }
+    return `<code>${code}</code>`;
+  });
   out = out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   out = out.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
-  out = out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, label: string, url: string) => `<a href="${url}" ${url.startsWith('http') ? 'target="_blank" rel="noreferrer"' : ''}>${label}</a>`);
+  out = out.replace(/\[((?:<code>[^<]*<\/code>|[^\]])+)\]\(([^)]+)\)/g, (_m, label: string, url: string) => {
+    const r = resolveDocLink(url.replace(/&amp;/g, '&'));
+    const inner = label.replace(/<a [^>]*>(<code>[^<]*<\/code>)<\/a>/g, '$1');
+    return `<a href="${r.href}" ${r.external ? EXTERNAL : ''}>${inner}</a>`;
+  });
   return out;
 }
 
@@ -30,7 +77,8 @@ function splitTableRow(line: string): string[] {
     .map((c) => c.trim());
 }
 
-export function renderMarkdown(md: string): string {
+export function renderMarkdown(md: string, linkContext?: LinkContext): string {
+  ctx = linkContext ?? { basePath: 'README.md', docIdForPath: () => null };
   const lines = md.replace(/\r\n/g, '\n').split('\n');
   const html: string[] = [];
   let i = 0;

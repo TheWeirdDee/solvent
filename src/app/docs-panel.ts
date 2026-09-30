@@ -2,7 +2,7 @@
 // that are this repo's actual source of truth (docs-data.ts's `?raw`
 // imports), not a hand-duplicated copy. Desktop gets a sidebar; narrow
 // viewports get a select-driven drawer.
-import { DOCS, docById, type DocEntry } from './docs-data.js';
+import { DOCS, docById, docIdForPath, type DocEntry } from './docs-data.js';
 import { FAQ } from './faq-data.js';
 import { renderMarkdown } from './markdown.js';
 
@@ -33,7 +33,7 @@ export function initDocsPanel(): void {
   function renderDoc(entry: DocEntry) {
     docContent.hidden = false;
     faqContent.hidden = true;
-    docContent.innerHTML = `<article class="doc-article">${renderMarkdown(entry.raw)}</article>`;
+    docContent.innerHTML = `<article class="doc-article">${renderMarkdown(entry.raw, { basePath: entry.path, docIdForPath })}</article>`;
   }
 
   function renderFaq() {

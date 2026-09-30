@@ -39,6 +39,6 @@ The development machine this phase was built on has `cargo`/Rust, but no Docker,
 
 Nothing in this sequence has a fallback that reports success without the real stack actually running — a failure at any step stops the job before the steps after it (GitHub Actions' default behavior; no step uses `continue-on-error`). Confirmed by real execution: [run 35853398175](https://github.com/TheWeirdDee/solvent/actions/runs/35853398175) (2026-09-23) ran every step above for real and passed.
 
-## The one thing this phase deliberately does NOT do
+## What this phase deliberately did NOT do (historical)
 
-Connect any of this to SOLVENT's own PoL protocol (signed receipts, epoch manifests, Nostr publication, reserve attestation). See `DECISIONS.md`'s "Why SOLVENT is not yet connected" and `docs/REALITY-MAP.md`. That is Phase 2's explicit, separately-reviewed scope.
+Phase 1 did not connect any of this to SOLVENT's own PoL protocol (signed receipts, epoch manifests, Nostr publication, reserve attestation). Phases 2–3 did — see `docs/REALITY-MAP.md`'s current status.

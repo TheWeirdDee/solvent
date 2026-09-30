@@ -32,26 +32,38 @@ export const FAQ: FaqEntry[] = [
     linkHref: '#/docs?doc=nostr-schema',
   },
   {
-    q: 'What does the live check actually check?',
-    a: "A real published reference case: a signed receipt, a closed epoch manifest with an inclusion proof, a kind 8181 Nostr event and a Signet reserve attestation. Every run fetches that Nostr event from public relays again and re-queries the reserve UTXO, then runs the real verifier. If a relay or the reserve can't be reached, the result is a REFUSE that says so — nothing is filled in from bundled data.",
-    linkLabel: 'Run the live check',
+    q: 'What is the difference between "Try the live mint" and "Re-check published evidence"?',
+    a: 'Try the live mint creates a fresh issuance on a real patched CDK mint (hosted on Railway), waits for its epoch to close and be published, then verifies it — about 30–90 seconds, with a new receipt, new public evidence and a fresh ACCEPT or REFUSE. Re-check published evidence re-verifies a captured reference case that was published earlier: its Nostr event and reserve are fetched again now, but it mints nothing.',
+    linkLabel: 'Try the live mint',
+    linkHref: '#/mint',
+  },
+  {
+    q: 'Is the Lightning payment on the live mint real?',
+    a: "No — the public mint uses CDK's fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI.",
+    linkLabel: 'Reality map',
+    linkHref: '#/docs?doc=reality-map',
+  },
+  {
+    q: 'What does Re-check published evidence actually check?',
+    a: "A captured, published reference case: a signed receipt, a closed epoch manifest with an inclusion proof, a kind 8181 Nostr event and a Signet reserve attestation. Every run fetches that Nostr event from public relays again and re-queries the reserve UTXO, then runs the real verifier. If a relay or the reserve can't be reached, the result says the check could not complete — nothing is filled in from bundled data.",
+    linkLabel: 'Re-check published evidence',
     linkHref: '#/verify?mode=live',
   },
   {
     q: 'Why is a validly signed bundle refused as PUBLIC EVIDENCE NOT FOUND?',
-    a: "Because SOLVENT requires the mint's accounting event to be independently retrievable from public relays, not just handed to you. A bundle whose event was never published — for example one generated locally in the developer reference lab — can pass every cryptographic check and still refuse (reason code REFUSE_NOSTR_EVENT_NOT_FOUND). Relays that can't be reached at all are reported separately, as PUBLIC EVIDENCE UNAVAILABLE.",
+    a: "Because SOLVENT requires the mint's accounting event to be independently retrievable from public relays, not just handed to you. A bundle whose event was never published — for example one generated locally in the developer reference lab — can pass every cryptographic check and still refuse (reason code REFUSE_NOSTR_EVENT_NOT_FOUND). Relays that can't be reached at all are reported separately (REFUSE_NOSTR_UNAVAILABLE), as a check that could not complete — retry it.",
     linkLabel: 'Trust boundaries',
     linkHref: '#/docs?doc=trust-boundaries',
   },
   {
     q: 'Is the reference case issued by a real mint?',
-    a: "It is issued by SOLVENT's reference mint implementation: real blind signatures, real signed receipts and manifests, a real public Nostr event and a real Signet reserve — but not a production mint, so its token parses in a Cashu wallet with nothing to redeem it against. SOLVENT's accounting also runs inside a real CDK mint (NUT-04 minting and NUT-03 swaps, proven in CI), but that mint is not yet the backend behind this web page.",
+    a: "The captured reference case is issued by SOLVENT's reference mint implementation: real blind signatures, real signed receipts and manifests, a real public Nostr event and a real Signet reserve — but not a production mint. The live mint (#/mint) is different: a real patched CDK mint, hosted publicly, whose every issuance you can verify.",
     linkLabel: 'Trust boundaries',
     linkHref: '#/docs?doc=trust-boundaries',
   },
   {
     q: 'Is the Bitcoin reserve real?',
-    a: 'Yes — this build verifies a real, unspent UTXO on the Mutinynet/Signet test network, independently re-queried on every check. Test-network coins have no monetary value.',
+    a: 'Yes — a real UTXO on the Mutinynet/Signet test network, independently re-queried on every check. Test-network coins have no monetary value. An observed, unspent reserve covering the committed liabilities does not prove the reserve backs only this mint, that no liabilities exist outside the commitment, future solvency, or that a redemption will succeed.',
     linkLabel: 'Reserve attestation',
     linkHref: '#/docs?doc=reserve-attestation',
   },
@@ -61,7 +73,7 @@ export const FAQ: FaqEntry[] = [
   },
   {
     q: 'What happens when SOLVENT accepts a token?',
-    a: 'The token reaches the reference acceptance store exactly once, via a real function call you can watch happen.',
+    a: 'The real accept function runs exactly once for that issuance — retrying or reloading never accepts it twice — and the live mint result shows the call count read back from the store. The store is a local reference store in your browser: it proves the verdict gates a real side effect, and is not a universal Cashu wallet.',
   },
   {
     q: 'Why is the PoL protocol marked as draft?',

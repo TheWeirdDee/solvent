@@ -10,9 +10,11 @@
 # never hands on evidence it hasn't just proven is genuinely live, fresh,
 # and internally consistent.
 #
-# It does NOT deploy. On success it uploads the verified evidence as the
-# `live-evidence` artifact, and deploy-site.yml (triggered by this run's
-# completion) builds and deploys the site with it. Site deployment never
+# It does not deploy by itself. On success it (1) uploads the verified
+# evidence as the `live-evidence` artifact, which deploy-site.yml (triggered
+# by this run's completion) builds into the GitHub Pages mirror, and (2)
+# commits exactly that file to main, which the canonical Vercel app
+# (https://solvent-ashen.vercel.app/, built from git) redeploys from. Site deployment never
 # depends on this workflow succeeding: when relays are unreachable this run
 # fails, and the site keeps serving the last verified evidence — whose live
 # check then truthfully reports its own state.
@@ -24,7 +26,7 @@
 #
 # Manual fallback (if this workflow is disabled or failing): run
 # `npm run live-demo` locally, commit evidence/nostr/live-demo.json, and
-# push — deploy-site.yml deploys it. See README.md.
+# push — Vercel and deploy-site.yml both deploy it. See README.md.
 name: Refresh Live Evidence
 
 on:
@@ -33,7 +35,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
 
 # Only one refresh in flight at a time — a second scheduled/manual run
 # overlapping the first could publish two different Nostr events for two
@@ -95,3 +97,20 @@ jobs:
           path: evidence/nostr/live-demo.json
           retention-days: 30
           if-no-files-found: error
+
+      # The canonical app (Vercel) builds from git, so the verified evidence
+      # must reach main. Only this one file is committed (the attack run above
+      # rewrites evidence/attacks/, which is not part of the refresh).
+      - name: Commit the verified evidence to main (redeploys the Vercel app)
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add evidence/nostr/live-demo.json
+          if git diff --cached --quiet; then echo "evidence unchanged"; exit 0; fi
+          git commit -m 'chore: refresh the published reference evidence'
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin main && git push origin HEAD:main && exit 0
+            sleep 10
+          done
+          exit 1

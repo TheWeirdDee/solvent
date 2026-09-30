@@ -6,6 +6,12 @@ SOLVENT aligns its liability semantics to **Cashu PR #388 / draft Proof-of-Liabi
 
 SOLVENT never refers to it as "NUT-388" in product copy — only "Cashu PR #388 / draft Proof-of-Liabilities proposal."
 
+## Current implementation status (2026-09-30)
+
+- **Where the draft's objects are produced:** a real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`) signs receipts inside its own transactions for NUT-04, NUT-03 and NUT-05; SOLVENT's closer closes real epochs over the mint's own database into signed per-keyset manifests. This runs publicly (the live mint, fakewallet Lightning) and in CI over real LND. The in-process reference mint (`src/cashu/`) remains only for deterministic tests, the attack corpus and the `#/lab` inspector.
+- **Over HTTP:** the mint serves receipts at `GET /v1/solvent/pol-receipt/{B_}`; the SOLVENT evidence service serves each issuance's closed-epoch evidence (manifest, inclusion proof, delegation, reserve binding, Nostr event). These are SOLVENT's routes, **not** the draft's `/v1/pol/...` wire API (see below).
+- **Genuine deviations that remain:** receipts are retrievable rather than inline in the mint response; no OpenTimestamps anchoring; no BLS path; keyset-lifecycle and append-only/consistency fraud challenges are not verified; multi-keyset epochs are refused rather than aggregated.
+
 ## What is implemented byte-exact to the draft
 
 Every item below is validated against the draft's own official test vectors (`tests/pol-tests.md`), not self-authored fixtures — see `tests/pol/mmr.test.ts` and `tests/pol/manifest.test.ts`.
@@ -17,16 +23,16 @@ Every item below is validated against the draft's own official test vectors (`te
 - **Signed transactional PoL receipts**, secp256k1 (version `00`/`01`) path only: `"Cashu_PoL_Receipt_Issued:" || B'_hex || ":" || target_epoch`, BIP-340 Schnorr over `SHA256(message)`, signed/verified with the keyset's per-amount key (the same key used for Cashu blind signing) — `src/pol/receipt.ts`, matches the official vector.
 - **Signed epoch manifest message** (the exact 14-field colon-separated string) and its BIP-340 signature over `SHA256(message)` with the mint's master key — `src/pol/manifest.ts`.
 
-## Deliberate Phase-1 cuts
+## Deliberate cuts
 
-These are named explicitly, per the draft's own "Deliberate Cut" guidance and PRD §10.4:
+These are named explicitly, per the draft's own "Deliberate Cut" guidance and PRD §10.4 (first recorded in Phase 1; still true unless noted):
 
 - **No OpenTimestamps (OTS) anchoring.** The draft's manifest-signature chain is fully real; the OTS-receipt validation described in "Validate OpenTimestamps Attestation" (steps 2-5 of the Verification Protocol) is not implemented. A manifest's authenticity in this build rests entirely on the BIP-340 signature, not on an independent Bitcoin block-header attestation. `ots_receipt` is not part of `ManifestFields`.
 - **No BLS12-381 (version `02`) signature path.** Only the secp256k1 BIP-340 path is implemented, matching Gate 0's supported cryptographic scope.
 - **No keyset lifecycle enforcement.** `active`/`deactivation_epoch` fields exist in `KeysetManifestEntry` and are hashed/signed correctly, but the lifecycle invariants ("Monotonic Status," "Issued MMR Freeze," "Epoch Deadline") described in the draft's "Keyset Lifecycle Commitments" section are not independently checked by SOLVENT's verifier. The `rotation_violation` fraud-challenge type (draft §5) is not implemented.
-- **No `append_only_violation` or `sum_mmr_consistency_violation` fraud-challenge verification** (draft challenge types 2 and 4) — these require comparing two epochs' signed state and would need a persisted epoch history, which is out of scope for the single-epoch hero demonstration built this session.
+- **No `append_only_violation` or `sum_mmr_consistency_violation` fraud-challenge verification** (draft challenge types 2 and 4). The real mint now keeps a persisted, digest-chained epoch history (each manifest commits to `previous_global_digest`, and the closer's audit re-derives every closed epoch), but the holder-side verifier does not yet compare two epochs' signed states.
 - **`manifest_equivocation` detection (draft challenge type 3) is implemented** — Gate 5's `evaluatePolEvidence()` detects two or more distinct, validly-signed evidence states for the same mint identity/epoch and refuses with `REFUSE_NOSTR_CONFLICT` (PRD attack A15). This is Nostr-evidence-level equivocation detection (two different signed manifest digests published as evidence for the same epoch), not the draft's full multi-relay historical-audit workflow.
-- **No HTTP API compatibility** (`GET /v1/pol/{keyset_id}/manifest`, `POST /v1/pol/{keyset_id}/proofs/issued`, etc.) — SOLVENT's fixture mint is an in-process TypeScript module, not an HTTP server implementing the draft's wire API.
+- **No draft wire-API compatibility** (`GET /v1/pol/{keyset_id}/manifest`, `POST /v1/pol/{keyset_id}/proofs/issued`, etc.). The real mint and evidence service are HTTP servers, but they expose SOLVENT's own routes (`/v1/solvent/pol-receipt/{B_}`, `/v1/solvent/issuance/{B_}`), not the draft's. *(Phase 1 wording, superseded: "SOLVENT's fixture mint is an in-process TypeScript module, not an HTTP server".)*
 - **`leaf_omission_or_mismatch` (draft challenge type 1) is implemented** — this is the hero mechanism (`src/pol/fraud.ts`), and is the one challenge type this build actually needs.
 
 ## Phase 2 receipt-delivery correction (found by re-reading the draft directly, not inferred from `src/pol/receipt.ts`)

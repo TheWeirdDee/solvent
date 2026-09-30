@@ -1,4 +1,24 @@
-# Reality map — Phase 1
+# Reality map
+
+## Current status (2026-09-30)
+
+| Where | What runs | Lightning | Real? |
+| --- | --- | --- | --- |
+| **Public app** — <https://solvent-ashen.vercel.app/> (Vercel, static) | The verifier, in the visitor's browser: `verifySubmission()` → `verify()` | — | **Real** verifier; NUT-06 identity, Nostr event and reserve fetched independently |
+| **Live mint** — `https://solvent-production-2029.up.railway.app` (Railway) | Real patched CDK `cdk-mintd` v0.18.1 (`patches/cdk/0001-0009`), persistent SQLite on a volume | **fakewallet** (demo; invoices self-settle), labelled on every page and in the evidence | **Real** mint, receipts, accounting, epochs, manifests, delegation |
+| **Evidence service** — `https://solvent-production-9c92.up.railway.app` (same Railway service) | SOLVENT sidecar: epoch closer, Nostr publisher, evidence API, broken-promise queue, read-only relay fetch | — | **Real** epochs closed and published to public relays (ACK + fetch-back) |
+| **Public Nostr** | kind 8181 on `nos.lol`, `relay.primal.net`, `nostr.mom`, `offchain.pub`, `relay.snort.social` | — | **Real** |
+| **Reserve** | The deployment's own Mutinynet (Bitcoin Signet) UTXO, re-queried on every verification | — | **Real** test-network coins (no monetary value) |
+| **CI — Real Cashu + SOLVENT Integration** | The same patched mint over **real regtest LND**: NUT-04/03/05, Phase 3A epochs, Phase 3B public evidence | **Real LND** | **Real** — runs [36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173), [36619816959](https://github.com/TheWeirdDee/solvent/actions/runs/36619816959) |
+| **Re-check published evidence** (`#/verify`) | A captured reference case published earlier by `npm run live-demo`, re-fetched and re-queried live | — | Real publication; the case itself is a stable reference, not a fresh issuance |
+| **Reference lab** (`#/lab`) | SOLVENT's in-browser reference mint for protocol inspection; never published | — | Local cryptography only, by design |
+| Acceptance side effect | `src/enforcement/accept-gate.ts` behind the verdict, recorded in a local reference store in the browser (`src/app/acceptance-store.ts`) | — | Real side effect, exactly once; not a universal wallet store |
+
+Everything below is the dated build history, kept as it was recorded. Where a row says "not yet", the current status above supersedes it.
+
+---
+
+## Phase 1 snapshot (2026-09-23, historical)
 
 **Never allow "testnet" and "simulated protocol" to be conflated.** Every prior pass of this project used a real test network (Bitcoin Signet/Mutinynet) for the reserve leg, but the Cashu issuance/redemption leg itself ran entirely inside SOLVENT's own process — real cryptography, against a network of exactly one, imaginary participant. This table is the explicit, line-by-line answer to "which of these is real, and which is simulated" for Phase 1.
 
@@ -14,7 +34,7 @@
 | Double-spend rejection | The real mint's own real proof-state tracking rejects a resubmitted spent proof — not a client-side check | — | **NO** |
 | Process-restart persistence | The mint process is killed and restarted against the SAME on-disk SQLite database; already-spent proofs are re-queried in a fresh process and still report SPENT, and a fresh double-spend attempt against them is still refused — proving durable state, not an in-memory artifact | Bitcoin regtest | **NO** |
 | Money | Bitcoin regtest coins | Regtest | Economic value: **NONE** (by construction — regtest coins are worthless everywhere) |
-| SOLVENT PoL (signed receipts, epoch manifests, sum-MMR, reserve attestation, Nostr publication) | **NOT YET CONNECTED IN PHASE 1** — see "Why SOLVENT is not yet connected" in `DECISIONS.md`. This is Phase 2's job. | — | N/A this phase |
+| SOLVENT PoL (signed receipts, epoch manifests, sum-MMR, reserve attestation, Nostr publication) | Not connected *in Phase 1*; connected in Phases 2–3 (see below and the current status above) | — | N/A in Phase 1 |
 | Nostr publication/verification, Bitcoin Signet reserve verification (the existing SOLVENT verifier) | Unchanged, fully preserved from prior passes — see `docs/trust-boundaries.md` | Bitcoin Signet (Mutinynet) + real public Nostr relays | **NO** (already real, and untouched by this phase) |
 | Reference acceptance store (`src/enforcement/accept-gate.ts`'s in-memory `WalletStore`) | Legacy/test-only. **NOT used anywhere in the Phase 1 real Cashu flow** — Phase 1's real acceptance primitive is the mint's own real proof-state transition (UNSPENT → SPENT via a real `/v1/swap`), observed via NUT-07, not this in-memory array. `accept-gate.ts` remains exactly as before for the existing SOLVENT verifier's own Gate 4 demonstrations (a separate, still-valid claim: "SOLVENT's own decision boundary performs a real, observable state mutation iff `verify()` says ACCEPT" — see `docs/trust-boundaries.md`'s "What Gate 4's acceptance does NOT mean"). | — | Legacy/test-only, out of scope for Phase 1 |
 | SOLVENT's own fixture mint (`src/cashu/keys.ts`, `src/cashu/mint-sim.ts`) | Unchanged. Still real `@cashu/cashu-ts` blind-signing/DLEQ cryptography, still used by every existing deterministic test, the attack corpus, and the live browser demo (Try SOLVENT / Create Test Ecash / Live Public Demo) — none of that is touched by Phase 1. Its role going forward is explicitly Lane A (fast, deterministic, no-network verifier testing), never again claimed as "this proves ecash is real." | In-process, no network | Fixture, by design — see "Fixtures remain useful" in `DECISIONS.md` |
@@ -49,14 +69,14 @@ Lane B is confirmed by real execution, not just by code review: [GitHub Actions 
 | NUT-03 (swap) accounting | Real consumed-liability + replacement issued-liability + receipt signing, wired into `SwapSaga::finalize()`'s real transaction (`patches/cdk/0006-*.patch`, `migrations/solvent-accounting/0002_*.sql`) — reuses the existing NUT-04 issued-liability trigger. Real swap (1000=1000+0, 6/6 receipts), real failed-swap/double-spend, real NUT-09 restore-based response-loss recovery, a genuine `kill -9` crash drill inside `finalize()`, two real consecutive swaps with outstanding liability provably unchanged, and swap-scoped restart persistence plus one more real swap after restart. **NUT-03 VERIFIED**, with machine-readable CI evidence from run 36150315347 (commit `4a802bc`, SUCCESS): all 15 required `nut03-*.json` files were produced, and `npm run verify:nut03-evidence` ran 165 checks, 0 failed, exit code 0. Keyset-rotation swap: not tested. | **NO** |
 | NUT-05 (melt) accounting | **Built (Phase 3C).** Inputs become consumed liabilities in CDK's TX1 (existing trigger); change becomes issued liabilities in TX2, with receipts signed in that same transaction (`patches/cdk/0009-*.patch`). See `docs/nut05-melt-accounting.md` | **NO** |
 
-## Phase 3A — real PoL epoch lifecycle (verified locally against a real patched mint; CI not yet run)
+## Phase 3A — real PoL epoch lifecycle (verified locally, then over real LND in CI run 36614823173)
 
 | Component | Implementation | Simulation? |
 | --- | --- | --- |
 | Receipt `target_epoch` | The real OPEN epoch, stamped by SOLVENT's trigger inside CDK's own `BEGIN IMMEDIATE` transaction (`migrations/solvent-accounting/0003_*.sql`). The receipt is signed inside that transaction over the stamped message (`patches/cdk/0007-*.patch`). Phase 2's constant `0` is retired | **NO** |
 | Epoch close | One `BEGIN IMMEDIATE` transaction (`src/epoch/closer.ts`): per-keyset issued and spent sum-MMRs derived from the real liability rows joined to CDK's own `blind_signature` / `proof` rows, a signed manifest per keyset, a chained global digest, then CLOSED plus the next OPEN epoch. Closed epochs are immutable, enforced by triggers | **NO** |
 | Inclusion / omission | Inclusion proofs are drawn from the same leaves the close committed to; the central `verify()` checks them. The broken-promise mode is an explicit operator opt-in on the real closer and yields `REFUSE_ISSUANCE_OMITTED` | **NO** (the omission is a deliberate, labelled demo attack) |
-| Lightning in the Phase 3A local runs | CDK `fakewallet` (invoices self-settle). The CI steps use real regtest LND but have not run yet | **YES — fakewallet, labelled** |
+| Lightning in the Phase 3A local runs | CDK `fakewallet` (invoices self-settle). The CI steps use real regtest LND and passed in run 36614823173 | Local: **fakewallet, labelled**; CI: **real LND** |
 | Nostr publication / reserve binding of real epochs | **Built (Phase 3B)** and verified over real LND in CI run 36614823173 (`docs/phase3b-public-evidence.md`) | **NO** |
 
 Confirmed by real execution across six runs: [35924475422](https://github.com/TheWeirdDee/solvent/actions/runs/35924475422) (2026-09-23, first source-built patched `cdk-mintd`, signing + independent verification + atomicity + reconciliation), [35961052740](https://github.com/TheWeirdDee/solvent/actions/runs/35961052740) (2026-09-24, real receipt recovery + genuine `kill -9` crash drill), [35962153613](https://github.com/TheWeirdDee/solvent/actions/runs/35962153613) (2026-09-24, real retrieval endpoint + real wallet receipt consumption), and — for the NUT-03 continuation — [36004812016](https://github.com/TheWeirdDee/solvent/actions/runs/36004812016) and [36008787769](https://github.com/TheWeirdDee/solvent/actions/runs/36008787769) (2026-09-24, the full real NUT-03 swap suite, every check passing, recorded in CI step logs only), then [36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) (2026-09-25, commit `4a802bc`, SUCCESS — the same suite with its machine-readable NUT-03 evidence: 15/15 `nut03-*.json` files, `verify:nut03-evidence` 165 checks, 0 failed, exit 0).

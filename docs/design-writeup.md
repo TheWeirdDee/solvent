@@ -1,5 +1,7 @@
 # Design write-up
 
+> Historical (Phase 1 design record). The fixture mint discussed below is no longer the integration: SOLVENT now runs inside a real patched CDK mint, publicly and in CI. See `docs/REALITY-MAP.md`.
+
 ## Why liabilities are modeled as issued mint proofs minus burn proofs
 
 Cashu is a blind-signature ecash system: the mint never sees a wallet's final spendable token, only a blinded message it signs. There is no server-side "list of tokens currently in wallets" to publish — that data structurally doesn't exist at the mint. What the mint *can* honestly publish is what it has signed (issuance) and what has come back to it as spent (redemption). Outstanding liabilities is the natural derived quantity:

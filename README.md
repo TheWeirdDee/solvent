@@ -2,14 +2,24 @@
 
 **BOSS Battle 2026 — Freedom Stack (Nostr + Ecash)**
 **Problem:** Auditable Ecash — mint proof-of-reserves and proof-of-liabilities
-**Team:** _(add your name(s) here)_
+**Team:** [TheWeirdDee](https://github.com/TheWeirdDee)
 **License:** MIT
 
 **Public app:** https://solvent-ashen.vercel.app/ — start at the landing page, then **Try the live mint**: a real patched CDK mint and SOLVENT evidence service on Railway, already connected.
-(The same site is also mirrored on GitHub Pages at https://theweirddee.github.io/solvent/.)
-**Demo video:** _(add link here before submission)_ — the script is [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md)
+**Demo video:** DEMO_VIDEO_URL_PENDING — being recorded from [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md)
 
 > The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against the mint's own closed accounting epoch, public Nostr evidence and a live Bitcoin reserve — before the ecash is accepted.
+
+## Demo
+
+**Judge SOLVENT in 3 minutes** on https://solvent-ashen.vercel.app/#/mint:
+
+1. **Mint & verify an honest issuance** → `ACCEPT_VERIFIED` (the accept function is called once).
+2. **Break the promise** → `REFUSE_ISSUANCE_OMITTED`: every signature valid, public evidence retrieved, reserve covering — only the promised issuance is missing. The accept function is not called.
+3. **Inspect the evidence**: open the Nostr event and the reserve transaction from the result, or download it.
+4. **Real Lightning**: the live mint uses demo (fakewallet) Lightning; the same pipeline over real LND is in the [Evidence](#evidence) CI runs.
+
+Video: DEMO_VIDEO_URL_PENDING. Script: [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md). Step-by-step: [`docs/start-here.md`](docs/start-here.md).
 
 ## What SOLVENT is
 
@@ -32,11 +42,11 @@ The protocol follows the Cashu PR #388 Proof-of-Liabilities draft (receipts, sum
 
 | What | How |
 | --- | --- |
-| **Public app** | https://solvent-ashen.vercel.app/. **Try the live mint** (`#/mint`) issues real ecash from the Railway-hosted mint: **Get 64 sats of ecash and verify it** (ACCEPT), then **make the mint break its promise** (REFUSE). No URLs or JSON to paste. `#/verify` runs the Live Public Demo (a published reference case, re-checked against live relays and the live reserve) |
+| **Public app** | https://solvent-ashen.vercel.app/. **Try the live mint** (`#/mint`) issues real ecash from the Railway-hosted mint: **Mint & verify an honest issuance** (ACCEPT), then **Break the promise** (REFUSE). No URLs or JSON to paste. **Re-check published evidence** (`#/verify`) re-verifies a captured reference case against live relays and the chain; it mints nothing |
 | **Live backend** | Mint https://solvent-production-2029.up.railway.app · evidence https://solvent-production-9c92.up.railway.app (Railway; [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). Lightning is **fakewallet** there, and the page says so |
-| **Real mint, locally** | Start a patched `cdk-mintd` and the sidecar ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md); `deploy/docker-compose.yml`), then open `#/mint?mint=<mint URL>&evidence=<sidecar URL>`. Click **Get ecash and verify it** (ACCEPT), then **make the mint break its promise** (REFUSE) |
+| **Real mint, locally** | Start a patched `cdk-mintd` and the sidecar ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md); `deploy/docker-compose.yml`), then open `#/mint?mint=<mint URL>&evidence=<sidecar URL>`. Click **Mint & verify an honest issuance** (ACCEPT), then **Break the promise** (REFUSE) |
 | **One-command checks** | `npm run verify:submission` (mechanism, attack corpus, live reference case); `npm run verify:phase3b-evidence -- evidence/real-pol/phase3b-local-fakewallet` (offline replay of a real public-evidence run) |
-| **Real-mint browser E2E** | `npm run verify:real-mint:browser -- <site> <mint URL> <sidecar URL>` |
+| **Real-mint browser E2E** | `npm run verify:public-app` (the exact public app) or `npm run verify:real-mint:browser -- <site> <mint URL> <sidecar URL> [--browser webkit --width 390]` |
 
 ## Architecture
 
@@ -76,11 +86,11 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 - Nostr kind 8181 publication on public relays, with ACK and exact fetch-back;
 - the central verifier's ACCEPT and REFUSE decisions, including the broken promise.
 
-**Demo- or deployment-specific:**
+**Public interactive deployment** (https://solvent-ashen.vercel.app/ + Railway): real patched CDK mint, real receipts, accounting, epochs, manifests and delegation, real public Nostr, a real Mutinynet reserve and the real verifier — with CDK **fakewallet** Lightning, where invoices settle by themselves. It is labelled so in the UI and in the evidence, and never called real Lightning.
 
-- The public site's Live Public Demo is a published *reference* case, re-checked live on every run.
-- A public interactive mint may use CDK **fakewallet** Lightning, where invoices settle by themselves. It is always labelled so, in the UI and in the evidence. It is never called real Lightning.
-- The network is a **test network** (Mutinynet / Bitcoin Signet), not Bitcoin mainnet.
+**CI evidence:** the same mint over **real LND**, the full Phase 3B public evidence, and real NUT-05 (see [Evidence](#evidence)).
+
+**Also:** *Re-check published evidence* verifies a captured *reference* case (published earlier, re-checked live); the network is a **test network** (Mutinynet / Bitcoin Signet), not Bitcoin mainnet.
 
 **Limitations:**
 
@@ -88,7 +98,8 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 - Multi-keyset epochs are refused (`REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE`), not aggregated.
 - A remote (gRPC) signatory cannot sign the mint-identity delegation, so it fails closed.
 - Public relay availability matters. When evidence can't be fetched, SOLVENT refuses (`REFUSE_NOSTR_EVENT_NOT_FOUND` or `…_UNAVAILABLE`).
-- The real mint's public hosting is packaged and CI-tested, not assumed: Docker Compose for any Linux host (`deploy/`, [`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)) and Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). A public deployment runs fakewallet Lightning and says so; the real-LND evidence is the CI runs below.
+- The public mint runs fakewallet Lightning (labelled); real LND is proven in CI. Hosting is reproducible: Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)) or Docker Compose on any Linux host ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)).
+- The HTTPS relay fetch (used only when a browser cannot open relay WebSockets) is run by the mint's own evidence service; its result is still verified in the browser, but "was it published" then rests on that service querying the relays honestly. See [`docs/trust-boundaries.md`](docs/trust-boundaries.md).
 
 The complete line-by-line table is in [`docs/REALITY-MAP.md`](docs/REALITY-MAP.md), and the decision history in [`DECISIONS.md`](DECISIONS.md).
 
@@ -120,10 +131,10 @@ A reserve-ratio dashboard cannot catch this — the ratio is computed from whate
 
 Hash-routed single page:
 
-- **`/`** — the broken-promise story in plain language.
-- **`/mint`** — the real-mint flow: get ecash from a patched CDK mint, see its signed promise, wait for the epoch, verify. It can also run the real broken-promise demo.
-- **`/verify`** — the Live Public Demo (a real published reference case, re-checked live), plus manual bundle verification.
-- **`/publish`** — the real mint-operator evidence pipeline.
+- **`/`** — the broken-promise story in plain language, with live observations of the Railway mint.
+- **`/mint`** — **Live mint**: a fresh issuance on the real patched CDK mint, its signed promise, the epoch wait, verification, the enforcement card, evidence links and downloads. Also the broken-promise run and Retry verification.
+- **`/verify`** — **Re-check published evidence** (a captured reference case, re-checked live) and **Verify evidence** (paste, upload or drop a bundle).
+- **`/publish`** — **Evidence**: the mint-operator evidence pipeline.
 - **`/protocol`** — the decision chain `verify()` runs.
 - **`/docs`** — all documentation, including deployment.
 - **`/lab`** — developer reference mint in the browser. It is never publicly published, so its evidence can't be accepted.
@@ -156,7 +167,7 @@ npm run gate4     # real acceptance side effect
 npm run gate5     # real Nostr publish/fetch against public relays
 npm run gate6     # real Signet reserve attestation
 npm run attacks   # the full 25-case attack corpus
-npm run live-demo         # generates + publishes the reference case used by /verify's Live check and "Load live example"
+npm run live-demo         # generates + publishes the reference case used by /verify's Re-check published evidence and "Load live example"
 npm run live-demo:release # live-demo + build in one step — the evidence is bundled at build time, so a rebuild is required for a deployed site to see it
 npm run verify:live-demo  # independently re-verifies the Live Public Demo is still live + fresh right now (real relay fetch, real Esplora query, network-aware exact expiry)
 npm run verify:deployed -- <url>         # confirms a DEPLOYED build (not just local dist/) is serving the current canonical evidence, via a real fetch
@@ -177,14 +188,14 @@ npm run dev
 Opens on the landing page (`/`): the problem (a valid Cashu token doesn't prove the mint counted what it owes), the solution, who it's for, and the broken-promise story. It links into:
 
 - **Verify** (`/verify`) — two modes:
-  - **Live check** — runs SOLVENT against the published reference case (`evidence/nostr/live-demo.json`, published by `npm run live-demo`). Every run re-fetches its Nostr event from real public relays and re-queries its reserve UTXO on Bitcoin Signet (Mutinynet), then runs the real verifier. It shows when the case was published and when its evidence expires, "Last checked", Nostr LIVE / NOT FOUND / UNAVAILABLE, Reserve LIVE / SPENT / UNAVAILABLE, and the exact event id and reserve txid:vout it checked. Nothing is substituted from bundled data when a request fails — the result is a REFUSE naming what couldn't be checked.
+  - **Re-check published evidence** — runs SOLVENT against the published reference case (`evidence/nostr/live-demo.json`, published by `npm run live-demo`). Every run re-fetches its Nostr event from real public relays and re-queries its reserve UTXO on Bitcoin Signet (Mutinynet), then runs the real verifier. It shows when the case was published and when its evidence expires, "Last checked", Nostr LIVE / NOT FOUND / UNAVAILABLE, Reserve LIVE / SPENT / UNAVAILABLE, and the exact event id and reserve txid:vout it checked. Nothing is substituted from bundled data when a request fails — the result is a REFUSE naming what couldn't be checked.
   - **Verify evidence** — paste or upload a SOLVENT verification bundle, or click **Load live example** to load the same published reference case. See `docs/verification-bundle.md` for the schema. A plain Cashu token, or a bundle with no liability evidence, is refused as **UNSUPPORTED MINT**.
 
   Both modes run the same nine checks (token format, mint origin / NUT-12, PoL receipt, promised epoch, signed epoch manifest, liability inclusion, public Nostr retrieval, live reserve, decision). The result always leads with the decision (**ACCEPT** or **REFUSE**) and its reason; partial facts such as "local cryptography: valid" sit beneath it. **Accept ecash** is wired to the real Gate 4 acceptance boundary (enabled only on `ACCEPT_VERIFIED`, called exactly once). Raw JSON lives behind collapsed "View raw bundle" / "View result JSON" toggles.
 - **Protocol** (`/protocol`), **Docs** (`/docs`), and a read-only **evidence pipeline** view (`/publish`).
 - **Reference mint lab** (`#/lab`, developers only — linked from the footer, not the navigation) — SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated), a new proof, receipt and closed epoch per issuance, and a choice of amounts. Its evidence is never published, so its primary action is **Check local cryptography**; a full verification of lab evidence refuses with PUBLIC EVIDENCE NOT FOUND. It can also break a promise on purpose (BROKEN PROMISE) or issue past the reserve (RESERVE SHORTFALL).
 
-The real CDK mint integration (NUT-04 / NUT-03 accounting, proven in CI) is not the backend behind this web page — see `docs/trust-boundaries.md`'s "Product, reference lab, and the real CDK integration".
+The real CDK mint is the backend behind **Live mint** (`#/mint`): the Railway-hosted patched `cdk-mintd` with fakewallet Lightning. The same mint runs over real LND in CI. See `docs/trust-boundaries.md`'s "What the app runs against".
 
 ### The two-tier Nostr guarantee
 
@@ -203,7 +214,7 @@ Honest notes:
 
 | Case | Expected result |
 | --- | --- |
-| Published reference case — issuance included, public Nostr evidence retrieved live, reserve covers it | **ACCEPT VERIFIED** (Live check) |
+| Published reference case — issuance included, public Nostr evidence retrieved live, reserve covers it | **ACCEPT VERIFIED** (Re-check published evidence) |
 | BROKEN PROMISE — promised issuance omitted from the closed epoch | **REFUSE — `REFUSE_ISSUANCE_OMITTED`** (even though reserve is healthy) |
 | RESERVE SHORTFALL — issuance correctly included, but reserve below liabilities | **REFUSE — `REFUSE_RESERVE_SHORT`** |
 | Signed evidence that was never published | **REFUSE — `REFUSE_NOSTR_EVENT_NOT_FOUND`** |
@@ -275,24 +286,24 @@ Read [`docs/trust-boundaries.md`](docs/trust-boundaries.md) before trusting an `
 
 ## Deployment
 
-**Provider:** GitHub Pages (project site), via the repo's own `pages: write`/`id-token: write` permissions — no third-party account or repository secret required. Enabled with build source "GitHub Actions". Public URL: `https://<owner>.github.io/<repo>/` (see the repo's Pages settings for the exact current value).
-
-**Two workflows, deliberately separate** — a relay outage must never take the site offline:
-
-- **`.github/workflows/deploy-site.yml` (Deploy Site)** — on every push to main, on demand, and after each successful refresh. Builds and deploys the static site with the newest *already-verified* live evidence (the committed file, or a newer copy from the latest successful refresh run — checked offline only, see `src/cli/select-live-evidence.ts`), then smoke-tests the deployed site (`verify:deployed`, and `verify:ui:browser`, which passes whether the live evidence is healthy or not). A separate `live-acceptance` job then runs `verify:deployed:browser`, which fails when the deployed live check is not ACCEPT right now — a signal to refresh, never a reason to take the site down.
-- **`.github/workflows/refresh-live-demo.yml` (Refresh Live Evidence)** — twice a day and on demand. Regenerates and publishes the reference case (up to three publish attempts), then `verify:live-demo` → `npm test` → `npm run attacks` → `verify:submission`, failing closed at every step. Only on success does it upload the evidence as the `live-evidence` artifact, which triggers a deploy. It never deploys by itself.
-
-```
-Refresh Live Evidence:  live-demo (publish) -> verify:live-demo -> test -> attacks -> verify:submission -> upload artifact
-Deploy Site:            select newest verified evidence (offline) -> test -> build -> deploy -> verify:deployed -> verify:ui:browser
-                        live-acceptance (separate job): verify:deployed:browser (strict ACCEPT)
+```text
+visitor ──► Vercel: https://solvent-ashen.vercel.app/   canonical frontend (static build from main)
+               │  (GitHub Pages mirror: https://theweirddee.github.io/solvent/)
+               ▼
+            Railway: one service (railway.toml -> deploy/railway/Dockerfile), volume /data
+               ├── mint      https://solvent-production-2029.up.railway.app   patched cdk-mintd, fakewallet
+               └── evidence  https://solvent-production-9c92.up.railway.app   SOLVENT sidecar
+               ▼
+            public Nostr relays + Mutinynet reserve
 ```
 
-Freshness window ~7 days (network-aware — see `docs/trust-boundaries.md`'s "Effective expiry"). If the refresh keeps failing, the deployed live check reports the evidence's real state (LIVE EVIDENCE EXPIRED / PUBLIC EVIDENCE UNAVAILABLE) — nothing is faked. Both workflows pass on GitHub: a manual Refresh Live Evidence run ([36620157568](https://github.com/TheWeirdDee/solvent/actions/runs/36620157568)) triggered a Deploy Site run ([36620304510](https://github.com/TheWeirdDee/solvent/actions/runs/36620304510)) whose deployed bundle, 51/51 browser smoke test and strict live check (ACCEPT VERIFIED in a real browser) all passed.
+- **Frontend — Vercel (canonical).** Vercel builds `npm run build` from every push to `main`. `.env.production` points `#/mint` at the Railway mint and evidence service by default. `#/mint?mint=&evidence=` still overrides them.
+- **Backend — Railway.** The mint and the SOLVENT sidecar run in one service, sharing one SQLite file on one volume ([`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). Railway rebuilds on pushes that touch its watch paths. Live-mint evidence is fetched from Railway at run time, so it never needs a frontend redeploy.
+- **Reference evidence refresh.** *Re-check published evidence* uses `evidence/nostr/live-demo.json`, bundled into the static build. Its reserve attestation stays fresh for about 7 days. `.github/workflows/refresh-live-demo.yml` regenerates and republishes it twice a day, fails closed through `verify:live-demo`, tests, attacks and `verify:submission`, and then commits the one file to `main`. That redeploys Vercel, and the `live-evidence` artifact redeploys the GitHub Pages mirror.
+- **GitHub Pages (secondary mirror).** `.github/workflows/deploy-site.yml` deploys the same build to Pages, smoke-tests it (`verify:deployed`, `verify:ui:browser`), and runs a strict live-acceptance job.
+- **Deploy Stack Check** builds and runs both the Compose stack and the Railway image in CI. It drives the real browser flows, restarts the Railway image to prove its state persists, and checks its start guards.
 
-**Real mint hosting** is separate from the static site: see [`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md). The Deploy Stack Check workflow builds and runs that stack in CI.
-
-**Manual fallback:** run `npm run live-demo` locally, commit `evidence/nostr/live-demo.json`, and push — Deploy Site deploys it. Then `npm run verify:deployed -- <url>` and `npm run verify:deployed:browser -- <url>` confirm the deployed site picked it up.
+**Manual fallback:** run `npm run live-demo`, commit `evidence/nostr/live-demo.json`, and push. Then `npm run verify:public-app` checks the exact public app end to end.
 
 ## Testing
 
@@ -308,4 +319,4 @@ TypeScript, Node 24, Vite (vanilla TS, no framework), Vitest, `@cashu/cashu-ts` 
 
 ## Future work
 
-A persistent public host for the real mint (packaged in `deploy/`); multi-keyset epoch aggregation; a remote-signatory RPC for the mint-identity delegation; a second, fully live Signet reserve funding path without a human-solved faucet step; the remaining PR #388 fraud-challenge types (`append_only_violation`, `sum_mmr_consistency_violation`, keyset-lifecycle enforcement); OpenTimestamps anchoring; and wallet integrations that call `verify()` as a real accept gate outside this demo client. Full list in `docs/draft-alignment.md`.
+Real (non-fakewallet) Lightning on the public mint; multi-keyset epoch aggregation; a remote-signatory RPC for the mint-identity delegation; a second, fully live Signet reserve funding path without a human-solved faucet step; the remaining PR #388 fraud-challenge types (`append_only_violation`, `sum_mmr_consistency_violation`, keyset-lifecycle enforcement); OpenTimestamps anchoring; and wallet integrations that call `verify()` as a real accept gate outside this demo client. Full list in `docs/draft-alignment.md`.

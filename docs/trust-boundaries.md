@@ -1,22 +1,50 @@
 # Trust boundaries — what is real, what is not (yet)
 
-## Product, reference lab, and the real CDK integration
+## What the app runs against
 
-These are three different things, and the web app keeps them apart.
+The public app, <https://solvent-ashen.vercel.app/>, has four experiences, and keeps them apart.
 
-**Public product** (`/verify`)
-- The verifier: the nine checks, fed through `verifySubmission()` and the central `verify()`.
-- **Live check** — the published reference case (`evidence/nostr/live-demo.json`), whose Nostr event is re-fetched from public relays and whose reserve UTXO is re-queried on every run.
-- **Verify evidence** — SOLVENT-compatible bundles someone else supplies, checked the same way.
+**Live mint** (`#/mint`): a fresh issuance on the real mint.
+- The mint is a real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`), hosted on Railway with persistent SQLite.
+- Its Lightning is **fakewallet** (demo). That is labelled on the page and recorded in the evidence.
+- Receipts, epochs, manifests, the NUT-06 delegation, public Nostr and the Mutinynet reserve are all real.
+- The same pipeline runs over **real LND** in CI (`.github/workflows/real-cashu-integration.yml`; runs 36614823173 and 36619816959).
 
-**Reference mint lab** (`#/lab`, developers only — not in the primary navigation)
-- A local reference proof generator: SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated or reset).
-- Not a production mint.
-- Its evidence is private and generated locally; it is never published, so it is never publicly retrievable. Its primary action is therefore **Check local cryptography**; a full verification of lab evidence refuses with `REFUSE_NOSTR_EVENT_NOT_FOUND` unless an earlier check fails first.
+**Re-check published evidence** (`#/verify`, first tab): a **captured reference case**.
+- It was published earlier (`evidence/nostr/live-demo.json`, by `npm run live-demo`, refreshed twice a day).
+- Its Nostr event is re-fetched from public relays and its reserve re-queried on every run.
+- It mints nothing, and its publication date is shown before it runs.
 
-**Real CDK integration** (Phase 2 — `patches/cdk/`, `migrations/solvent-accounting/`)
-- SOLVENT's accounting runs inside a real `cdk-mintd` for NUT-04 minting and NUT-03 swaps, proven in CI (`.github/workflows/real-cashu-integration.yml`; see `docs/REALITY-MAP.md`).
-- It is **not** the browser's mint backend. The published reference case is issued by SOLVENT's reference implementation, and real CDK-derived epoch publication is not yet the public web path.
+**Verify evidence** (`#/verify`, second tab): SOLVENT-compatible bundles someone supplies, checked the same way. A replay bundle downloaded from a live-mint result is one.
+
+**Reference lab** (`#/lab`, developers only): SOLVENT's in-browser reference mint for inspecting the protocol.
+- It is never published, so a full verification of its evidence refuses with `REFUSE_NOSTR_EVENT_NOT_FOUND`.
+- Its primary action is **Check local cryptography**.
+
+### The HTTPS relay fetch: what it changes, and what it does not
+
+Some browsers and networks cannot open raw relay WebSockets. Playwright's WebKit on Windows, for example, opens no relay socket at all. For them, the evidence service offers `GET /v1/solvent/nostr/event/<event id>`. It queries its **fixed** public relay list for that **exact** event id and returns the raw signed events with per-relay results. It never answers from its own publication records, and accepts no caller-supplied relay URLs.
+
+The browser uses it **only** when its own relay connections did not return the event. It then verifies what comes back exactly like a directly fetched event:
+- event id;
+- BIP-340 signature;
+- kind and schema;
+- mint identity and epoch;
+- manifest, delegation and reserve-binding digests;
+- freshness.
+
+The result names the path used ("retrieved through the HTTPS relay fetch").
+
+What it does **not** give is independence on the question "was this published?". That service is operated by the mint being audited. A dishonest operator could return a validly signed event it never published. Its signature would still be valid, but it would not be public. Direct retrieval by the browser is therefore always tried first. Anyone can confirm publication independently from the event id, which every result links (njump.me) and lists relay by relay.
+
+### The acceptance side effect: its scope
+
+The Accept side effect is the real Gate 4 boundary (`src/enforcement/accept-gate.ts`): real cashu-ts token encoding, committed to a store only when `verify()` says ACCEPT. On the live mint it is recorded in a **local reference store in the browser** (`src/app/acceptance-store.ts`), which the result reads back:
+- accept-function calls;
+- record stored;
+- accepted-at time.
+
+It is exactly-once per issuance: retrying or reloading never accepts twice, and a REFUSE never calls it. It proves the verdict gates a real side effect. It is **not** a universal Cashu wallet acceptance store; a real wallet would put its own import/accept logic behind the same gate.
 
 ## REAL in this build
 
@@ -29,7 +57,7 @@ These are three different things, and the web app keeps them apart.
 - **Nostr public evidence (Gate 5).** `src/nostr/pol-event.ts` (real BIP-340-signed kind-8181 events, schema `solvent/pol/v2`) and `src/nostr/pol-evidence.ts` (real publish to public relays via `nostr-tools`' `SimplePool`, real independent fetch-back, and `evaluatePolEvidence()` — real signature verification, freshness, digest-binding, and conflicting-state detection) are real. `npm run gate5` demonstrates a genuine end-to-end round trip against `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.nostr.band` (evidence: `evidence/nostr/`). See `docs/nostr-schema.md`.
 - **Reserve attestation mechanism (Gate 6).** `src/reserve/taproot.ts` (real Taproot key-path address derivation via `@scure/btc-signer`, including the real BIP-341 key tweak), `src/reserve/statement.ts` (real dual BIP-340 signatures — reserve key and mint master key), and `src/reserve/evaluate.ts` (`evaluateReserveAttestation()` — real independent re-verification against Esplora-shaped chain state: signature/binding validity, existence, spent status, value/script matching, staleness, coverage) are real and fully tested (`tests/reserve/evaluate.test.ts`), backed by a real, funded Signet UTXO — see "Gate 6's live reserve" below.
 - **25/25 of the PRD §11 attack battery** (A01-A25) — every attack constructs real adversarial state and runs it through the real `verify()`/`evaluatePolEvidence()`/`evaluateReserveAttestation()` code paths; see `ATTACKS.md`.
-- **The Live Public Demo, with a network-aware freshness policy and a bounded relay-fetch retry.** `npm run live-demo` (`src/cli/live-demo.ts`) generates one complete, mutually-consistent evidence bundle and publishes its Nostr event, for real, to public relays (`evidence/nostr/live-demo.json`). /verify's **Live check** (and **Verify evidence**'s "Load live example") loads this bundle and independently re-verifies it — including a real live relay fetch that genuinely finds it, with one bounded retry absorbing transient relay misses — on every run, through `verifyCanonicalLiveDemo()`, the ONE loader+verifier `npm run verify:live-demo` and `npm run verify:submission` also use. See "The Live Public Demo" and "The two-tier Nostr guarantee" below.
+- **The Live Public Demo, with a network-aware freshness policy and a bounded relay-fetch retry.** `npm run live-demo` (`src/cli/live-demo.ts`) generates one complete, mutually-consistent evidence bundle and publishes its Nostr event, for real, to public relays (`evidence/nostr/live-demo.json`). /verify's **Re-check published evidence** (and **Verify evidence**'s "Load live example") loads this bundle and independently re-verifies it — including a real live relay fetch that genuinely finds it, with one bounded retry absorbing transient relay misses — on every run, through `verifyCanonicalLiveDemo()`, the ONE loader+verifier `npm run verify:live-demo` and `npm run verify:submission` also use. See "The Live Public Demo" and "The two-tier Nostr guarantee" below.
 
 ## Gate 6's live reserve — resolved
 
@@ -55,7 +83,7 @@ Earlier builds of this pass let a cryptographically valid signed event that a bu
 
 `src/app/submission.ts`'s `evaluateNostrIndependently()` now keeps these strictly separate:
 
-- Every verification (Live check, Verify evidence, and the lab's full verification alike) genuinely attempts a real, multi-relay fetch (`fetchPolEvidence()`, the same call Gate 5 uses) for the bundle's own `(mint_identity, epoch)`, every time, never skipped.
+- Every verification (the live mint, Re-check published evidence, Verify evidence, and the lab's full verification alike) genuinely attempts a real, multi-relay fetch (`fetchPolEvidence()`, the same call Gate 5 uses) for the bundle's own `(mint_identity, epoch)`, every time, never skipped.
 - `providedCopyValid` (informational only, shown in the evidence panel, **never gates ACCEPT**) — is the bundle's own private copy cryptographically valid on its own.
 - `publicationVerified` / `verified` (the actual gate fed into `verify()`) — is true **only** when a public relay genuinely returns this evidence. A bundle whose event cannot be found publicly gets a REFUSE — even when its own private copy is perfectly valid. There is no fallback path from "cryptographically valid" to "accepted" that skips public retrieval.
 
@@ -120,22 +148,30 @@ Why: kind 8181 is deliberately **regular/immutable**, not NIP-33 parameterized-r
 
 ### Automated deployment refresh
 
-`.github/workflows/refresh-live-demo.yml` closes the loop end to end, on a schedule (daily, `0 6 * * *` UTC) and on demand (`workflow_dispatch`):
+`.github/workflows/refresh-live-demo.yml` runs twice a day (`0 6,18 * * *` UTC) and on demand:
 
 ```
-npm ci → npm run live-demo → npm run verify:live-demo → npm test → npm run attacks
-  → npm run verify:submission → npm run build → deploy to GitHub Pages
-  → npm run verify:deployed (real fetch check of the DEPLOYED bundle)
-  → npm run verify:deployed:browser (real headless-browser ACCEPT VERIFIED check of the DEPLOYED site)
+npm ci -> npm run live-demo (publish) -> verify:live-demo -> npm test -> npm run attacks -> verify:submission
+  -> upload the `live-evidence` artifact  (deploy-site.yml builds it into the GitHub Pages mirror)
+  -> commit evidence/nostr/live-demo.json to main  (Vercel, the canonical app, redeploys from git)
 ```
 
-Fail-closed at every step: a failure at any point before deployment means nothing deploys; a failure in either post-deploy check means the workflow itself fails even though a deploy already happened (there is no step that "deploys anyway" on a check failure). **Provider: GitHub Pages**, chosen specifically because it needs zero additional secrets or accounts — deployment authenticates via the workflow's own built-in `GITHUB_TOKEN`/OIDC (`pages: write`, `id-token: write` permissions), not a stored repository secret. Pages was enabled with build source "GitHub Actions" (a one-time repo setting, not part of the workflow itself).
+Fail-closed at every step: nothing is uploaded or committed unless every gate passes. The canonical frontend is Vercel (<https://solvent-ashen.vercel.app/>), which builds from `main`. GitHub Pages is a secondary mirror, deployed and smoke-tested by `deploy-site.yml` (`verify:deployed`, `verify:ui:browser`, and a strict `verify:deployed:browser` live-acceptance job).
 
-**Refresh cadence vs. freshness window:** the freshness window is ~1 week (network-aware, see above); the refresh cadence is 1 day; the safety margin is therefore ~6 days — a temporary CI outage, GitHub Pages incident, or a skipped run does not immediately take the deployed demo down.
+Live-mint evidence is different. It comes from the Railway evidence service at run time, so it never needs a frontend redeploy.
 
-**`verify:deployed` vs. `verify:deployed:browser`:** the former is a lightweight check (fetch the deployed `index.html`, follow its `<script src>` references, confirm the current live-demo Nostr event id is literally present in the served bundle text — proves the deployment picked up the *right build*) — the latter is the strongest available check (a real headless Chromium loads the deployed site, clicks through Try SOLVENT's LIVE PUBLIC DEMO case exactly as a judge would, and asserts a real `ACCEPT VERIFIED` — proves the deployed build actually *works*, not just that it contains the right bytes). Both are ordinary CLI commands (`npm run verify:deployed -- <url>`, `npm run verify:deployed:browser -- <url>`), runnable manually against any URL, not CI-only tooling.
+**Refresh cadence vs. freshness window:** the freshness window is about 1 week (network-aware, see above) and the refresh cadence is 12 hours, so a CI outage of several days still does not expire the deployed reference case.
 
-**Manual fallback**, if the workflow is disabled, failing, or an immediate refresh is needed: run `npm run live-demo:release` locally, then deploy `dist/` (for GitHub Pages specifically: push to `main` and re-run the workflow via `workflow_dispatch`, or push directly using the same `actions/upload-pages-artifact` + `actions/deploy-pages` steps by hand / via `gh workflow run`). Documented in `README.md` and `VERIFY_IN_5_MINUTES.md`.
+**Checking a deployment:** `npm run verify:public-app` drives the exact public app in a real browser:
+- the landing page and its CTA;
+- the automatic Railway connection;
+- honest ACCEPT and broken-promise REFUSE;
+- a refresh;
+- 390px layout.
+
+`npm run verify:deployed -- <url>` confirms a deployment serves the current reference evidence.
+
+**Manual fallback:** `npm run live-demo`, commit `evidence/nostr/live-demo.json`, push.
 
 ### One canonical source, three callers
 

@@ -1,6 +1,29 @@
 # Architecture
 
-SOLVENT is two things that now run side by side, not yet connected to each other (that connection is Phase 2's job — see `DECISIONS.md`):
+## Current production architecture (2026-09-30)
+
+```text
+visitor's browser ── https://solvent-ashen.vercel.app/  (static Vite app, Vercel; mirrored on GitHub Pages)
+   │  cashu-ts wallet: NUT-04 mint, NUT-12 DLEQ; builds its own outputs (knows B_ before the mint)
+   │  verifySubmission() -> verify(): NUT-06 identity, delegation, receipt, manifest, inclusion,
+   │  Nostr event (own relay sockets, else the HTTPS relay fetch), reserve (Esplora), coverage
+   ▼
+Railway service (railway.toml -> deploy/railway/Dockerfile), one volume at /data
+   ├── cdk-mintd  :8085  real patched CDK (patches/cdk/0001-0009), fakewallet Lightning
+   │                     SQLite: CDK tables + SOLVENT triggers (receipts signed in CDK's transactions)
+   └── sidecar    :8086  src/sidecar/: epoch closer, Nostr publisher (ACK + fetch-back),
+                         evidence API, broken-promise queue, read-only relay fetch
+   │
+   ├──► public Nostr relays (kind 8181)       └──► Mutinynet reserve UTXO (Esplora)
+```
+
+The same mint + sidecar run over real regtest LND in CI (`.github/workflows/real-cashu-integration.yml`). Details: [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md), [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/trust-boundaries.md`](docs/trust-boundaries.md), [`docs/REALITY-MAP.md`](docs/REALITY-MAP.md).
+
+---
+
+## Phase 1–2 record (historical)
+
+At Phase 1, SOLVENT was two things that ran side by side, not yet connected to each other (Phases 2–3 connected them — see above and `DECISIONS.md`):
 
 ## 1. The verifier (all prior work — unchanged by Phase 1)
 

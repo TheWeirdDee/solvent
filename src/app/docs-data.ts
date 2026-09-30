@@ -2,6 +2,7 @@
 // documentation files at build time (Vite's `?raw` loader) — this is the
 // single source of truth; nothing here is copy-pasted or hand-duplicated.
 import startHereRaw from '../../docs/start-here.md?raw';
+import gettingStartedRaw from '../../docs/getting-started.md?raw';
 import readmeRaw from '../../README.md?raw';
 import protocolRaw from '../../PROTOCOL.md?raw';
 import attacksRaw from '../../ATTACKS.md?raw';
@@ -12,27 +13,23 @@ import nostrSchemaRaw from '../../docs/nostr-schema.md?raw';
 import reserveAttestationRaw from '../../docs/reserve-attestation.md?raw';
 import verificationBundleRaw from '../../docs/verification-bundle.md?raw';
 import deployRealMintRaw from '../../docs/DEPLOY-REAL-MINT.md?raw';
+import deployRailwayRaw from '../../docs/DEPLOY-RAILWAY.md?raw';
+import demoRunbookRaw from '../../docs/DEMO-RUNBOOK.md?raw';
+import realityMapRaw from '../../docs/REALITY-MAP.md?raw';
+import { DOC_REGISTRY, type DocMeta } from './docs-registry.js';
 
-export interface DocEntry {
-  id: string;
-  navLabel: string;
-  title: string;
+export interface DocEntry extends DocMeta {
   raw: string;
 }
 
-export const DOCS: DocEntry[] = [
-  { id: 'start-here', navLabel: 'Start here', title: 'Start here — check ecash with SOLVENT in 2 minutes', raw: startHereRaw },
-  { id: 'getting-started', navLabel: 'Getting started', title: 'Getting started', raw: readmeRaw },
-  { id: 'protocol', navLabel: 'Protocol & architecture', title: 'Protocol & architecture', raw: protocolRaw },
-  { id: 'verification-bundle', navLabel: 'Verification bundle schema', title: 'Verification bundle schema', raw: verificationBundleRaw },
-  { id: 'nostr-schema', navLabel: 'Nostr schema', title: 'Nostr schema', raw: nostrSchemaRaw },
-  { id: 'reserve-attestation', navLabel: 'Reserve attestation', title: 'Reserve attestation', raw: reserveAttestationRaw },
-  { id: 'attack-corpus', navLabel: 'Attack corpus', title: 'Attack corpus', raw: attacksRaw },
-  { id: 'trust-boundaries', navLabel: 'Trust boundaries', title: 'Trust boundaries', raw: trustBoundariesRaw },
-  { id: 'draft-alignment', navLabel: 'Draft alignment', title: 'Draft alignment (Cashu PR #388)', raw: draftAlignmentRaw },
-  { id: 'verify-in-5', navLabel: 'Verify in 5 minutes', title: 'Verify in 5 minutes', raw: verifyIn5Raw },
-  { id: 'deploy-real-mint', navLabel: 'Deploy a real mint', title: 'Deploy a real SOLVENT mint', raw: deployRealMintRaw },
-];
+const RAW: Record<string, string> = { 'start-here': startHereRaw, 'getting-started': gettingStartedRaw, 'protocol': protocolRaw, 'verification-bundle': verificationBundleRaw, 'nostr-schema': nostrSchemaRaw, 'reserve-attestation': reserveAttestationRaw, 'attack-corpus': attacksRaw, 'trust-boundaries': trustBoundariesRaw, 'reality-map': realityMapRaw, 'draft-alignment': draftAlignmentRaw, 'verify-in-5': verifyIn5Raw, 'deploy-real-mint': deployRealMintRaw, 'deploy-railway': deployRailwayRaw, 'demo-runbook': demoRunbookRaw, 'readme': readmeRaw };
+
+export const DOCS: DocEntry[] = DOC_REGISTRY.map((d) => ({ ...d, raw: RAW[d.id]! }));
+
+/** The doc id for a repo path, if the site renders that file. */
+export function docIdForPath(repoPath: string): string | null {
+  return DOCS.find((d) => d.path === repoPath)?.id ?? null;
+}
 
 export function docById(id: string): DocEntry {
   return DOCS.find((d) => d.id === id) ?? DOCS[0]!;

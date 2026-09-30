@@ -18,16 +18,17 @@
   <body>
     <header class="topbar">
       <a id="nav-home" class="brand nav-link" href="#/">SOLVENT</a>
-      <nav class="nav-mid" aria-label="On this page">
-        <a href="#problem" data-scroll="problem">Why</a>
-        <a href="#how-it-works" data-scroll="how-it-works">How it works</a>
-        <a href="#reserve" data-scroll="reserve">Reserve</a>
-        <a href="#nostr" data-scroll="nostr">Nostr</a>
+      <nav class="nav-mid" aria-label="Site">
+        <a class="nav-landing-anchor" href="#problem" data-scroll="problem">Why</a>
+        <a class="nav-landing-anchor" href="#how-it-works" data-scroll="how-it-works">How it works</a>
+        <a class="nav-landing-anchor" href="#reserve" data-scroll="reserve">Reserve</a>
+        <a class="nav-landing-anchor" href="#nostr" data-scroll="nostr">Nostr</a>
+        <a id="nav-publish" class="nav-link" href="#/publish">Evidence</a>
         <a id="nav-docs" class="nav-link" href="#/docs">Docs</a>
       </nav>
       <div class="nav-right">
         <a id="nav-protocol" class="nav-link btn btn-outline btn-sm" href="#/protocol">Protocol</a>
-        <a id="nav-mint" class="nav-link btn btn-outline btn-sm" href="#/mint">Real mint</a>
+        <a id="nav-mint" class="nav-link btn btn-outline btn-sm" href="#/mint">Live mint</a>
         <a id="nav-verify" class="nav-link btn btn-solid btn-sm" href="#/verify">Verify</a>
       </div>
       <button id="nav-burger" type="button" class="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-drawer">
@@ -36,15 +37,19 @@
     </header>
 
     <div id="nav-drawer" class="nav-drawer" hidden>
-      <p class="nav-drawer-heading">EXPLORE SOLVENT <span>01 — 06</span></p>
-      <a href="#problem" data-scroll="problem" data-drawer-close>Why</a>
-      <a href="#how-it-works" data-scroll="how-it-works" data-drawer-close>How it works</a>
-      <a href="#reserve" data-scroll="reserve" data-drawer-close>Reserve</a>
-      <a href="#nostr" data-scroll="nostr" data-drawer-close>Nostr</a>
-      <a href="#/docs" data-drawer-close>Docs</a>
+      <p class="nav-drawer-heading">EXPLORE SOLVENT</p>
+      <a href="#/" data-drawer-close>Home</a>
+      <a href="#/mint" data-drawer-close>Live mint</a>
+      <a href="#/verify" data-drawer-close>Verify</a>
       <a href="#/protocol" data-drawer-close>Protocol</a>
-      <a href="#/mint" data-drawer-close>Real mint</a>
-      <a href="#/verify" class="btn btn-solid nav-drawer-cta" data-drawer-close>Verify</a>
+      <a href="#/publish" data-drawer-close>Evidence</a>
+      <a href="#/docs" data-drawer-close>Docs</a>
+      <p class="nav-drawer-heading nav-landing-anchor">ON THE HOME PAGE</p>
+      <a class="nav-landing-anchor" href="#problem" data-scroll="problem" data-drawer-close>Why</a>
+      <a class="nav-landing-anchor" href="#how-it-works" data-scroll="how-it-works" data-drawer-close>How it works</a>
+      <a class="nav-landing-anchor" href="#reserve" data-scroll="reserve" data-drawer-close>Reserve</a>
+      <a class="nav-landing-anchor" href="#nostr" data-scroll="nostr" data-drawer-close>Nostr</a>
+      <a href="#/mint" class="btn btn-solid nav-drawer-cta" data-drawer-close>Try the live mint</a>
       <p class="nav-drawer-footnote">SOLVENT &middot; BOSS Battle 2026 submission</p>
     </div>
     <div id="nav-drawer-scrim" class="nav-drawer-scrim" hidden></div>
@@ -60,14 +65,15 @@
               THE MINT<br />MADE A PROMISE.<br /><span class="accent-red">DID IT KEEP IT?</span>
             </h1>
             <p class="hero-sub">
-              When a Cashu mint issues ecash, SOLVENT gives the holder evidence of what the mint promised to count.
-              Before acceptance, SOLVENT checks that promise against the mint&rsquo;s closed epoch, public Nostr
-              state, and real Bitcoin reserves.
+              When a Cashu mint issues ecash, it can sign a promise to count it. SOLVENT checks that promise &mdash;
+              against the mint&rsquo;s own closed accounting, public Nostr evidence and a Bitcoin reserve it observes
+              itself &mdash; before the ecash is accepted.
             </p>
             <div class="hero-ctas">
               <a href="#/mint" id="hero-mint-cta" class="btn btn-solid btn-lg">Try the live mint</a>
-              <a href="#/verify?mode=live" class="btn btn-outline btn-lg">Run the live check</a>
+              <a href="#/verify?mode=live" id="hero-recheck-cta" class="btn btn-outline btn-lg">Re-check published evidence</a>
             </div>
+            <p class="hero-cta-explain"><strong>Try the live mint:</strong> mints fresh ecash on a public, real patched CDK mint and verifies it (about 30&ndash;90&nbsp;s). <strong>Re-check published evidence:</strong> re-verifies an already-published reference case against live relays and the chain &mdash; it mints nothing.</p>
             <p class="hero-footnote">Signed promise &middot; Closed accounting epoch &middot; Public state &middot; Live Bitcoin reserve</p>
           </div>
 
@@ -141,6 +147,21 @@
        </div>
       </section>
 
+      <!-- ---------- IN PLAIN WORDS (cream) ---------- -->
+      <section class="primer" id="primer">
+       <div class="section-inner">
+        <p class="eyebrow eyebrow-center">In plain words</p>
+        <h2 class="section-heading section-heading-center">Five words you will see.</h2>
+        <dl class="primer-grid">
+          <div><dt>Cashu proof</dt><dd>The ecash token you received. The mint&rsquo;s signature makes it spendable.</dd></div>
+          <div><dt>Receipt</dt><dd>The mint&rsquo;s signed promise to count your issuance in a specific accounting period.</dd></div>
+          <div><dt>Epoch</dt><dd>One accounting period. When it closes, the mint signs a summary of everything it owes.</dd></div>
+          <div><dt>Liability commitment</dt><dd>That signed summary: a total plus a structure (a sum-MMR) proving exactly which issuances it includes.</dd></div>
+          <div><dt>Reserve</dt><dd>Bitcoin the verifier looks up on chain itself, instead of taking the mint&rsquo;s word for it.</dd></div>
+        </dl>
+       </div>
+      </section>
+
       <!-- ---------- THE SOLUTION (dark) ---------- -->
       <section class="solution" id="solution">
        <div class="section-inner">
@@ -159,7 +180,7 @@
           <li>Live Bitcoin reserve</li>
           <li class="solution-flow-final">Accept / Refuse</li>
         </ol>
-        <p class="solution-punchline">Valid token &ne; solvent mint. SOLVENT checks both.</p>
+        <p class="solution-punchline">A valid Cashu proof does not show that this issuance was counted in the mint&rsquo;s committed liabilities. SOLVENT checks the mint&rsquo;s signed accounting evidence and observed reserve before acceptance.</p>
        </div>
       </section>
 
@@ -210,7 +231,8 @@
             <a href="#/docs?doc=attack-corpus" class="btn btn-outline">See every refusal case &rarr;</a>
           </div>
 
-          <div class="promise-chain-card">
+          <div class="promise-chain-card" aria-describedby="promise-illustration-note">
+            <p class="illustration-tag" id="promise-illustration-note">Illustration &mdash; example values</p>
             <div class="promise-block">
               <p class="promise-block-title">RECEIPT</p>
               <div class="grid-cell"><span class="grid-cell-label">Issuance</span><span class="grid-cell-value">70,000 sats</span></div>
@@ -236,6 +258,7 @@
       <section class="problem problem-solvency">
         <div class="problem-grid problem-grid-reverse">
           <div class="report-grid-card">
+            <p class="illustration-tag">Illustration &mdash; example values</p>
             <p class="report-grid-title">Reserve coverage (independent)</p>
             <div class="grid-cell">
               <span class="grid-cell-label">Liabilities</span>
@@ -269,42 +292,43 @@
             </p>
             <ul class="checklist">
               <li>Accounting honesty: was the promise kept?</li>
-              <li>Reserve coverage: can the mint actually pay?</li>
+              <li>Reserve coverage: does the observed reserve cover the committed liabilities?</li>
               <li>Both must pass, or SOLVENT refuses</li>
             </ul>
+            <p class="section-note">An observed, unspent reserve that covers the committed liabilities does not prove the reserve backs only this mint, that liabilities outside the commitment don&rsquo;t exist, future solvency, or that a redemption will succeed. <a href="#/docs?doc=trust-boundaries">Trust model &rarr;</a></p>
           </div>
         </div>
       </section>
 
-      <!-- ---------- TRY IT (cream) ---------- -->
-      <section class="how-to-try">
+      <!-- ---------- JUDGE PATH (cream) ---------- -->
+      <section class="how-to-try" id="judge">
        <div class="section-inner">
         <p class="eyebrow eyebrow-center">Get started</p>
-        <h2 class="section-heading section-heading-center">How to check ecash<br />with SOLVENT.</h2>
+        <h2 class="section-heading section-heading-center">Judge SOLVENT<br />in 3 minutes.</h2>
         <div class="how-to-try-grid">
           <div class="how-to-try-step">
             <p class="how-to-try-num">1</p>
-            <p class="how-to-try-title">Run the live check</p>
-            <p class="how-to-try-desc">Open Verify and run SOLVENT against a real published reference case. Nothing to install.</p>
+            <p class="how-to-try-title">Mint an honest issuance</p>
+            <p class="how-to-try-desc">On the live mint. The mint signs its promise, the epoch closes and is published, and SOLVENT answers <code>ACCEPT_VERIFIED</code>.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">2</p>
-            <p class="how-to-try-title">Watch nine checks</p>
-            <p class="how-to-try-desc">Token, mint origin, signed receipt, closed epoch, manifest, inclusion, public Nostr retrieval and the live Bitcoin reserve &mdash; checked in your browser.</p>
+            <p class="how-to-try-title">Break the promise</p>
+            <p class="how-to-try-desc">The same, but the mint&rsquo;s real closer leaves your issuance out. Every signature stays valid &mdash; SOLVENT answers <code>REFUSE_ISSUANCE_OMITTED</code>.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">3</p>
             <p class="how-to-try-title">Inspect the evidence</p>
-            <p class="how-to-try-desc">Open the exact Nostr event and reserve UTXO SOLVENT just checked, on public explorers.</p>
+            <p class="how-to-try-desc">Open the exact Nostr event and reserve transaction from the result, on public explorers, or download it.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">4</p>
-            <p class="how-to-try-title">Verify your own bundle</p>
-            <p class="how-to-try-desc">Paste SOLVENT-compatible evidence. Missing, private, stale or underfunded evidence is refused.</p>
+            <p class="how-to-try-title">See it on real Lightning</p>
+            <p class="how-to-try-desc">The live mint uses a demo Lightning backend. The same pipeline over real LND: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B CI&nbsp;run&nbsp;&#8599;</a>, <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 CI&nbsp;run&nbsp;&#8599;</a>.</p>
           </div>
         </div>
         <div class="gate-cta">
-          <a href="#/verify?mode=live" id="how-to-try-cta" class="btn btn-solid btn-lg">Run the live check &rarr;</a>
+          <a href="#/mint" id="how-to-try-cta" class="btn btn-solid btn-lg">Try the live mint &rarr;</a>
         </div>
        </div>
       </section>
@@ -333,28 +357,15 @@
           </article>
           <article class="gate-card">
             <p class="gate-card-label">04 / Reserve</p>
-            <h3>Can the mint cover its committed liability?</h3>
-            <p>Verify the live Bitcoin reserve evidence &mdash; a real, independently re-queried Signet UTXO.</p>
+            <h3>Does the observed reserve cover the committed liabilities?</h3>
+            <p>Re-query the reserve UTXO on chain (Mutinynet, a Bitcoin Signet) and compare it with the signed total.</p>
           </article>
         </div>
 
+        <p class="section-body section-body-center gate-bridge">These four questions are what the verifier&rsquo;s nine technical checks answer: receipt (token format, mint origin, receipt signature), closed accounting state (epoch closed, manifest, inclusion), public evidence (Nostr retrieval) and reserve coverage.</p>
         <div class="gate-cta">
           <a href="#/verify" class="btn btn-solid btn-lg">Open verifier</a>
         </div>
-       </div>
-      </section>
-
-      <!-- ---------- BUILT ON OPEN PROTOCOLS (cream) ---------- -->
-      <section class="protocols-strip">
-       <div class="section-inner">
-        <p class="eyebrow eyebrow-center">Built on open protocols</p>
-        <div class="protocol-marks">
-          <span>Cashu</span>
-          <span>NUT-12</span>
-          <span>Nostr</span>
-          <span>Bitcoin</span>
-        </div>
-        <p class="protocols-note">Open evidence. Independent verification.</p>
        </div>
       </section>
 
@@ -384,8 +395,9 @@
           </div>
         </div>
         <p class="section-body section-body-center enforcement-note">
-          The acceptance boundary is instrumented and enforced end to end. Refused tokens never reach the acceptance
-          side effect &mdash; watch it happen in the verifier.
+          Refused ecash never reaches the acceptance side effect &mdash; each result on the live mint shows the call
+          count. Scope: the demo&rsquo;s acceptance adapter is a local reference store in your browser that proves the
+          verdict gates a real side effect exactly once. It is not a universal Cashu wallet store.
         </p>
        </div>
       </section>
@@ -396,17 +408,17 @@
         <p class="eyebrow eyebrow-center">Live Bitcoin reserve</p>
         <h2 class="section-heading section-heading-center">Real chain evidence,<br />not a typed-in number.</h2>
         <p class="reserve-network-label" id="reserve-network-label">TEST NETWORK &mdash; COINS HAVE NO VALUE</p>
+        <p class="evidence-source" id="reserve-source">Loading the live Railway mint&rsquo;s reserve&hellip;</p>
         <div class="reserve-panel">
           <div class="grid-cell"><span class="grid-cell-label">Network</span><span class="grid-cell-value" id="reserve-network">&hellip;</span></div>
           <div class="grid-cell grid-cell-wide"><span class="grid-cell-label">UTXO</span><span class="grid-cell-value mono" id="reserve-utxo">&hellip;</span></div>
           <div class="grid-cell"><span class="grid-cell-label">Amount</span><span class="grid-cell-value" id="reserve-amount">&hellip;</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">State</span><span class="grid-cell-value" id="reserve-utxo-state">UNSPENT</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Script</span><span class="grid-cell-value" id="reserve-script">MATCHED</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Reserve signature</span><span class="grid-cell-value" id="reserve-sig">VALID</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Mint binding</span><span class="grid-cell-value" id="reserve-binding">VALID</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Coverage</span><span class="grid-cell-value" id="reserve-coverage">PASS</span></div>
+          <div class="grid-cell"><span class="grid-cell-label">State</span><span class="grid-cell-value" id="reserve-utxo-state">&hellip;</span></div>
+          <div class="grid-cell"><span class="grid-cell-label">Committed liabilities</span><span class="grid-cell-value" id="reserve-liabilities">&hellip;</span></div>
+          <div class="grid-cell"><span class="grid-cell-label">Coverage</span><span class="grid-cell-value" id="reserve-coverage">&hellip;</span></div>
+          <div class="grid-cell grid-cell-wide"><span class="grid-cell-label">Observed</span><span class="grid-cell-value" id="reserve-checked">&hellip;</span></div>
         </div>
-        <p class="reserve-live-note">See a re-query happen live in <a href="#/verify">the verifier</a>.</p>
+        <p class="reserve-live-note">Signature, script and mint-binding checks run on every verification &mdash; <a href="#/mint">try the live mint</a>.</p>
        </div>
       </section>
 
@@ -419,11 +431,12 @@
           Signed Proof-of-Liabilities evidence is published over Nostr &mdash; a mint identity, epoch, manifest
           digest, and reserve binding that any holder or relay can independently fetch and verify.
         </p>
+        <p class="evidence-source" id="nostr-source">Loading the live Railway mint&rsquo;s latest publication&hellip;</p>
         <div class="nostr-panel">
           <div class="grid-cell"><span class="grid-cell-label">Event kind</span><span class="grid-cell-value" id="nostr-kind">8181</span></div>
           <div class="grid-cell"><span class="grid-cell-label">Schema</span><span class="grid-cell-value" id="nostr-schema">solvent/pol/v2</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Signature</span><span class="grid-cell-value" id="nostr-sig">VALID</span></div>
-          <div class="grid-cell grid-cell-status-ok"><span class="grid-cell-label">Relay state</span><span class="grid-cell-value" id="nostr-state">PUBLISHED</span></div>
+          <div class="grid-cell"><span class="grid-cell-label">Signature</span><span class="grid-cell-value" id="nostr-sig">&hellip;</span></div>
+          <div class="grid-cell"><span class="grid-cell-label">Relay state</span><span class="grid-cell-value" id="nostr-state">&hellip;</span></div>
           <div class="grid-divider"></div>
           <div class="grid-cell grid-cell-wide"><span class="grid-cell-label">Published to</span><span class="grid-cell-value" id="nostr-relays">&hellip;</span></div>
           <div class="grid-cell grid-cell-wide"><span class="grid-cell-label">Event id</span><span class="grid-cell-value mono" id="nostr-event-id">&hellip;</span></div>
@@ -468,8 +481,9 @@
         <p class="eyebrow eyebrow-center">Adversarial by design</p>
         <h2 class="section-heading section-heading-center"><span id="attack-count">25</span> / <span id="attack-total">25</span><br />expected attack outcomes.</h2>
         <div id="attack-grid" class="attack-grid"></div>
+        <p class="section-body section-body-center attack-repro">This page does not run the attacks; reproduce the claim with <code>npm run attacks</code> (<a href="https://github.com/TheWeirdDee/solvent/blob/main/src/cli/attacks.ts" target="_blank" rel="noopener noreferrer">implementation&nbsp;&#8599;</a>, <a href="https://github.com/TheWeirdDee/solvent/tree/main/evidence/attacks" target="_blank" rel="noopener noreferrer">recorded outcomes&nbsp;&#8599;</a>). CI re-runs it on every evidence refresh.</p>
         <div class="gate-cta">
-          <a href="#/docs?doc=attack-corpus" class="btn btn-outline btn-lg">View attack corpus</a>
+          <a href="#/docs?doc=attack-corpus" class="btn btn-outline btn-lg">View all 25 cases</a>
         </div>
        </div>
       </section>
@@ -493,7 +507,7 @@
 
             <div class="hero-ctas hero-ctas-center">
               <a href="#/mint" class="btn btn-solid btn-lg">Try the live mint</a>
-              <a href="#/verify?mode=live" class="btn btn-outline btn-lg">Run the live check</a>
+              <a href="#/verify?mode=live" class="btn btn-outline btn-lg">Re-check published evidence</a>
             </div>
           </div>
         </div>
@@ -502,39 +516,62 @@
 
     <!-- ============ REAL MINT PANEL ============ -->
     <main id="panel-mint" class="route route-app panel" hidden>
-      <p class="eyebrow">Real mint</p>
+      <p class="eyebrow">Live mint</p>
       <h1 class="page-heading">GET ECASH. VERIFY IT.</h1>
-      <p class="page-sub">Take ecash from a real patched CDK mint, watch it promise to count your issuance in an accounting epoch, and let SOLVENT check that promise &mdash; against the mint&rsquo;s own signed epoch, public Nostr evidence and a live Bitcoin reserve &mdash; before you accept.</p>
+      <p class="page-sub">This page creates a <strong>fresh issuance</strong> on a real, public, patched CDK Cashu mint. The mint signs a promise to count it in an accounting epoch; SOLVENT then checks that promise against the mint&rsquo;s own signed epoch, public Nostr evidence and a Bitcoin reserve it observes itself &mdash; before accepting. One run takes about 30&ndash;90 seconds: the epoch has to close and be published first.</p>
+
+      <ol class="judge-path card" aria-label="Judge SOLVENT in 3 minutes">
+        <li class="judge-path-title">Judge SOLVENT in 3 minutes</li>
+        <li><strong>1. Mint an honest issuance</strong> &rarr; <code>ACCEPT_VERIFIED</code></li>
+        <li><strong>2. Break the promise</strong> &rarr; <code>REFUSE_ISSUANCE_OMITTED</code> (every signature valid, the issuance missing)</li>
+        <li><strong>3. Inspect the evidence</strong> &mdash; open the Nostr event and the reserve transaction from the result</li>
+        <li><strong>4. Real-Lightning proof</strong> &mdash; the same pipeline over real LND in CI: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
+      </ol>
 
       <div id="mint-unconfigured" class="card verify-intro" hidden>
-        <h2 class="verify-intro-title">NO REAL MINT IS CONNECTED TO THIS DEPLOYMENT</h2>
-        <p class="verify-intro-copy">This site is not connected to a hosted SOLVENT mint, so this page cannot issue ecash here. Everything it would run is real and reproducible: start a patched CDK mint and the SOLVENT sidecar (see <a href="#/docs?doc=deploy-real-mint">Deploy a real mint</a>), then open this page with <code>#/mint?mint=&lt;mint URL&gt;&amp;evidence=&lt;sidecar URL&gt;</code>. Meanwhile, <a href="#/verify">the Live Public Demo</a> verifies a real published reference case.</p>
+        <h2 class="verify-intro-title">NO REAL MINT IS CONNECTED TO THIS BUILD</h2>
+        <p class="verify-intro-copy">This build was made without a mint address. The public app (<a href="https://solvent-ashen.vercel.app/#/mint" target="_blank" rel="noopener noreferrer">solvent-ashen.vercel.app &#8599;</a>) is connected to the live Railway mint. To use your own, start a patched CDK mint and the SOLVENT sidecar (see <a href="#/docs?doc=deploy-real-mint">Deploy a real mint</a>) and open <code>#/mint?mint=&lt;mint URL&gt;&amp;evidence=&lt;sidecar URL&gt;</code>. <a href="#/verify">Re-check published evidence</a> works without a mint.</p>
       </div>
 
       <div id="mint-configured" hidden>
         <div class="card verify-intro">
           <h2 class="verify-intro-title">THE MINT</h2>
+          <p id="mint-live-status" class="mint-live-status" aria-live="polite"></p>
           <dl id="mint-reality" class="mint-reality"></dl>
           <div class="mint-actions">
-            <button id="mint-honest-btn" type="button" class="btn btn-solid btn-lg">Get 64 sats of ecash and verify it</button>
-            <button id="mint-omit-btn" type="button" class="btn btn-outline btn-lg" hidden>Get ecash &mdash; and make the mint break its promise</button>
+            <button id="mint-honest-btn" type="button" class="btn btn-solid btn-lg">Mint &amp; verify an honest issuance</button>
+            <button id="mint-omit-btn" type="button" class="btn btn-outline btn-lg" hidden>Break the promise</button>
           </div>
-          <p id="mint-omit-note" class="verify-intro-copy mint-omit-note" hidden>Broken-promise demo: after the mint signs its receipt, SOLVENT&rsquo;s real epoch closer is asked to leave your issuance out of the epoch it promised. Nothing is faked in the browser &mdash; the verifier sees exactly what the mint published.</p>
-        </div>
+          <p id="mint-busy-reason" class="mint-busy-reason" aria-live="polite"></p>
+          <p id="mint-omit-note" class="verify-intro-copy mint-omit-note" hidden><strong>Break the promise:</strong> 64 sats are minted as usual and the mint signs its receipt &mdash; but SOLVENT&rsquo;s real epoch closer is told, before minting, to leave exactly this issuance out of the epoch it promised. Nothing is faked in the browser: the verifier sees what the mint actually published.</p>
 
-        <ol id="mint-steps" class="mint-steps" hidden></ol>
+          <section id="mint-op" class="mint-op" hidden aria-live="polite">
+            <div class="mint-op-head">
+              <p id="mint-op-title" class="mint-op-title"></p>
+              <span id="mint-op-elapsed" class="mint-op-elapsed"></span>
+            </div>
+            <p id="mint-op-detail" class="mint-op-detail"></p>
+            <ol id="mint-steps" class="mint-steps" hidden></ol>
+            <button id="mint-retry-btn" type="button" class="btn btn-solid btn-sm" hidden>Retry verification (same issuance)</button>
+          </section>
+        </div>
 
         <div id="mint-result" class="result-card" hidden>
           <div id="mint-decision-badge" class="decision-badge"></div>
           <p id="mint-decision-headline" class="decision-headline"></p>
           <p id="mint-decision-body" class="decision-body"></p>
           <dl id="mint-decision-facts" class="decision-facts"></dl>
-          <div class="decision-chain" id="mint-decision-chain"></div>
+          <div id="mint-enforcement" class="enforce-card"></div>
+          <div id="mint-evidence-card" class="enforce-card"></div>
+          <details class="evidence">
+            <summary>The nine checks</summary>
+            <div class="decision-chain" id="mint-decision-chain"></div>
+          </details>
           <details class="evidence">
             <summary>Technical details</summary>
             <div id="mint-technical" class="evidence-content"></div>
           </details>
-          <button id="mint-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Start again</button>
+          <button id="mint-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Start again (new issuance)</button>
         </div>
         <p id="mint-status" class="status" aria-live="polite"></p>
       </div>
@@ -544,18 +581,18 @@
     <main id="panel-verify" class="route route-app panel" hidden>
       <p class="eyebrow">Verify ecash</p>
       <h1 class="page-heading">VERIFY ECASH</h1>
-      <p class="page-sub">Check a mint&rsquo;s promise &mdash; its signed liability receipt, public accounting state and live Bitcoin reserve &mdash; before ecash is accepted.</p>
+      <p class="page-sub">Check a mint&rsquo;s promise &mdash; its signed liability receipt, public accounting state and live Bitcoin reserve &mdash; before ecash is accepted. To mint fresh ecash and check it, use the <a href="#/mint">live mint</a>.</p>
 
       <div class="mode-tabs" role="tablist" aria-label="Verification mode">
-        <button type="button" id="tab-live" class="mode-tab active" data-mode="live" role="tab" aria-selected="true" aria-controls="mode-live">Live check</button>
+        <button type="button" id="tab-live" class="mode-tab active" data-mode="live" role="tab" aria-selected="true" aria-controls="mode-live">Re-check published evidence</button>
         <button type="button" id="tab-evidence" class="mode-tab" data-mode="evidence" role="tab" aria-selected="false" aria-controls="mode-evidence">Verify evidence</button>
       </div>
 
       <!-- ---- LIVE CHECK ---- -->
       <section id="mode-live" class="verify-mode" role="tabpanel" aria-labelledby="tab-live">
         <div class="card verify-intro">
-          <h2 class="verify-intro-title">LIVE VERIFICATION</h2>
-          <p class="verify-intro-copy">Run SOLVENT against a real published reference case. Public Nostr evidence and the Bitcoin reserve are checked again when you run it.</p>
+          <h2 class="verify-intro-title">RE-CHECK PUBLISHED EVIDENCE</h2>
+          <p class="verify-intro-copy">Re-verifies a <strong>captured reference case</strong> that was published earlier (dates below): its Nostr event is fetched again from public relays and its reserve UTXO re-queried on chain, now. It does <strong>not</strong> mint new ecash &mdash; for a fresh issuance, use the <a href="#/mint">live mint</a>.</p>
           <button id="run-verification-btn" type="button" class="btn btn-solid btn-lg btn-block">Run live check</button>
         </div>
 
@@ -568,7 +605,7 @@
         </div>
 
         <div class="card live-dates-card">
-          <p class="scenario-card-title">Reference case</p>
+          <p class="scenario-card-title"><span class="ref-tag">CAPTURED REFERENCE RUN</span> Purpose: a stable, published mechanism example</p>
           <dl id="live-dates" class="evidence-rows live-dates"></dl>
         </div>
 
@@ -589,7 +626,7 @@
           <button id="run-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Run the live check again</button>
 
           <p class="honesty-note">
-            Accepted ecash goes into a local reference store. The reserve is Bitcoin Signet (test-network) capital, not mainnet funds.
+            Accepted ecash goes into a local reference store in this browser: it proves the verdict gates a real side effect exactly once, and is not a universal Cashu wallet. The reserve is Bitcoin Signet (test-network) capital, not mainnet funds.
             <a href="#/docs?doc=trust-boundaries">Full trust model &rarr;</a>
           </p>
 
@@ -766,6 +803,11 @@
       <h1 class="page-heading">How SOLVENT<br />decides.</h1>
       <p class="page-sub">A complete technical overview of the v2 decision chain, gate by gate.</p>
 
+      <div class="protocol-layout">
+      <nav class="protocol-toc" aria-label="Protocol sections">
+        <label class="protocol-toc-jump"><span>Jump to section</span><select id="protocol-toc-select"></select></label>
+        <ol id="protocol-toc-list" class="protocol-toc-list"></ol>
+      </nav>
       <article class="protocol-doc">
         <h2 id="p-overview">Overview</h2>
         <p>
@@ -901,6 +943,7 @@
         </p>
         <div class="gate-cta"><a href="#/docs?doc=trust-boundaries" class="btn btn-outline">Read the full trust model &rarr;</a></div>
       </article>
+      </div>
     </main>
 
     <!-- ============ DOCS ============ -->
@@ -928,6 +971,7 @@
         <div class="footer-columns">
           <div class="footer-col">
             <p class="footer-col-title">Product</p>
+            <a href="#/mint">Live mint</a>
             <a href="#/verify">Verify</a>
             <a href="#/publish">Evidence pipeline</a>
             <a href="#/protocol">Protocol</a>
@@ -935,14 +979,14 @@
           </div>
           <div class="footer-col">
             <p class="footer-col-title">Protocol</p>
-            <a href="https://cashu.space" rel="noreferrer">Cashu</a>
-            <a href="https://github.com/nostr-protocol/nostr" rel="noreferrer">Nostr</a>
+            <a href="https://cashu.space" target="_blank" rel="noopener noreferrer">Cashu &#8599;</a>
+            <a href="https://github.com/nostr-protocol/nostr" target="_blank" rel="noopener noreferrer">Nostr &#8599;</a>
             <a href="#/docs?doc=nostr-schema">Nostr schema</a>
             <a href="#/docs?doc=reserve-attestation">Reserve attestation</a>
           </div>
           <div class="footer-col">
             <p class="footer-col-title">Project</p>
-            <a href="https://github.com/TheWeirdDee/solvent" rel="noreferrer">GitHub</a>
+            <a href="https://github.com/TheWeirdDee/solvent" target="_blank" rel="noopener noreferrer">GitHub &#8599;</a>
             <a href="#/lab">Reference mint lab (developers)</a>
             <span>BOSS Battle</span>
           </div>
