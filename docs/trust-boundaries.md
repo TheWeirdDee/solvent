@@ -25,7 +25,7 @@ The public app, <https://solvent-ashen.vercel.app/>, has four experiences, and k
 
 Some browsers and networks cannot open raw relay WebSockets. Playwright's WebKit on Windows, for example, opens no relay socket at all. For them, the evidence service offers `GET /v1/solvent/nostr/event/<event id>`. It queries its **fixed** public relay list for that **exact** event id and returns the raw signed events with per-relay results. It never answers from its own publication records, and accepts no caller-supplied relay URLs.
 
-The browser uses it **only** when its own relay connections did not return the event. It then verifies what comes back exactly like a directly fetched event:
+The browser uses it **only** when its own relay connections did not return the event. That applies to every verification in the app: live-mint issuances, *Re-check published evidence* and uploaded bundles. It then verifies what comes back exactly like a directly fetched event:
 - event id;
 - BIP-340 signature;
 - kind and schema;

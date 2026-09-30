@@ -152,6 +152,12 @@ export interface AssistedRelayFetchResult {
 }
 export type AssistedRelayFetchFn = (eventId: string) => Promise<AssistedRelayFetchResult>;
 
+let defaultAssistedRelayFetch: AssistedRelayFetchFn | undefined;
+/** The browser app registers its configured evidence service once; CLI tools and tests never do. */
+export function setDefaultAssistedRelayFetch(fn: AssistedRelayFetchFn | undefined): void {
+  defaultAssistedRelayFetch = fn;
+}
+
 export interface Phase3bOptions {
   /** Optional fallback retrieval path (see AssistedRelayFetchResult). */
   assistedRelayFetch?: AssistedRelayFetchFn;
@@ -565,7 +571,7 @@ export async function verifySubmission(
       chainStateFetchFn,
       realMint ? { binding: bundle.reserveBinding, bundle, mintIdentityPubkey: mintIdentityLive?.pubkey, nowSeconds } : undefined,
     ),
-    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn, phase3bNostr, nowSeconds, realMint ? phase3bOptions.assistedRelayFetch : undefined),
+    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn, phase3bNostr, nowSeconds, phase3bOptions.assistedRelayFetch ?? defaultAssistedRelayFetch),
   ]);
 
   const verifyInput: VerifyInput = {

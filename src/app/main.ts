@@ -10,6 +10,13 @@ import { renderLandingEvidence } from './landing-evidence.js';
 import { initLandingMotion, refreshLandingMotion } from './landing-motion.js';
 import { initRouter, navigate, type Route } from './router.js';
 import { initProtocolToc } from './protocol-toc.js';
+import { relayAssistFor } from './relay-assist.js';
+import { setDefaultAssistedRelayFetch } from './submission.js';
+
+// Browsers or networks that cannot open relay WebSockets fall back to the
+// configured evidence service's HTTPS relay fetch (verified here either way).
+const evidenceUrl = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}).VITE_SOLVENT_EVIDENCE_URL;
+if (evidenceUrl) setDefaultAssistedRelayFetch(relayAssistFor(evidenceUrl));
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);

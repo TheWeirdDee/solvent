@@ -37,7 +37,8 @@ import {
   resultClass,
 } from './decision-view.js';
 import { formatSats } from './format.js';
-import { verifySubmission, type AssistedRelayFetchResult, type SubmissionVerification } from './submission.js';
+import { relayAssistFor } from './relay-assist.js';
+import { verifySubmission, type SubmissionVerification } from './submission.js';
 
 export interface RealMintConfig {
   mintUrl: string;
@@ -290,17 +291,11 @@ async function waitForEvidence(run: MintRun): Promise<IssuanceResponse> {
   throw new Error(`epoch ${run.epoch} was not closed and published in time — use Retry verification to check again without minting`);
 }
 
-async function assistedFetch(cfg: RealMintConfig, eventId: string): Promise<AssistedRelayFetchResult> {
-  const r = await getJson<{ events: AssistedRelayFetchResult['events']; per_relay: AssistedRelayFetchResult['perRelay']; fetched_at: string }>(`${cfg.evidenceUrl}/v1/solvent/nostr/event/${eventId}`);
-  if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
-  return { events: r.body.events, perRelay: r.body.per_relay, fetchedAt: r.body.fetched_at, source: new URL(cfg.evidenceUrl).host };
-}
-
 async function verifyRun(run: MintRun, evidence: IssuanceResponse): Promise<SubmissionVerification> {
   opDetail('Checking the receipt, the closed accounting state, the public Nostr evidence and the live reserve…');
   const verifying = step('4. Verifying: receipt · closed accounting state · public evidence · reserve coverage…');
   const bundle = submissionBundleFromJson(JSON.stringify({ ...evidence.evidence, proof: run.proof, amountPublicKeyHex: run.publicKey }));
-  const v = await verifySubmission(bundle, undefined, undefined, undefined, { assistedRelayFetch: (id) => assistedFetch(run.cfg, id) });
+  const v = await verifySubmission(bundle, undefined, undefined, undefined, { assistedRelayFetch: relayAssistFor(run.cfg.evidenceUrl) });
   settle(verifying, `4. Verification finished: ${v.result.reasonCode}.`, v.result.decision === 'ACCEPT' ? 'ok' : 'fail');
   return v;
 }
