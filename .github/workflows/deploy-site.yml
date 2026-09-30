@@ -86,7 +86,7 @@ jobs:
         run: npm run verify:deployed -- "${{ steps.deployment.outputs.page_url }}"
 
       - name: Install Chromium for the browser smoke test
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps chromium webkit
 
       # Passes whether the live evidence is healthy or not: every route must
       # render and the live check must reach a real decision (ACCEPT, or a
