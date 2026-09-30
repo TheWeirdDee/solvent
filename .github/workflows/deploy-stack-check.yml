@@ -145,6 +145,9 @@ jobs:
           grep -q "attach a Railway volume" /tmp/novol.log
           echo "restart persistence and start guards OK"
 
+      - name: After the restart, new issuances still work (honest ACCEPT, broken-promise REFUSE)
+        run: npm run verify:real-mint:browser -- http://127.0.0.1:4173/ http://127.0.0.1:18085 http://127.0.0.1:18086 --skip-transient --screenshots /tmp/stack-shots/after-restart
+
       - name: Stack logs
         if: always()
         working-directory: deploy

@@ -267,5 +267,6 @@ describe('SOLVENT sidecar', () => {
     expect((await fetch(`${base}/healthz`)).status).toBe(200);
     expect((await fetch(`${base}/v1/solvent/demo/omit`, { method: 'OPTIONS' })).status).toBe(204);
     expect((await fetch(`${base}/nope`)).status).toBe(404);
+    expect(await (await fetch(`${base}/`)).json()).toMatchObject({ service: 'SOLVENT evidence service', mint: MINT_URL });
   });
 });

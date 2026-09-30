@@ -199,6 +199,16 @@ export function createHandler(s: SidecarState) {
     try {
       const url = new URL(req.url ?? '/', 'http://sidecar');
       if (req.method === 'OPTIONS') return send(res, 204, {});
+      if (req.method === 'GET' && url.pathname === '/') {
+        // A person landing on the service root gets a map, not a bare 404.
+        return send(res, 200, {
+          service: 'SOLVENT evidence service',
+          mint: s.mintUrl,
+          endpoints: ['/healthz', '/v1/solvent/status', '/v1/solvent/issuance/<blinded message hex>', '/v1/solvent/nostr/event/<event id hex>', 'POST /v1/solvent/demo/omit'],
+          app: 'https://solvent-ashen.vercel.app/#/mint',
+          source: 'https://github.com/TheWeirdDee/solvent/tree/main/src/sidecar',
+        });
+      }
       if (req.method === 'GET' && url.pathname === '/healthz') {
         const st = status(s);
         return send(res, 200, { ok: true, open_epoch: st.open_epoch, last_publication: st.last_publication });
