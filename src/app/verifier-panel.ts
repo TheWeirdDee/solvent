@@ -30,7 +30,9 @@ import {
   decisionFacts,
   escapeHtml,
   evidenceSection,
+  formatAgo,
   formatDate,
+  formatUtc,
   mintIdentityBlock,
   mutinynetTxUrl,
   networkName,
@@ -40,6 +42,7 @@ import {
   renderDecision,
   renderProgressSteps,
   reserveEvidenceRows,
+  resultClass,
   reserveFreshness,
   revealProgress,
   shortfallCard,
@@ -154,6 +157,7 @@ function showDecision(els: DecisionElements, v: { result: import('../verifier/ve
     copy: decisionCopy(v.result, v.reserveLive, v.nostrLive, context),
     facts: decisionFacts(v.result, v.reserveLive, v.nostrLive),
     states: chainStates(v.result),
+    cls: resultClass(v.result, v.reserveLive, v.nostrLive),
   });
 }
 
@@ -196,8 +200,11 @@ function renderLiveDates(container: HTMLElement, tipHeight: number | undefined):
     const f = reserveFreshness(d.network, d.blockHeight, tipHeight);
     reserveRow = f.blocksLeft > 0 ? `FRESH until ≈ ${formatDate(f.expiresAt)} (${f.blocksLeft.toLocaleString('en-US')} blocks left)` : `EXPIRED (${(-f.blocksLeft).toLocaleString('en-US')} blocks past its freshness window)`;
   }
+  const bundle = loadCanonicalLiveDemoBundle();
   container.innerHTML = [
-    ['Published', formatDate(d.publishedAt)],
+    ['Published', `${formatUtc(d.publishedAt)} (${formatAgo(d.publishedAt)})`],
+    ['Event', `<a href="${njumpUrl(bundle.nostrEvent!.id)}" target="_blank" rel="noopener noreferrer"><code>${bundle.nostrEvent!.id.slice(0, 16)}…</code> ↗</a>`],
+    ['Liability at that run', formatSats(bundle.manifest.outstanding_balance)],
     ['Nostr event valid', `${formatDate(d.nostrIssuedAt * 1000)} → ${formatDate(d.nostrValidUntil * 1000)} · ${nostrState}`],
     ['Reserve attested', `block ${d.blockHeight.toLocaleString('en-US')} · ${formatDate(d.attestedAt)}`],
     ['Reserve attestation', reserveRow],
@@ -277,8 +284,10 @@ function initLiveMode(): void {
     liveTimeEl.dataset.checkedAt = new Date().toISOString();
     renderLiveDates(datesEl, scenario.reserveLive.tipHeight);
 
+    progressPanel.hidden = true;
     resultCard.hidden = false;
     showDecision(els, verification, 'live');
+    runAgainBtn.textContent = resultClass(scenario.verifyResult, scenario.reserveLive, scenario.nostrLive) === 'availability' ? 'Retry verification' : 'Run the live check again';
     checkedIds.innerHTML = checkedIdsFor(scenario.submissionBundle);
     acceptBtn.disabled = scenario.verifyResult.decision !== 'ACCEPT';
     acceptBtn.hidden = false;
@@ -403,9 +412,11 @@ function initEvidenceMode(): void {
   function showError(err: ManualError): void {
     progressPanel.hidden = true;
     resultCard.hidden = false;
-    els.badge.textContent = '✕ REFUSE';
-    els.badge.className = 'decision-badge red';
-    els.headline.textContent = `${err.kind.replace(/_/g, ' ')}.`;
+    // An input problem says nothing about any mint: never shown as a REFUSE verdict.
+    els.badge.textContent = 'INPUT ERROR';
+    els.badge.className = 'decision-badge neutral';
+    els.badge.dataset.resultClass = 'input';
+    els.headline.textContent = `Could not verify this input — ${err.kind.replace(/_/g, ' ').toLowerCase()}.`;
     els.body.textContent = err.message;
     els.facts.innerHTML = '';
     els.chain.innerHTML = '';
@@ -414,7 +425,7 @@ function initEvidenceMode(): void {
     acceptBtn.disabled = true;
     evidenceEl.hidden = false;
     evidenceContent.innerHTML = `<details class="raw-json-toggle"><summary>Technical detail</summary><pre class="raw-json">${escapeHtml(err.technical)}</pre></details>`;
-    statusEl.textContent = `${err.kind.replace(/_/g, ' ')} — nothing was verified and nothing was accepted.`;
+    statusEl.textContent = `Input error (${err.kind.replace(/_/g, ' ').toLowerCase()}) — nothing was verified and nothing was accepted.`;
   }
 
   async function runManualVerification(): Promise<void> {
@@ -441,6 +452,7 @@ function initEvidenceMode(): void {
     await revealProgress(rows, chainStates(verification.result));
     verifyBtn.disabled = false;
 
+    progressPanel.hidden = true;
     resultCard.hidden = false;
     showDecision(els, verification, 'evidence');
     checkedIds.innerHTML = checkedIdsFor(parsed.bundle);
@@ -485,8 +497,18 @@ function initEvidenceMode(): void {
   });
 
   async function loadFile(file: File): Promise<void> {
+    const looksJson = /\.json$/i.test(file.name) || file.type === 'application/json' || file.type === '';
+    if (!looksJson) {
+      showError({ kind: 'INVALID_JSON', message: `"${file.name}" is not a .json file. Upload a SOLVENT verification bundle (JSON).`, technical: `FILE_TYPE: ${file.type || 'unknown'}` });
+      return;
+    }
+    if (file.size === 0) {
+      showError({ kind: 'INVALID_JSON', message: `"${file.name}" is empty.`, technical: 'EMPTY_FILE' });
+      return;
+    }
     const text = await file.text();
     setLoaded(text, `${file.name} · ${(file.size / 1024).toFixed(1)} KB`);
+    resultCard.hidden = true;
     statusEl.textContent = 'Bundle file loaded. Verify it to run every check.';
   }
 

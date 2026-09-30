@@ -12,6 +12,7 @@ import {
   formatDate,
   localCryptography,
   renderDecision,
+  resultClass,
   type DecisionElements,
 } from './decision-view.js';
 import { formatSats, truncateHex } from './format.js';
@@ -150,6 +151,7 @@ export function initLabPanel(): void {
       copy: decisionCopy(v.result, v.reserveLive, v.nostrLive, 'lab'),
       facts: decisionFacts(v.result, v.reserveLive, v.nostrLive),
       states: chainStates(v.result),
+      cls: resultClass(v.result, v.reserveLive, v.nostrLive),
     });
     fullBtn.disabled = false;
   }

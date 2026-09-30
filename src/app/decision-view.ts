@@ -67,6 +67,33 @@ export function localCryptography(result: VerifyResult): { valid: boolean; faile
   return firstFail === -1 ? { valid: true, failedStep: null } : { valid: false, failedStep: STEP_DEFS[firstFail]!.label };
 }
 
+// -------------------- result classes --------------------
+
+/**
+ * Three different kinds of "not ACCEPT", presented differently (the exact
+ * reason code is always shown too):
+ *   refusal      — proven policy/solvency failure: the evidence was checked and
+ *                  the mint failed it (broken promise, shortfall, bad signature…)
+ *   availability — the check could not complete (relays or reserve API
+ *                  unreachable, evidence not retrievable yet): retry, same issuance
+ *   input        — the input itself cannot be verified (malformed/incomplete JSON);
+ *                  rendered by the caller, never by a verification result
+ */
+export type ResultClass = 'accept' | 'refusal' | 'availability' | 'input';
+
+const AVAILABILITY_CODES: ReasonCode[] = ['REFUSE_NOSTR_UNAVAILABLE', 'REFUSE_NOSTR_EVENT_NOT_FOUND'];
+
+export function resultClass(result: VerifyResult, reserveLive: ReserveLiveStatus | null, nostrLive: NostrLiveStatus | null): ResultClass {
+  if (result.decision === 'ACCEPT') return 'accept';
+  if (AVAILABILITY_CODES.includes(result.reasonCode)) return 'availability';
+  if (result.reasonCode === 'REFUSE_UNVERIFIABLE') {
+    const reserveDown = !!reserveLive && reserveLive.supplied && reserveLive.queried && !reserveLive.queryOk;
+    const nostrDown = !!nostrLive && nostrLive.supplied && !nostrLive.relayReachable;
+    if (reserveDown || nostrDown) return 'availability';
+  }
+  return 'refusal';
+}
+
 // -------------------- secondary facts --------------------
 
 export type Tone = 'ok' | 'bad' | 'warn' | 'muted';
@@ -84,9 +111,9 @@ export function isReserveAttestationExpired(reserveLive: ReserveLiveStatus): boo
 function publicRetrievalFact(n: NostrLiveStatus): DecisionFact {
   const label = 'Public Nostr retrieval';
   if (!n.supplied) return { label, value: 'NO EVENT SUPPLIED', tone: 'bad' };
-  if (n.publicationVerified) return { label, value: 'RETRIEVED AND VERIFIED', tone: 'ok' };
-  if (!n.relayReachable) return { label, value: 'RELAYS UNAVAILABLE', tone: 'warn' };
-  if (!n.eventFetched) return { label, value: 'NOT FOUND', tone: 'bad' };
+  if (n.publicationVerified) return { label, value: n.retrievalPath === 'evidence-service' ? 'RETRIEVED (via HTTPS relay fetch) AND VERIFIED' : 'RETRIEVED AND VERIFIED', tone: 'ok' };
+  if (!n.relayReachable) return { label, value: 'RELAYS UNREACHABLE', tone: 'warn' };
+  if (!n.eventFetched) return { label, value: 'NOT FOUND YET', tone: 'warn' };
   return { label, value: `REJECTED (${n.reasonCode ?? 'UNVERIFIED'})`, tone: 'bad' };
 }
 
@@ -106,12 +133,28 @@ function reserveFact(r: ReserveLiveStatus): DecisionFact {
 }
 
 export function decisionFacts(result: VerifyResult, reserveLive: ReserveLiveStatus | null, nostrLive: NostrLiveStatus | null): DecisionFact[] {
-  const local = localCryptography(result);
   const notChecked = (label: string): DecisionFact => ({ label, value: 'NOT CHECKED (local only)', tone: 'muted' });
+  const code: DecisionFact = { label: 'Reason code', value: result.reasonCode, tone: 'muted' };
+  if (result.reasonCode === 'REFUSE_ISSUANCE_OMITTED') {
+    // The point of the broken promise: every signature is valid, the evidence
+    // is public and the reserve covers what was reported. Only the promise is broken.
+    const c = result.checks;
+    return [
+      { label: 'Receipt signature', value: c.receiptValid ? 'VALID' : 'INVALID', tone: c.receiptValid ? 'ok' : 'bad' },
+      { label: 'Epoch manifest', value: c.manifestValid ? 'VALID (signed by the mint)' : 'INVALID', tone: c.manifestValid ? 'ok' : 'bad' },
+      ...(c.delegationValid === undefined ? [] : [{ label: 'Manifest key delegation', value: c.delegationValid ? 'VALID (NUT-06 identity)' : 'INVALID', tone: (c.delegationValid ? 'ok' : 'bad') as Tone }]),
+      nostrLive ? publicRetrievalFact(nostrLive) : notChecked('Public Nostr retrieval'),
+      reserveLive ? reserveFact(reserveLive) : notChecked('Live reserve'),
+      { label: 'Promised issuance', value: 'MISSING from the closed epoch', tone: 'bad' },
+      code,
+    ];
+  }
+  const local = localCryptography(result);
   return [
     { label: 'Local cryptography', value: local.valid ? 'VALID' : `FAILED — ${local.failedStep}`, tone: local.valid ? 'ok' : 'bad' },
     nostrLive ? publicRetrievalFact(nostrLive) : notChecked('Public Nostr retrieval'),
     reserveLive ? reserveFact(reserveLive) : notChecked('Live reserve'),
+    code,
   ];
 }
 
@@ -130,7 +173,7 @@ const UNSUPPORTED_MINT_CODES: ReasonCode[] = ['REFUSE_UNSUPPORTED_KEYSET', 'REFU
 export const UNSUPPORTED_MINT_BODY = 'This mint does not provide the SOLVENT-compatible liability evidence required for full verification.';
 
 const TITLES: Partial<Record<ReasonCode, string>> = {
-  REFUSE_ISSUANCE_OMITTED: 'BROKEN PROMISE.',
+  REFUSE_ISSUANCE_OMITTED: 'REFUSE — BROKEN PROMISE.',
   REFUSE_RESERVE_SHORT: 'RESERVE SHORTFALL.',
   REFUSE_RESERVE_UTXO_SPENT: 'RESERVE SPENT.',
   REFUSE_RESERVE_STATE_MISMATCH: 'RESERVE STATE MISMATCH.',
@@ -154,15 +197,15 @@ export function decisionCopy(result: VerifyResult, reserveLive: ReserveLiveStatu
     return { title: 'UNSUPPORTED MINT.', body: `${UNSUPPORTED_MINT_BODY} ${result.reason}` };
   }
   if (code === 'REFUSE_ISSUANCE_OMITTED') {
-    return { title: TITLES[code]!, body: 'The mint signed a receipt promising to include this issuance in this epoch. Its own signed, closed epoch omits it — two signed statements from the same mint that contradict each other.' };
+    return { title: TITLES[code]!, body: 'The cryptography is valid, but the promise is broken. The mint signed a receipt promising to count this issuance in this epoch; its own signed, published, closed epoch leaves it out — two valid signed statements from the same mint that contradict each other.' };
   }
   if (code === 'REFUSE_RESERVE_SHORT') {
     return { title: TITLES[code]!, body: 'The issuance is correctly accounted for, but the independently verified reserve is below what the mint owes.' };
   }
   if (localValid && reserveLive.supplied && reserveLive.queried && !reserveLive.queryOk) {
     return {
-      title: 'LIVE RESERVE UNAVAILABLE.',
-      body: `SOLVENT could not reach the live reserve network just now (${reserveLive.detail}). Acceptance is blocked because the reserve cannot be independently checked — this is not a shortfall. Run the check again.`,
+      title: 'VERIFICATION COULD NOT COMPLETE — RESERVE UNREACHABLE.',
+      body: `SOLVENT could not reach the reserve network just now (${reserveLive.detail}). Nothing was accepted. This is not a shortfall; retry the verification.`,
     };
   }
   if (isReserveAttestationExpired(reserveLive)) {
@@ -175,16 +218,16 @@ export function decisionCopy(result: VerifyResult, reserveLive: ReserveLiveStatu
   }
   if (code === 'REFUSE_NOSTR_EVENT_NOT_FOUND') {
     return {
-      title: 'PUBLIC EVIDENCE NOT FOUND.',
+      title: 'VERIFICATION COULD NOT COMPLETE — PUBLIC EVIDENCE NOT FOUND.',
       body: localValid
-        ? 'The token and supplied signatures are cryptographically valid, but SOLVENT could not independently retrieve the required accounting event from public relays. Acceptance is blocked.'
+        ? 'The signatures are valid, but the relays that answered did not return the accounting event. Nothing was accepted. If it was just published, retry the verification.'
         : result.reason,
     };
   }
   if (code === 'REFUSE_NOSTR_UNAVAILABLE' || (code === 'REFUSE_UNVERIFIABLE' && nostrLive.supplied && !nostrLive.relayReachable)) {
     return {
-      title: 'PUBLIC EVIDENCE UNAVAILABLE.',
-      body: "SOLVENT could not reach any configured public Nostr relay, so it cannot independently retrieve the mint's accounting event. Acceptance is blocked until the public evidence can be checked — run the check again.",
+      title: 'VERIFICATION COULD NOT COMPLETE — RELAYS UNREACHABLE.',
+      body: 'No public Nostr relay could be reached, so the accounting event could not be retrieved. Nothing was accepted. Retry the verification.',
     };
   }
   if (code === 'REFUSE_UNVERIFIABLE') {
@@ -217,36 +260,63 @@ export function factsHtml(facts: DecisionFact[]): string {
  * `kind` is the verdict the badge states: the real ACCEPT/REFUSE decision,
  * or LOCAL for the lab's local-only check, which never reaches a decision.
  */
-export function renderDecision(els: DecisionElements, view: { kind: 'ACCEPT' | 'REFUSE' | 'LOCAL'; copy: DecisionCopy; facts: DecisionFact[]; states: StepState[] }): void {
+/**
+ * The four things a newcomer checks, and which of the nine technical checks
+ * belong to each — so the checklist reads as one protocol, not two.
+ */
+export const CHECK_GROUPS: { title: string; plain: string; steps: number[] }[] = [
+  { title: 'Receipt', plain: "the mint's signed promise to count your ecash", steps: [0, 1, 2] },
+  { title: 'Closed accounting state', plain: 'the signed epoch the promise points to, and your issuance in it', steps: [3, 4, 5] },
+  { title: 'Public evidence', plain: 'that same state, fetched back from public Nostr relays', steps: [6] },
+  { title: 'Reserve coverage', plain: 'Bitcoin the verifier observes itself, covering the committed liabilities', steps: [7] },
+];
+
+export const CHECK_BRIDGE = 'Four things are checked — receipt, closed accounting state, public evidence, reserve coverage — expanded below into the verifier’s nine technical checks.';
+
+export function renderDecision(
+  els: DecisionElements,
+  view: { kind: 'ACCEPT' | 'REFUSE' | 'LOCAL'; copy: DecisionCopy; facts: DecisionFact[]; states: StepState[]; cls?: ResultClass },
+): void {
   const { kind } = view;
-  els.badge.textContent = kind === 'ACCEPT' ? '✓ ACCEPT' : kind === 'REFUSE' ? '✕ REFUSE' : 'LOCAL CHECK ONLY';
-  els.badge.className = `decision-badge ${kind === 'ACCEPT' ? 'green' : kind === 'REFUSE' ? 'red' : 'amber'}`;
+  const cls = view.cls ?? (kind === 'ACCEPT' ? 'accept' : 'refusal');
+  const availability = kind === 'REFUSE' && cls === 'availability';
+  els.badge.textContent = kind === 'ACCEPT' ? '✓ ACCEPT' : availability ? '⟳ NOT ACCEPTED — COULD NOT COMPLETE' : kind === 'REFUSE' ? '✕ REFUSE' : 'LOCAL CHECK ONLY';
+  els.badge.className = `decision-badge ${kind === 'ACCEPT' ? 'green' : kind === 'REFUSE' && !availability ? 'red' : 'amber'}`;
+  els.badge.dataset.resultClass = cls;
   els.headline.textContent = view.copy.title;
   els.body.textContent = view.copy.body;
   els.facts.innerHTML = factsHtml(view.facts);
   const finalLabel = kind === 'LOCAL' ? 'No decision' : kind;
-  els.chain.innerHTML = STEP_DEFS.map((def, i) =>
-    i === STEP_DEFS.length - 1 ? chainStepHtml(finalLabel, def.tech, view.states[i] ?? 'na', ' chain-step-final') : chainStepHtml(`${i + 1}. ${def.label}`, def.tech, view.states[i] ?? 'na'),
-  ).join('<div class="chain-connector" aria-hidden="true"></div>');
+  const groups = CHECK_GROUPS.map(
+    (g) =>
+      `<div class="chain-group"><p class="chain-group-title">${escapeHtml(g.title)} <span class="chain-group-plain">— ${escapeHtml(g.plain)}</span></p>${g.steps
+        .map((i) => chainStepHtml(`${i + 1}. ${STEP_DEFS[i]!.label}`, STEP_DEFS[i]!.tech, view.states[i] ?? 'na'))
+        .join('')}</div>`,
+  ).join('');
+  const last = STEP_DEFS.length - 1;
+  els.chain.innerHTML = `<p class="chain-bridge">${escapeHtml(CHECK_BRIDGE)}</p>${groups}${chainStepHtml(finalLabel, STEP_DEFS[last]!.tech, view.states[last] ?? 'na', ' chain-step-final')}`;
 }
 
 // -------------------- progress --------------------
 
+/**
+ * Compact live progress while verification runs: one line naming the four
+ * groups being checked. The nine-step checklist is rendered once, in the
+ * result (renderDecision) — never twice.
+ */
 export function renderProgressSteps(container: HTMLElement): HTMLElement[] {
-  container.innerHTML = STEP_DEFS.map(
-    (s, i) => `<div class="progress-step" data-step="${i}"><span class="step-icon"></span><span class="step-label">${i + 1}. ${s.label} <span class="step-label-tech">${s.tech}</span></span></div>`,
-  ).join('');
+  container.innerHTML = `<div class="progress-step progress-compact visible"><span class="step-icon progress-spinner" aria-hidden="true"></span><span class="step-label">Checking ${CHECK_GROUPS.map((g) => g.title.toLowerCase()).join(', ')}… <span class="step-label-tech">fetching the public Nostr event and re-querying the reserve now</span></span></div>`;
   return Array.from(container.querySelectorAll<HTMLElement>('.progress-step'));
 }
 
+/** Marks the compact progress line done; the result card carries the detail. */
 export async function revealProgress(rows: HTMLElement[], states: StepState[]): Promise<void> {
-  for (let i = 0; i < rows.length; i++) {
-    await new Promise((r) => setTimeout(r, 70));
-    const row = rows[i]!;
-    const state = states[i] ?? 'na';
-    row.classList.add('visible', state === 'ok' ? 'pass' : state === 'fail' ? 'fail' : 'na');
-    row.querySelector('.step-icon')!.textContent = state === 'ok' ? '✓' : state === 'fail' ? '✕' : '—';
-  }
+  const row = rows[0];
+  if (!row) return;
+  const failed = states.some((s) => s === 'fail');
+  row.classList.add(failed ? 'fail' : 'pass');
+  row.querySelector('.step-icon')!.textContent = failed ? '✕' : '✓';
+  row.querySelector('.step-label')!.textContent = 'Verification finished — see the result below.';
 }
 
 // -------------------- evidence detail blocks --------------------
@@ -273,7 +343,7 @@ export function evidenceSection(title: string, rows: [string, string][], extraHt
 
 export function copyLinkRow(label: string, fullValue: string, explorerUrl: string, explorerLabel: string): string {
   const safe = escapeHtml(fullValue);
-  return `<div class="evidence-links"><button type="button" class="btn btn-outline btn-sm copy-evidence-btn" data-copy="${safe}">${label}</button><a href="${explorerUrl}" target="_blank" rel="noreferrer" class="btn btn-outline btn-sm">${explorerLabel} ↗</a></div>`;
+  return `<div class="evidence-links"><button type="button" class="btn btn-outline btn-sm copy-evidence-btn" data-copy="${safe}">${label}</button><a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">${explorerLabel} ↗</a></div>`;
 }
 
 export function bindCopyButtons(root: HTMLElement): void {
@@ -289,10 +359,10 @@ export function bindCopyButtons(root: HTMLElement): void {
 export function checkedIdsHtml(eventId: string | null, outpoint: { txid: string; vout: number } | null): string {
   const rows: string[] = [];
   if (eventId) {
-    rows.push(`<div class="checked-id"><span class="checked-id-label">Nostr event</span><code class="checked-id-value">${escapeHtml(eventId)}</code><a href="${njumpUrl(eventId)}" target="_blank" rel="noreferrer">View event ↗</a></div>`);
+    rows.push(`<div class="checked-id"><span class="checked-id-label">Nostr event</span><code class="checked-id-value">${escapeHtml(eventId)}</code><a href="${njumpUrl(eventId)}" target="_blank" rel="noopener noreferrer">View event ↗</a></div>`);
   }
   if (outpoint) {
-    rows.push(`<div class="checked-id"><span class="checked-id-label">Reserve UTXO</span><code class="checked-id-value">${escapeHtml(outpoint.txid)}:${outpoint.vout}</code><a href="${mutinynetTxUrl(outpoint.txid)}" target="_blank" rel="noreferrer">View UTXO ↗</a></div>`);
+    rows.push(`<div class="checked-id"><span class="checked-id-label">Reserve UTXO</span><code class="checked-id-value">${escapeHtml(outpoint.txid)}:${outpoint.vout}</code><a href="${mutinynetTxUrl(outpoint.txid)}" target="_blank" rel="noopener noreferrer">View UTXO ↗</a></div>`);
   }
   return rows.join('');
 }
@@ -353,6 +423,50 @@ export function nostrEvidenceRows(nostrEvent: { id: string; kind: number }, nost
     ['Mint / manifest binding (of what was actually used)', nostrLive.bindingValid ? 'VALID' : 'INVALID'],
     ['Public retrieval', nostrLive.publicationVerified ? 'VERIFIED' : `NOT VERIFIED (${nostrLive.reasonCode ?? 'UNVERIFIED'})`],
   ];
+}
+
+const RELAY_RESULT_TEXT: Record<string, string> = {
+  found: 'returned the event',
+  'no-match': 'answered — event not there',
+  timeout: 'connected, no answer before timeout',
+  'connection-failed': 'could not connect',
+};
+
+/** Concise, per-relay account of the public retrieval — replaces generic "relays unavailable" text. */
+export function nostrDiagnosticsHtml(n: NostrLiveStatus): string {
+  if (!n.supplied) return '';
+  const host = (u: string) => u.replace(/^wss:\/\//, '').replace(/\/$/, '');
+  const direct = (n.perRelay ?? []).map((r) => `<li class="relay-${r.result}"><span class="relay-host">${escapeHtml(host(r.relay))}</span> — ${RELAY_RESULT_TEXT[r.result] ?? r.result} <span class="relay-ms">${r.ms} ms</span></li>`).join('');
+  const assisted =
+    n.assisted && 'perRelay' in n.assisted
+      ? `<p class="relay-path">HTTPS relay fetch (${escapeHtml(n.assisted.source)}, ${formatUtc(n.assisted.fetchedAt)}):</p><ul class="relay-list">${n.assisted.perRelay.map((r) => `<li class="relay-${r.result}"><span class="relay-host">${escapeHtml(host(r.relay))}</span> — ${RELAY_RESULT_TEXT[r.result] ?? r.result}</li>`).join('')}</ul>`
+      : n.assisted && 'error' in n.assisted
+        ? `<p class="relay-path">HTTPS relay fetch failed: ${escapeHtml(n.assisted.error)}</p>`
+        : '';
+  const path = n.retrievalPath === 'direct' ? 'retrieved directly by this browser' : n.retrievalPath === 'evidence-service' ? 'retrieved through the HTTPS relay fetch, then verified by this browser' : 'not retrieved';
+  return `<div class="nostr-diagnostics">
+    <p class="relay-path">Event <code>${escapeHtml((n.eventId ?? '').slice(0, 16))}…</code> · ${path}${n.attemptedAt ? ` · attempted ${formatUtc(n.attemptedAt)}` : ''}</p>
+    ${direct ? `<p class="relay-path">This browser’s relay connections:</p><ul class="relay-list">${direct}</ul>` : ''}
+    ${assisted}
+  </div>`;
+}
+
+/** Unambiguous timestamps for evidence: "Sep 30, 2026, 15:42 UTC". */
+export function formatUtc(d: Date | string | number): string {
+  const date = d instanceof Date ? d : new Date(d);
+  return `${date.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short', hour12: false, timeZone: 'UTC' })} UTC`;
+}
+
+/** "18 seconds ago" / "5 minutes ago" — for observations that age. */
+export function formatAgo(d: Date | string | number, now = Date.now()): string {
+  const t = (d instanceof Date ? d : new Date(d)).getTime();
+  const s = Math.max(0, Math.round((now - t) / 1000));
+  if (s < 60) return `${s} second${s === 1 ? '' : 's'} ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} minute${m === 1 ? '' : 's'} ago`;
+  const h = Math.round(m / 60);
+  if (h < 48) return `${h} hour${h === 1 ? '' : 's'} ago`;
+  return `${Math.round(h / 24)} days ago`;
 }
 
 export interface ReserveFreshness {

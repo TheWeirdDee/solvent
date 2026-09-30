@@ -67,7 +67,7 @@ export function proofToJson(proof: Proof): Record<string, unknown> {
   return { ...proof, amount: proof.amount.toNumber() };
 }
 
-function proofFromJson(proof: Record<string, unknown>): Proof {
+export function proofFromJson(proof: Record<string, unknown>): Proof {
   return { ...proof, amount: Amount.from(proof.amount as number) } as Proof;
 }
 
