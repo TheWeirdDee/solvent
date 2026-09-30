@@ -58,7 +58,9 @@
     "verify:phase3b-evidence": "tsx src/cli/real-cashu/verify-phase3b-evidence.ts",
     "verify:pol-melt": "tsx src/cli/real-cashu/pol-melt-e2e.ts",
     "solvent:sidecar": "tsx src/sidecar/service.ts",
-    "verify:real-mint:browser": "tsx src/cli/verify-real-mint-browser.ts"
+    "verify:real-mint:browser": "tsx src/cli/verify-real-mint-browser.ts",
+    "railway:secrets": "tsx src/cli/railway-secrets.ts",
+    "verify:railway": "tsx src/cli/verify-railway.ts"
   },
   "repository": {
     "type": "git",

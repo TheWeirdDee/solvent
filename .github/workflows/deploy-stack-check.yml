@@ -15,6 +15,9 @@ on:
       - 'src/sidecar/**'
       - 'patches/cdk/**'
       - 'migrations/**'
+      - 'railway.toml'
+      - 'src/cli/verify-railway.ts'
+      - 'src/cli/verify-real-mint-browser.ts'
       - '.github/workflows/deploy-stack-check.yml'
 
 permissions:
@@ -27,7 +30,7 @@ concurrency:
 jobs:
   stack:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -86,11 +89,68 @@ jobs:
       - name: Real-mint browser flow against the deployed stack (honest ACCEPT, broken-promise REFUSE)
         run: npm run verify:real-mint:browser -- http://127.0.0.1:4173/ http://127.0.0.1:8085 http://127.0.0.1:8086 --screenshots /tmp/stack-shots
 
+      # The Railway deployment (deploy/railway, railway.toml): the same mint and
+      # sidecar in one container, run exactly as Railway runs it — PORT=8085,
+      # the Railway environment markers, a volume at /data.
+      - name: Build the Railway image (deploy/railway/Dockerfile)
+        run: docker build -f deploy/railway/Dockerfile -t solvent-railway .
+
+      - name: Run the Railway image as Railway would
+        run: |
+          set -euo pipefail
+          MNEMONIC=$(node --input-type=module -e "import { generateMnemonic } from '@scure/bip39'; import { wordlist } from '@scure/bip39/wordlists/english.js'; process.stdout.write(generateMnemonic(wordlist))")
+          MANIFEST_KEY=$(openssl rand -hex 32)
+          echo "::add-mask::$MNEMONIC"
+          echo "::add-mask::$MANIFEST_KEY"
+          OUTPOINT=$(sed -n 's/^SOLVENT_RESERVE_OUTPOINT=//p' deploy/sidecar.env.example)
+          {
+            echo "SOLVENT_PUBLIC_MINT_URL=http://127.0.0.1:18085"
+            echo "SOLVENT_ALLOW_LOCAL_MINT_URL=1"
+            echo "PORT=8085"
+            echo "RAILWAY_PROJECT_ID=ci"
+            echo "RAILWAY_VOLUME_MOUNT_PATH=/data"
+            echo "CDK_MINTD_MNEMONIC=$MNEMONIC"
+            echo "SOLVENT_MANIFEST_PRIVKEY=$MANIFEST_KEY"
+            echo "SOLVENT_RESERVE_KEY_JSON=$(jq -c . evidence/reserves/reserve-key.json)"
+            echo "SOLVENT_RESERVE_OUTPOINT=$OUTPOINT"
+            echo "SOLVENT_DEMO_ALLOW_OMISSION=1"
+            echo "SOLVENT_EPOCH_INTERVAL_SECONDS=20"
+          } > /tmp/railway.env
+          docker volume create railway-data
+          docker run -d --name railway --env-file /tmp/railway.env -v railway-data:/data             -p 127.0.0.1:18085:8085 -p 127.0.0.1:18086:8086 solvent-railway
+          for i in $(seq 1 150); do curl -sf http://127.0.0.1:18086/healthz >/dev/null && exit 0; sleep 2; done
+          docker logs railway; exit 1
+
+      - name: verify:railway against it (mint, identity, CORS, Nostr, honest ACCEPT, broken-promise REFUSE)
+        run: npm run verify:railway -- http://127.0.0.1:18085 http://127.0.0.1:18086 --allow-http --site http://127.0.0.1:4173/
+
+      - name: Railway image keeps its identity across a restart and refuses unsafe starts
+        run: |
+          set -euo pipefail
+          BEFORE=$(curl -sf http://127.0.0.1:18086/v1/solvent/status)
+          docker restart railway
+          for i in $(seq 1 90); do curl -sf http://127.0.0.1:18086/healthz >/dev/null && break; sleep 2; done
+          AFTER=$(curl -sf http://127.0.0.1:18086/v1/solvent/status)
+          echo "before: $BEFORE"; echo "after:  $AFTER"
+          [ "$(jq -r .mint_identity_pubkey <<<"$BEFORE")" = "$(jq -r .mint_identity_pubkey <<<"$AFTER")" ]
+          [ "$(jq -r .open_epoch <<<"$AFTER")" -ge "$(jq -r .open_epoch <<<"$BEFORE")" ]
+          [ "$(curl -sf http://127.0.0.1:18085/v1/info | jq -r .pubkey)" = "$(jq -r .mint_identity_pubkey <<<"$AFTER")" ]
+          # A different public mint URL than the persisted delegation: refused.
+          sed 's#^SOLVENT_PUBLIC_MINT_URL=.*#SOLVENT_PUBLIC_MINT_URL=http://127.0.0.1:18999#' /tmp/railway.env > /tmp/railway-badurl.env
+          if docker run --rm --env-file /tmp/railway-badurl.env -v railway-data:/data solvent-railway > /tmp/badurl.log 2>&1; then echo "started with a mismatched mint URL"; exit 1; fi
+          grep -q "persisted delegation is bound to" /tmp/badurl.log
+          # On Railway without a volume at /data: refused.
+          grep -v '^RAILWAY_VOLUME_MOUNT_PATH=' /tmp/railway.env > /tmp/railway-novol.env
+          if docker run --rm --env-file /tmp/railway-novol.env solvent-railway > /tmp/novol.log 2>&1; then echo "started without a volume"; exit 1; fi
+          grep -q "attach a Railway volume" /tmp/novol.log
+          echo "restart persistence and start guards OK"
+
       - name: Stack logs
         if: always()
         working-directory: deploy
         run: |
           mkdir -p /tmp/stack-logs
+          docker logs railway > /tmp/stack-logs/railway.log 2>&1 || true
           docker compose logs mint > /tmp/stack-logs/mint.log 2>&1 || true
           docker compose logs sidecar > /tmp/stack-logs/sidecar.log 2>&1 || true
           tail -40 /tmp/stack-logs/sidecar.log || true
@@ -101,6 +161,7 @@ jobs:
           name: deploy-stack-check
           path: |
             /tmp/stack-shots/
+            evidence/railway-shots/
             /tmp/stack-logs/
           if-no-files-found: warn
           retention-days: 30
@@ -108,4 +169,7 @@ jobs:
       - name: Tear down
         if: always()
         working-directory: deploy
-        run: docker compose down -v || true
+        run: |
+          docker compose down -v || true
+          docker rm -f railway || true
+          docker volume rm railway-data || true

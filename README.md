@@ -86,7 +86,7 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 - Multi-keyset epochs are refused (`REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE`), not aggregated.
 - A remote (gRPC) signatory cannot sign the mint-identity delegation, so it fails closed.
 - Public relay availability matters. When evidence can't be fetched, SOLVENT refuses (`REFUSE_NOSTR_EVENT_NOT_FOUND` or `…_UNAVAILABLE`).
-- There is no persistent public host for the real mint in this repository. The deployment is packaged and CI-tested (`deploy/`), but running it needs a host.
+- The real mint's public hosting is packaged and CI-tested, not assumed: Docker Compose for any Linux host (`deploy/`, [`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)) and Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). A public deployment runs fakewallet Lightning and says so; the real-LND evidence is the CI runs below.
 
 The complete line-by-line table is in [`docs/REALITY-MAP.md`](docs/REALITY-MAP.md), and the decision history in [`DECISIONS.md`](DECISIONS.md).
 

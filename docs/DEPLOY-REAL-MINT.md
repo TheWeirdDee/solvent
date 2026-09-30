@@ -1,6 +1,6 @@
 # Deploy a real SOLVENT mint
 
-This is how to run a real, publicly reachable SOLVENT mint: a patched CDK Cashu mint, plus the SOLVENT sidecar that closes its accounting epochs, publishes them to Nostr and serves the evidence a wallet needs. A small Linux host with Docker is enough; Kubernetes is not needed.
+This is how to run a real, publicly reachable SOLVENT mint: a patched CDK Cashu mint, plus the SOLVENT sidecar that closes its accounting epochs, publishes them to Nostr and serves the evidence a wallet needs. A small Linux host with Docker is enough; Kubernetes is not needed. For Railway, see [`DEPLOY-RAILWAY.md`](DEPLOY-RAILWAY.md) (one service, one volume, two domains).
 
 The artifacts in [`deploy/`](../deploy) are exercised end to end by the **Deploy Stack Check** workflow (`.github/workflows/deploy-stack-check.yml`), which runs these steps:
 

@@ -1,0 +1,29 @@
+# Railway config-as-code for the SOLVENT mint + sidecar service
+# (docs/DEPLOY-RAILWAY.md). One service, one volume at /data, two public
+# domains (port 8085 = mint, port 8086 = evidence API). The website stays on
+# GitHub Pages.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "deploy/railway/Dockerfile"
+# Rebuild only when something in the image changes (the frontend and docs
+# are served by GitHub Pages, not by this service).
+watchPatterns = [
+  "deploy/railway/**",
+  "deploy/mint/**",
+  "deploy/mint.fakewallet.toml",
+  "patches/cdk/**",
+  "migrations/**",
+  "src/**",
+  "package.json",
+  "package-lock.json",
+  "tsconfig.json",
+  "railway.toml",
+]
+
+[deploy]
+# The mint's own API on PORT (=8085); the container exits if either process dies.
+healthcheckPath = "/v1/info"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
