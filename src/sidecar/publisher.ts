@@ -23,7 +23,13 @@ export async function publishVerified(
   event: NostrEvent,
   relays: string[],
   expect: { manifestDigest: string; globalDigest: string; delegationDigest: string; reserveBindingDigest: string },
-  deps: { publish?: PublishFn; fetchById?: FetchByIdFn; delayMs?: number } = {},
+  deps: {
+    publish?: PublishFn;
+    fetchById?: FetchByIdFn;
+    delayMs?: number;
+    /** Progress for display: which round, which relays have ACKed, when fetch-back starts. */
+    onProgress?: (p: { stage: 'publishing' | 'fetching-back'; attempt: number; acked: string[] }) => void;
+  } = {},
 ): Promise<PublicationResult> {
   const publish = deps.publish ?? publishPolEvidence;
   const fetchById = deps.fetchById ?? fetchPolEventById;
@@ -33,8 +39,10 @@ export async function publishVerified(
   let last: RelayPublishResult[] = [];
   for (let round = 1; round <= 3 && acked.size < relays.length; round++) {
     const pending = relays.filter((r) => !acked.has(r));
+    deps.onProgress?.({ stage: 'publishing', attempt: round, acked: [...acked] });
     last = await publish(event, pending);
     for (const r of last) if (r.ok) acked.add(r.relay);
+    deps.onProgress?.({ stage: 'publishing', attempt: round, acked: [...acked] });
     if (acked.size < relays.length && round < 3) await sleep(delay * round);
   }
   const results = relays.map((relay) => (acked.has(relay) ? { relay, ok: true, detail: '' } : (last.find((r) => r.relay === relay) ?? { relay, ok: false, detail: 'no response' })));
@@ -43,6 +51,7 @@ export async function publishVerified(
   }
 
   for (let attempt = 1; attempt <= 5; attempt++) {
+    deps.onProgress?.({ stage: 'fetching-back', attempt, acked: [...acked] });
     const r = await fetchById(event.id, relays);
     const fetched = r.events.find((e) => e.id === event.id);
     if (fetched) {

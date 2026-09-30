@@ -29,6 +29,11 @@ export interface Issued {
   amount: number;
 }
 
+export interface Prepared {
+  amount: number;
+  item: ReturnType<typeof issue>;
+}
+
 export class CdkSim {
   constructor(
     readonly db: DatabaseSync,
@@ -40,12 +45,21 @@ export class CdkSim {
     ).run(keyset.keysetId, JSON.stringify(AMOUNTS));
   }
 
+  /** A wallet's output prepared before minting: its blinded message B_ is known before the mint sees it. */
+  prepare(amount: number): Prepared {
+    return { amount, item: issue(this.keyset, amount, `mint-${Math.random()}`) };
+  }
+
   /** A real NUT-04 mint request: add_blinded_messages, add_blind_signatures, then sign each receipt over its DB-stamped epoch. */
   mint(amounts: number[]): Issued[] {
+    return this.mintPrepared(amounts.map((a) => this.prepare(a)));
+  }
+
+  /** The same NUT-04 request for outputs the wallet prepared in advance. */
+  mintPrepared(prepared: Prepared[]): Issued[] {
     this.db.exec('BEGIN IMMEDIATE');
     try {
-      const out = amounts.map((amount) => {
-        const item = issue(this.keyset, amount, `mint-${Math.random()}`);
+      const out = prepared.map(({ amount, item }) => {
         const bm = Buffer.from(hexToBytes(item.bPrimeHex));
         this.db
           .prepare(

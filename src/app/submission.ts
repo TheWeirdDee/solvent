@@ -66,7 +66,7 @@ import type { NostrEvent } from 'nostr-tools';
 import { globalDigest, keysetMerkleRoot, manifestDigestHex, sortKeysets, type KeysetManifestEntry, type ManifestFields } from '../pol/manifest.js';
 import { bytesToHex, type InclusionProof } from '../pol/mmr.js';
 import type { PolReceipt } from '../pol/receipt.js';
-import { evaluatePolEvidence, fetchPolEvidence, realDelay, type DelayFn, type NostrEvidenceExpectation, type NostrEvidenceReasonCode } from '../nostr/pol-evidence.js';
+import { evaluatePolEvidence, fetchPolEvidence, realDelay, type DelayFn, type NostrEvidenceExpectation, type NostrEvidenceReasonCode, type RelayFetchDiagnostic } from '../nostr/pol-evidence.js';
 import { delegationDigestHex, type ManifestKeyDelegation } from '../epoch/delegation.js';
 import { reserveBindingDigestHex, verifyReserveBinding, type ReserveBinding } from '../reserve/binding.js';
 import { isMintUrl } from '../verifier/verify.js';
@@ -135,7 +135,26 @@ export const fetchMintIdentity: MintInfoFetchFn = async (mintUrl) => {
   }
 };
 
+/**
+ * Server-assisted public retrieval (docs/trust-boundaries.md): an HTTPS
+ * endpoint that queries the SAME fixed public relays by exact event id and
+ * returns the raw signed events with per-relay provenance. Used only when the
+ * browser's own relay WebSockets could not return the event (some browsers and
+ * networks cannot open them). The returned event is still verified here in
+ * full — id, signature, schema, identity, epoch, digests, freshness — exactly
+ * like a directly fetched one; the helper is transport, never a verifier.
+ */
+export interface AssistedRelayFetchResult {
+  events: NostrEvent[];
+  perRelay: { relay: string; result: RelayFetchDiagnostic['result']; ms: number }[];
+  fetchedAt: string;
+  source: string;
+}
+export type AssistedRelayFetchFn = (eventId: string) => Promise<AssistedRelayFetchResult>;
+
 export interface Phase3bOptions {
+  /** Optional fallback retrieval path (see AssistedRelayFetchResult). */
+  assistedRelayFetch?: AssistedRelayFetchFn;
   mintInfoFetchFn?: MintInfoFetchFn;
   /** Clock for binding validity windows; defaults to the real clock. */
   nowSeconds?: () => number;
@@ -171,6 +190,16 @@ export interface NostrLiveStatus {
   verified: boolean;
   reasonCode?: NostrEvidenceReasonCode | 'REFUSE_NOSTR_EVENT_NOT_FOUND';
   detail: string;
+  /** The exact event id the bundle names (what was looked for). */
+  eventId?: string;
+  /** When the public retrieval was attempted. */
+  attemptedAt?: string;
+  /** How the event was obtained: the browser's own relay connections, or the HTTPS relay-fetch helper. */
+  retrievalPath?: 'direct' | 'evidence-service' | 'none';
+  /** What each relay did on the browser's own (last) attempt. */
+  perRelay?: RelayFetchDiagnostic[];
+  /** What each relay did for the HTTPS helper, if it was used. */
+  assisted?: { source: string; fetchedAt: string; perRelay: AssistedRelayFetchResult['perRelay'] } | { source: string; error: string };
 }
 
 export interface SubmissionVerification {
@@ -322,7 +351,10 @@ export function computeGlobalDigestHex(m: ManifestFields): string {
 }
 
 /** The exact shape of fetchPolEvidence() — extracted so a caller (the deterministic attack corpus, in particular — see src/cli/attacks.ts's A25) can inject a fake relay response at this exact boundary without touching real public relays, while the browser always uses the real function (the default). */
-export type RelayFetchFn = typeof fetchPolEvidence;
+export type RelayFetchFn = (
+  mintIdentityHex: string,
+  epochIndex: number,
+) => Promise<{ events: NostrEvent[]; relayReachable: boolean; queriedRelays?: string[]; perRelay?: RelayFetchDiagnostic[] }>;
 
 /**
  * How long the bounded retry (below) waits before its one extra attempt.
@@ -340,6 +372,7 @@ async function evaluateNostrIndependently(
   delayFn: DelayFn = realDelay,
   phase3b?: NostrEvidenceExpectation['phase3b'],
   clockSeconds?: number,
+  assistedFetch?: AssistedRelayFetchFn,
 ): Promise<NostrLiveStatus> {
   if (!event) {
     return {
@@ -391,10 +424,13 @@ async function evaluateNostrIndependently(
   // attempt reached a relay; events are the union, deduped downstream by
   // evaluatePolEvidence) rather than the retry silently discarding whatever
   // the first attempt actually observed.
+  const attemptedAt = new Date(nowSeconds * 1000).toISOString();
+  let perRelay: RelayFetchDiagnostic[] | undefined;
   async function attemptFetch(): Promise<{ relayReachable: boolean; events: NostrEvent[] }> {
     try {
-      const { events, relayReachable: reachable } = await fetchFn(bundle.masterPublicKeyHex, bundle.manifest.epoch_index);
-      return { relayReachable: reachable, events };
+      const r = await fetchFn(bundle.masterPublicKeyHex, bundle.manifest.epoch_index);
+      if (r.perRelay) perRelay = r.perRelay;
+      return { relayReachable: r.relayReachable, events: r.events };
     } catch {
       return { relayReachable: false, events: [] };
     }
@@ -414,7 +450,25 @@ async function evaluateNostrIndependently(
     for (const e of second.events) merged.set(e.id, e);
     fetchedEvents = [...merged.values()];
   }
-  const eventFetched = fetchedEvents.some((e) => e.id === event.id);
+  let retrievalPath: NostrLiveStatus['retrievalPath'] = fetchedEvents.some((e) => e.id === event.id) ? 'direct' : 'none';
+  let assisted: NostrLiveStatus['assisted'];
+  if (retrievalPath === 'none' && assistedFetch) {
+    try {
+      const a = await assistedFetch(event.id);
+      assisted = { source: a.source, fetchedAt: a.fetchedAt, perRelay: a.perRelay };
+      // Only the exact requested event is taken from the helper, and it is
+      // evaluated below exactly like a directly fetched one.
+      const exact = a.events.filter((e) => e.id === event.id);
+      if (exact.length > 0) {
+        fetchedEvents = [...fetchedEvents, ...exact];
+        retrievalPath = 'evidence-service';
+      }
+      relayReachable = relayReachable || a.perRelay.some((r) => r.result !== 'connection-failed');
+    } catch (err) {
+      assisted = { source: 'evidence service', error: (err as Error).message };
+    }
+  }
+  const eventFetched = retrievalPath !== 'none';
 
   // Evaluate ONLY what relays actually, independently returned — never
   // merged with or falling back to the bundle's own private copy. A
@@ -460,8 +514,13 @@ async function evaluateNostrIndependently(
     verified: liveResult.verified,
     reasonCode: liveResult.verified ? undefined : reasonCode,
     detail: eventFetched
-      ? `Event found and independently re-verified on a public relay. ${liveResult.detail}`
-      : `${relayReachable ? 'Relay(s) reachable, but none returned the required public event' : 'Relay(s) unreachable — public retrieval could not be attempted'} — public retrieval could not be independently confirmed. The bundle's own signed copy is ${providedCopyResult.verified ? 'cryptographically valid' : 'NOT cryptographically valid'}, but that alone does not establish public publication. ${liveResult.detail}`,
+      ? `Event ${event.id.slice(0, 12)}… retrieved from public relays${retrievalPath === 'evidence-service' ? ' (via the HTTPS relay-fetch helper)' : ''} and independently re-verified. ${liveResult.detail}`
+      : `${relayReachable ? 'Relays answered, but none returned the event' : 'No relay could be reached'} (${event.id.slice(0, 12)}…). The bundle's own copy is ${providedCopyResult.verified ? 'validly signed' : 'NOT validly signed'}, but a private copy does not prove publication.`,
+    eventId: event.id,
+    attemptedAt,
+    retrievalPath,
+    ...(perRelay ? { perRelay } : {}),
+    ...(assisted ? { assisted } : {}),
   };
 }
 
@@ -506,7 +565,7 @@ export async function verifySubmission(
       chainStateFetchFn,
       realMint ? { binding: bundle.reserveBinding, bundle, mintIdentityPubkey: mintIdentityLive?.pubkey, nowSeconds } : undefined,
     ),
-    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn, phase3bNostr, nowSeconds),
+    evaluateNostrIndependently(bundle.nostrEvent, bundle, relayFetchFn, delayFn, phase3bNostr, nowSeconds, realMint ? phase3bOptions.assistedRelayFetch : undefined),
   ]);
 
   const verifyInput: VerifyInput = {

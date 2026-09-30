@@ -72,6 +72,8 @@ export interface ClosedEpoch {
   nextOpenEpoch: number;
   /** Set only when the operator explicitly requested the broken-promise demo mode. */
   omitted: { liabilityId: string; blindedMessageHex: string; amount: number } | null;
+  /** Every issuance omitted from this epoch (`omitted` is the first of these). */
+  omittedAll: { liabilityId: string; blindedMessageHex: string; amount: number }[];
   /** Liability rows targeting this epoch with no real CDK write behind them (e.g. the Phase 2 synthetic recovery fixture) — excluded, and reported rather than hidden. */
   unbackedIssuedRowsExcluded: number;
   unbackedConsumedRowsExcluded: number;
@@ -90,6 +92,14 @@ export interface CloseEpochOptions {
    * are untouched; the mint simply breaks its signed promise.
    */
   omitPromisedIssuance?: string;
+  /**
+   * Same demo mode, for several requests at once (the public demo's queue).
+   * Lenient and atomic: inside the close transaction, every listed blinded
+   * message whose issuance exists AND was promised to the epoch being closed
+   * is omitted; the rest are ignored (not yet issued, or promised to a later
+   * epoch) and reported back through `omittedAll` only when applied.
+   */
+  omitIfPromisedToThisEpoch?: string[];
   /** Test-only hook: runs after every write, immediately before COMMIT. */
   beforeCommit?: () => void;
 }
@@ -263,6 +273,17 @@ export function closeEpoch(db: DatabaseSync, opts: CloseEpochOptions): ClosedEpo
       db.prepare(`INSERT INTO solvent_pol_epoch_omission (liability_id, omitted_from_epoch, recorded_at) VALUES (?, ?, ?)`).run(row.id, epochIndex, nowSeconds);
       omitted = { liabilityId: row.id, blindedMessageHex: bm, amount: row.amount };
     }
+    const omittedAll: ClosedEpoch['omittedAll'] = omitted ? [omitted] : [];
+    for (const raw of new Set((opts.omitIfPromisedToThisEpoch ?? []).map((b) => b.toLowerCase()))) {
+      if (omitted && raw === omitted.blindedMessageHex) continue;
+      const row = db
+        .prepare(`SELECT id, amount FROM solvent_issued_liability WHERE blinded_message_hex = ? AND target_epoch = ?`)
+        .get(raw, epochIndex) as { id: string; amount: number } | undefined;
+      if (!row) continue;
+      db.prepare(`INSERT INTO solvent_pol_epoch_omission (liability_id, omitted_from_epoch, recorded_at) VALUES (?, ?, ?)`).run(row.id, epochIndex, nowSeconds);
+      omittedAll.push({ liabilityId: row.id, blindedMessageHex: raw, amount: row.amount });
+    }
+    if (!omitted && omittedAll.length > 0) omitted = omittedAll[0]!;
 
     const keysetRows = db.prepare(`SELECT id, unit, active FROM keyset ORDER BY id`).all() as { id: string; unit: string; active: number }[];
     if (keysetRows.length === 0) throw new EpochError('the mint has no keysets');
@@ -314,6 +335,7 @@ export function closeEpoch(db: DatabaseSync, opts: CloseEpochOptions): ClosedEpo
       keysets,
       nextOpenEpoch: epochIndex + 1,
       omitted,
+      omittedAll,
       unbackedIssuedRowsExcluded: unbacked.issued,
       unbackedConsumedRowsExcluded: unbacked.consumed,
     };
@@ -338,12 +360,13 @@ export function loadClosedEpoch(db: DatabaseSync, epochIndex: number): ClosedEpo
     spent_mmr_size: number; spent_mmr_root_hash: string; spent_mmr_root_sum: number; outstanding_balance: number;
     active: number; deactivation_epoch: number; manifest_digest: string; manifest_signature: string;
   }[];
-  const omission = db
+  const omissions = db
     .prepare(
       `SELECT o.liability_id, il.blinded_message_hex, il.amount FROM solvent_pol_epoch_omission o
-       JOIN solvent_issued_liability il ON il.id = o.liability_id WHERE o.omitted_from_epoch = ?`,
+       JOIN solvent_issued_liability il ON il.id = o.liability_id WHERE o.omitted_from_epoch = ? ORDER BY il.seq`,
     )
-    .get(epochIndex) as { liability_id: string; blinded_message_hex: string; amount: number } | undefined;
+    .all(epochIndex) as unknown as { liability_id: string; blinded_message_hex: string; amount: number }[];
+  const omittedAll = omissions.map((o) => ({ liabilityId: o.liability_id, blindedMessageHex: o.blinded_message_hex, amount: o.amount }));
   const unbacked = countUnbacked(db, epochIndex);
   return {
     epochIndex,
@@ -371,7 +394,8 @@ export function loadClosedEpoch(db: DatabaseSync, epochIndex: number): ClosedEpo
       manifestSignature: r.manifest_signature,
     })),
     nextOpenEpoch: epochIndex + 1,
-    omitted: omission ? { liabilityId: omission.liability_id, blindedMessageHex: omission.blinded_message_hex, amount: omission.amount } : null,
+    omitted: omittedAll[0] ?? null,
+    omittedAll,
     unbackedIssuedRowsExcluded: unbacked.issued,
     unbackedConsumedRowsExcluded: unbacked.consumed,
   };

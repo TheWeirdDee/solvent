@@ -20,6 +20,10 @@ export interface EpochPublication {
   published_at: string;
   valid_until: number | null;
   omitted_issuance: string | null;
+  /** Every issuance this epoch omitted on request (the broken-promise demo). */
+  omitted_issuances?: string[];
+  /** The epoch manifest's committed outstanding liabilities (sats). */
+  outstanding_balance?: number;
   detail: string;
 }
 

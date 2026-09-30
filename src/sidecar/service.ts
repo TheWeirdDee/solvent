@@ -23,6 +23,7 @@ import { configuredRelays } from '../nostr/pol-evidence.js';
 import { manifestDigestHex } from '../pol/manifest.js';
 import { fetchOutspend, fetchTipHeight, fetchTxOutScript } from '../reserve/esplora.js';
 import { createHandler, type SidecarState } from './api.js';
+import { OMISSION_REQUEST_TTL_SECONDS, OmissionQueue } from './omissions.js';
 import { publishVerified } from './publisher.js';
 import { PublicationStore } from './store.js';
 
@@ -49,14 +50,39 @@ function openEpochHasLiabilities(db: DatabaseSync, epoch: number): boolean {
   return q('solvent_issued_liability') + q('solvent_consumed_liability') > 0;
 }
 
+/**
+ * Settles every broken-promise request the close did not apply: `missed` when
+ * its issuance was promised to an epoch that is now closed (the request came
+ * after that close), `expired` when no issuance ever appeared. Never silent:
+ * the wallet reads this state back from /v1/solvent/issuance/<B_>.
+ */
+function settleUnappliedOmissions(s: SidecarState, closedEpoch: number, nowSeconds: number): void {
+  for (const bm of s.omissions.pending()) {
+    const row = s.db.prepare(`SELECT target_epoch FROM solvent_issued_liability WHERE blinded_message_hex = ?`).get(bm) as { target_epoch: number } | undefined;
+    if (row && row.target_epoch <= closedEpoch) s.omissions.settle(bm, 'missed', row.target_epoch);
+    else if (!row && nowSeconds - (s.omissions.get(bm)?.requested_at ?? nowSeconds) > OMISSION_REQUEST_TTL_SECONDS) s.omissions.settle(bm, 'expired', null);
+  }
+}
+
 /** One cycle: close the open epoch if it holds liabilities, then publish it. Returns the closed epoch index, or null. */
 export async function closeAndPublish(s: SidecarState, d: CycleDeps): Promise<number | null> {
   const open = openEpoch(s.db).epochIndex;
-  if (!openEpochHasLiabilities(s.db, open)) return null;
-  const omit = s.pendingOmissions.get(open);
-  const closed = closeEpoch(s.db, { manifestPrivateKeyHex: d.manifestPrivateKeyHex, omitPromisedIssuance: omit, now: d.now?.() });
-  s.pendingOmissions.delete(open);
-  const base = { epoch_index: closed.epochIndex, published_at: new Date().toISOString(), omitted_issuance: omit ?? null };
+  const nowSeconds = Math.floor((d.now?.() ?? new Date()).getTime() / 1000);
+  if (!openEpochHasLiabilities(s.db, open)) {
+    settleUnappliedOmissions(s, open - 1, nowSeconds);
+    return null;
+  }
+  // Applied inside the close transaction: exactly the requested issuances
+  // promised to this epoch, no matter how many; the rest stay queued.
+  const closed = closeEpoch(s.db, { manifestPrivateKeyHex: d.manifestPrivateKeyHex, omitIfPromisedToThisEpoch: s.omissions.pending(), now: d.now?.() });
+  for (const o of closed.omittedAll) s.omissions.settle(o.blindedMessageHex, 'applied', closed.epochIndex);
+  settleUnappliedOmissions(s, closed.epochIndex, nowSeconds);
+  const omittedAll = closed.omittedAll.map((o) => o.blindedMessageHex);
+  const base = { epoch_index: closed.epochIndex, published_at: new Date().toISOString(), omitted_issuance: omittedAll[0] ?? null, omitted_issuances: omittedAll };
+  const progress = (p: Partial<NonNullable<SidecarState['publishing']>>) => {
+    s.publishing = { epoch_index: closed.epochIndex, stage: 'observing-reserve', started_at: nowSeconds, relays: d.relays, acked: [], attempt: 0, ...(s.publishing?.epoch_index === closed.epochIndex ? s.publishing : {}), ...p };
+  };
+  progress({ stage: 'observing-reserve' });
   try {
     const reserve = await (d.observeReserve ?? observeReserveLive)(d.outpoint);
     const ev = buildEpochPublicEvidence({
@@ -64,17 +90,25 @@ export async function closeAndPublish(s: SidecarState, d: CycleDeps): Promise<nu
       reserveKey: d.reserveKey, reserve, nostrSecretKey: d.nostrSecretKey, validitySeconds: d.validitySeconds,
       proofUri: `${s.mintUrl}#solvent-epoch-${closed.epochIndex}`, now: d.now?.(),
     });
-    const pub = await (d.publish ?? publishVerified)(ev.event, d.relays, {
-      manifestDigest: manifestDigestHex(ev.manifest), globalDigest: ev.content.global_digest,
-      delegationDigest: ev.delegationDigest, reserveBindingDigest: ev.reserveBindingDigest,
-    });
+    progress({ stage: 'publishing' });
+    const pub = await (d.publish ?? publishVerified)(
+      ev.event,
+      d.relays,
+      {
+        manifestDigest: manifestDigestHex(ev.manifest), globalDigest: ev.content.global_digest,
+        delegationDigest: ev.delegationDigest, reserveBindingDigest: ev.reserveBindingDigest,
+      },
+      { onProgress: (p) => progress(p) },
+    );
     s.store.put({
       ...base, status: pub.verified ? 'published' : 'unpublished', event: ev.event, event_id: ev.event.id, relays: pub.relays,
       fetched_from: pub.fetchedFrom, reserve_attestation: ev.reserveAttestation, reserve_binding: ev.reserveBinding,
-      valid_until: ev.content.valid_until, detail: pub.detail,
+      valid_until: ev.content.valid_until, detail: pub.detail, outstanding_balance: ev.manifest.outstanding_balance,
     });
   } catch (err) {
     s.store.put({ ...base, status: 'failed', event: null, event_id: null, relays: [], fetched_from: [], reserve_attestation: null, reserve_binding: null, valid_until: null, detail: (err as Error).message });
+  } finally {
+    s.publishing = null;
   }
   return closed.epochIndex;
 }
@@ -123,6 +157,7 @@ async function main() {
 
   const db = new DatabaseSync(dbPath, { timeout: 10_000 });
   let nextCloseAt = Math.floor(Date.now() / 1000) + interval;
+  const relays = configuredRelays();
   const state: SidecarState = {
     db,
     store: new PublicationStore(process.env.SOLVENT_PUBLICATION_STORE ?? `${dbPath}.solvent-publications.json`),
@@ -131,7 +166,10 @@ async function main() {
     lightningBackend: backend,
     epochIntervalSeconds: interval,
     demoOmissionEnabled: process.env.SOLVENT_DEMO_ALLOW_OMISSION === '1',
-    pendingOmissions: new Map(),
+    omissions: new OmissionQueue(process.env.SOLVENT_OMISSION_STORE ?? `${dbPath}.solvent-omissions.json`),
+    relays,
+    publishing: null,
+    reserveOutpoint: `${txid}:${vout}`,
     nextCloseAt: () => nextCloseAt,
   };
   const deps: CycleDeps = {
@@ -139,7 +177,7 @@ async function main() {
     reserveKey: { outputPublicKeyXOnlyHex: reserveKeyFile.outputPublicKeyXOnlyHex, tweakedPrivateKeyHex: reserveKeyFile.tweakedPrivateKeyHex },
     outpoint: { txid: txid!, vout: Number(vout) },
     nostrSecretKey: process.env.SOLVENT_NOSTR_SECRET_HEX ? Buffer.from(process.env.SOLVENT_NOSTR_SECRET_HEX, 'hex') : generateSecretKey(),
-    relays: configuredRelays(),
+    relays,
     validitySeconds: evidenceValiditySeconds(),
   };
 

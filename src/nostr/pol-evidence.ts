@@ -7,7 +7,47 @@
 import { SimplePool, type NostrEvent } from 'nostr-tools';
 import { POL_EVENT_KIND, verifyPolEvidenceEvent, isPolEvidenceFresh, type PolEvidenceContent } from './pol-event.js';
 
-export const POL_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
+/**
+ * The public relays SOLVENT publishes to and reads from. Chosen by testing
+ * (2026-09-30) that each one ACKs a kind 8181 event AND serves it back both by
+ * id and by the #M/#E tag filter the verifier uses. relay.damus.io was dropped
+ * because it ACKs these events but never serves them back (it only burned the
+ * query timeout); relay.nostr.band was dropped because it no longer accepts
+ * connections. Older evidence published to those relays is still on nos.lol.
+ */
+export const POL_RELAYS = ['wss://nos.lol', 'wss://relay.primal.net', 'wss://nostr.mom', 'wss://offchain.pub', 'wss://relay.snort.social'];
+
+/** What one relay actually did for one query — reported to users instead of a generic "relays unavailable". */
+export interface RelayFetchDiagnostic {
+  relay: string;
+  /** connection-failed: no WebSocket; timeout: connected but never finished answering; no-match: answered, nothing matching; found: returned matching event(s). */
+  result: 'found' | 'no-match' | 'timeout' | 'connection-failed';
+  events: number;
+  ms: number;
+}
+
+/** One relay, one filter, with the outcome classified from real connection and timing signals. */
+async function queryOneRelay(relay: string, filter: Record<string, unknown>, timeoutMs: number): Promise<{ events: NostrEvent[]; diag: RelayFetchDiagnostic }> {
+  let connected: boolean | undefined;
+  const pool = new SimplePool({
+    onRelayConnectionSuccess: () => {
+      connected = true;
+    },
+    onRelayConnectionFailure: () => {
+      connected = false;
+    },
+  } as unknown as ConstructorParameters<typeof SimplePool>[0]);
+  const t0 = Date.now();
+  try {
+    const events = await pool.querySync([relay], filter as Parameters<SimplePool['querySync']>[1], { maxWait: timeoutMs }).catch(() => [] as NostrEvent[]);
+    const ms = Date.now() - t0;
+    const result: RelayFetchDiagnostic['result'] =
+      events.length > 0 ? 'found' : connected !== true ? 'connection-failed' : ms >= timeoutMs * 0.9 ? 'timeout' : 'no-match';
+    return { events, diag: { relay, result, events: events.length, ms } };
+  } finally {
+    pool.destroy();
+  }
+}
 
 /**
  * The relay set for CLI/integration runs: SOLVENT_NOSTR_RELAYS (comma-separated
@@ -70,19 +110,14 @@ export async function fetchPolEvidence(
   epochIndex: number,
   relays: string[] = POL_RELAYS,
   timeoutMs = 5000,
-): Promise<{ events: NostrEvent[]; queriedRelays: string[]; relayReachable: boolean }> {
-  let relayReachable = false;
-  const pool = new SimplePool({
-    onRelayConnectionSuccess: () => {
-      relayReachable = true;
-    },
-  } as unknown as ConstructorParameters<typeof SimplePool>[0]);
-  try {
-    const events = await pool.querySync(relays, { kinds: [POL_EVENT_KIND], '#M': [mintIdentityHex], '#E': [String(epochIndex)] }, { maxWait: timeoutMs });
-    return { events, queriedRelays: relays, relayReachable };
-  } finally {
-    pool.destroy();
-  }
+): Promise<{ events: NostrEvent[]; queriedRelays: string[]; relayReachable: boolean; perRelay: RelayFetchDiagnostic[] }> {
+  const per = await Promise.all(relays.map((r) => queryOneRelay(r, { kinds: [POL_EVENT_KIND], '#M': [mintIdentityHex], '#E': [String(epochIndex)] }, timeoutMs)));
+  return {
+    events: per.flatMap((p) => p.events),
+    queriedRelays: relays,
+    relayReachable: per.some((p) => p.diag.result !== 'connection-failed'),
+    perRelay: per.map((p) => p.diag),
+  };
 }
 
 /**
@@ -94,26 +129,15 @@ export async function fetchPolEventById(
   eventId: string,
   relays: string[] = POL_RELAYS,
   timeoutMs = 5000,
-): Promise<{ events: NostrEvent[]; relayReachable: boolean; perRelay: { relay: string; found: boolean }[] }> {
-  let relayReachable = false;
-  const pool = new SimplePool({
-    onRelayConnectionSuccess: () => {
-      relayReachable = true;
-    },
-  } as unknown as ConstructorParameters<typeof SimplePool>[0]);
-  try {
-    const perRelay = await Promise.all(
-      relays.map(async (relay) => {
-        const found = await pool.querySync([relay], { ids: [eventId] }, { maxWait: timeoutMs });
-        return { relay, found: found.some((e) => e.id === eventId), events: found };
-      }),
-    );
-    const byId = new Map<string, NostrEvent>();
-    for (const r of perRelay) for (const e of r.events) byId.set(e.id, e);
-    return { events: [...byId.values()], relayReachable, perRelay: perRelay.map(({ relay, found }) => ({ relay, found })) };
-  } finally {
-    pool.destroy();
-  }
+): Promise<{ events: NostrEvent[]; relayReachable: boolean; perRelay: { relay: string; found: boolean; result: RelayFetchDiagnostic['result']; ms: number }[] }> {
+  const per = await Promise.all(relays.map((r) => queryOneRelay(r, { ids: [eventId] }, timeoutMs)));
+  const byId = new Map<string, NostrEvent>();
+  for (const p of per) for (const e of p.events) if (e.id === eventId) byId.set(e.id, e);
+  return {
+    events: [...byId.values()],
+    relayReachable: per.some((p) => p.diag.result !== 'connection-failed'),
+    perRelay: per.map((p) => ({ relay: p.diag.relay, found: p.events.some((e) => e.id === eventId), result: p.diag.result, ms: p.diag.ms })),
+  };
 }
 
 /** Injectable delay — lives here (not submission.ts) specifically so tests that already mock this module (main.test.ts's `vi.mock('../nostr/pol-evidence.js', ...)`) can override this SAME export to make submission.ts's bounded relay-fetch retry instant, without a separate mocking mechanism. The browser and real CLI scripts always get the real timer (the default). */

@@ -7,7 +7,10 @@ import { hexToBytes } from '../encode/canonical.js';
 import type { MintFixture } from '../mint/types.js';
 import { buildEventContent, signSolvencyEvent, SOLVENT_EVENT_KIND } from './event.js';
 
-export const RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.nostr.band'];
+import { POL_RELAYS } from './pol-evidence.js';
+
+/** Same public relay set as the PoL evidence (see POL_RELAYS). */
+export const RELAYS = POL_RELAYS;
 
 /** Signs a fresh solvency event (issued_at = now) from the mint's static fixture data. Real Schnorr signing, no simulation. */
 export function signFreshEvent(fixture: MintFixture, mintIdentity: string, now: number): NostrEvent {
