@@ -1,4 +1,5 @@
 // npm run verify:real-mint:browser -- <site-url> <mint-url> <evidence-url> [--screenshots <dir>]
+//   (<mint-url> and <evidence-url> both `-`: the site's built-in backend)
 //
 // Drives the primary real-backend flow (#/mint) in a real Chromium, exactly
 // as a judge would: no console, no JSON pasting. Requires a running patched
@@ -35,7 +36,8 @@ async function main() {
   if (!site || !mint || !evidence) throw new Error('usage: verify-real-mint-browser.ts <site-url> <mint-url> <evidence-url> [--screenshots <dir>]');
   if (shots) mkdirSync(shots, { recursive: true });
   const base = site.endsWith('/') ? site : `${site}/`;
-  const url = `${base}#/mint?mint=${encodeURIComponent(mint)}&evidence=${encodeURIComponent(evidence)}`;
+  // `-` for both: open plain #/mint and use the backend the site was built with.
+  const url = mint === '-' && evidence === '-' ? `${base}#/mint` : `${base}#/mint?mint=${encodeURIComponent(mint)}&evidence=${encodeURIComponent(evidence)}`;
 
   const browser = await chromium.launch();
   try {

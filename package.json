@@ -60,7 +60,8 @@
     "solvent:sidecar": "tsx src/sidecar/service.ts",
     "verify:real-mint:browser": "tsx src/cli/verify-real-mint-browser.ts",
     "railway:secrets": "tsx src/cli/railway-secrets.ts",
-    "verify:railway": "tsx src/cli/verify-railway.ts"
+    "verify:railway": "tsx src/cli/verify-railway.ts",
+    "verify:public-app": "tsx src/cli/verify-public-app.ts"
   },
   "repository": {
     "type": "git",

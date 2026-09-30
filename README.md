@@ -5,7 +5,8 @@
 **Team:** _(add your name(s) here)_
 **License:** MIT
 
-**Public site:** https://theweirddee.github.io/solvent/
+**Public app:** https://solvent-ashen.vercel.app/ — start at the landing page, then **Try the live mint**: a real patched CDK mint and SOLVENT evidence service on Railway, already connected.
+(The same site is also mirrored on GitHub Pages at https://theweirddee.github.io/solvent/.)
 **Demo video:** _(add link here before submission)_ — the script is [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md)
 
 > The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against the mint's own closed accounting epoch, public Nostr evidence and a live Bitcoin reserve — before the ecash is accepted.
@@ -31,7 +32,8 @@ The protocol follows the Cashu PR #388 Proof-of-Liabilities draft (receipts, sum
 
 | What | How |
 | --- | --- |
-| **Public site** | https://theweirddee.github.io/solvent/. `#/verify` runs the Live Public Demo (a real published reference case, re-checked against live relays and the live reserve). `#/mint` is the real-mint flow |
+| **Public app** | https://solvent-ashen.vercel.app/. **Try the live mint** (`#/mint`) issues real ecash from the Railway-hosted mint: **Get 64 sats of ecash and verify it** (ACCEPT), then **make the mint break its promise** (REFUSE). No URLs or JSON to paste. `#/verify` runs the Live Public Demo (a published reference case, re-checked against live relays and the live reserve) |
+| **Live backend** | Mint https://solvent-production-2029.up.railway.app · evidence https://solvent-production-9c92.up.railway.app (Railway; [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). Lightning is **fakewallet** there, and the page says so |
 | **Real mint, locally** | Start a patched `cdk-mintd` and the sidecar ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md); `deploy/docker-compose.yml`), then open `#/mint?mint=<mint URL>&evidence=<sidecar URL>`. Click **Get ecash and verify it** (ACCEPT), then **make the mint break its promise** (REFUSE) |
 | **One-command checks** | `npm run verify:submission` (mechanism, attack corpus, live reference case); `npm run verify:phase3b-evidence -- evidence/real-pol/phase3b-local-fakewallet` (offline replay of a real public-evidence run) |
 | **Real-mint browser E2E** | `npm run verify:real-mint:browser -- <site> <mint URL> <sidecar URL>` |

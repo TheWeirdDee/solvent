@@ -2,12 +2,18 @@
 
 A 3–5 minute demo of SOLVENT, with the exact commands and URLs. Two tracks:
 
-- **Track A — public site only (no setup).** Uses the published reference case, re-checked live.
-- **Track B — real mint.** A patched CDK mint and the SOLVENT sidecar, running locally or on a host (see [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md)).
+- **Track A — the public app (no setup).** https://solvent-ashen.vercel.app/: the landing page, then the real Railway-hosted mint, already connected.
+- **Track B — self-hosted real mint.** The same patched CDK mint and SOLVENT sidecar, run locally or on your own host (see [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md)).
 
-Say plainly which track you are showing. Track B with fakewallet Lightning is labelled as such on screen; the real-LND evidence is the CI runs in the README's Evidence table.
+Both mints run fakewallet Lightning, and the page labels it as such. The real-LND evidence is the CI runs in the README's Evidence table.
 
-## Before you start (both tracks)
+## Before you start
+
+```sh
+curl -s https://solvent-production-9c92.up.railway.app/healthz    # {"ok":true,...}: the live backend is up
+```
+
+For Track B, or to re-check the reference case offline:
 
 ```sh
 npm ci
@@ -16,17 +22,18 @@ npm run verify:submission     # expect: SUBMISSION READY
 
 If `verify:submission` reports stale live evidence, run `npm run live-demo` (publishes a fresh kind 8181 event and re-signs the reserve statement) and re-run it.
 
-## Track A — public site (≈3 min)
+## Track A — the public app (≈4 min)
 
 | Time | Show | Say |
 | --- | --- | --- |
-| 0:00 | https://theweirddee.github.io/solvent/ | "A valid Cashu token proves the mint signed it — not that the mint counted it." The hero terminal shows a reference mint that omitted a promised issuance, decided by the real verifier as the page loads: **PROMISED ISSUANCE OMITTED**. |
-| 0:45 | `#/verify` → **Run live check** | The verifier fetches the Nostr event from public relays and the reserve UTXO from Mutinynet, live. Result: **ACCEPT_VERIFIED**; point at each check. |
-| 1:45 | `#/protocol` → reason-code table, `#/docs?doc=attack-corpus` | Same signatures, same healthy reserve, but the issuance is missing from the closed epoch → `REFUSE_ISSUANCE_OMITTED`. Every other refusal case is in the attack corpus (`npm run attacks`). |
-| 2:30 | `#/mint` | What the real-mint flow needs (Track B); without a configured mint it says so instead of faking one. |
-| 3:00 | README Evidence table | Real-LND CI runs: 36614823173 (Phase 3A/3B), 36619816959 (NUT-05). |
+| 0:00 | https://solvent-ashen.vercel.app/ | "A valid Cashu token proves the mint signed it — not that the mint counted it." The hero terminal shows a reference mint that omitted a promised issuance, decided by the real verifier as the page loads: **PROMISED ISSUANCE OMITTED**. |
+| 0:45 | **Try the live mint** → `#/mint` | A real patched CDK mint on Railway, its NUT-06 identity, and "Demo fakewallet — invoices settle automatically". Nothing to paste. |
+| 1:00 | **Get 64 sats of ecash and verify it** | The mint signs a receipt promising epoch N; the evidence service closes N, publishes it to Nostr; the browser fetches it back from the relays and re-queries the Mutinynet reserve. Result: **ACCEPT_VERIFIED**. |
+| 2:15 | **Get ecash — and make the mint break its promise** | The real epoch closer is told to leave this issuance out. Every signature is still valid and the reserve is healthy. Result: **REFUSE_ISSUANCE_OMITTED**; only the inclusion check fails. |
+| 3:15 | `#/verify` → **Run live check** | The published reference case, re-checked live: **ACCEPT_VERIFIED**. |
+| 3:45 | README Evidence table | Real-LND CI runs: 36614823173 (Phase 3A/3B), 36619816959 (NUT-05). |
 
-## Track B — real mint (≈5 min)
+## Track B — self-hosted real mint (≈5 min)
 
 Start the stack (Docker):
 

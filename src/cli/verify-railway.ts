@@ -9,7 +9,7 @@
 //   B. its NUT-06 identity is the identity the evidence service's delegation names
 //   C. the evidence service is healthy and bound to the SAME public mint URL
 //      (never a localhost or internal hostname) and labels its Lightning backend
-//   D. both answer a cross-origin request from the GitHub Pages site (CORS)
+//   D. both answer a cross-origin request from the public app (CORS)
 //   E. the latest published epoch's kind 8181 event is on public Nostr relays
 //   F. then, in a real browser on the public site (unless --no-browser):
 //        honest flow          -> ACCEPT_VERIFIED
@@ -19,7 +19,7 @@
 import { spawnSync } from 'node:child_process';
 import { fetchPolEventById } from '../nostr/pol-evidence.js';
 
-const PAGES_ORIGIN = 'https://theweirddee.github.io';
+const APP_ORIGIN = 'https://solvent-ashen.vercel.app';
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? ' — ' + detail : ''}`);
@@ -28,7 +28,7 @@ function check(label: string, ok: boolean, detail = ''): void {
 
 async function getJson(url: string): Promise<{ status: number; acao: string | null; body: Record<string, unknown> | null }> {
   try {
-    const res = await fetch(url, { headers: { origin: PAGES_ORIGIN }, signal: AbortSignal.timeout(20_000) });
+    const res = await fetch(url, { headers: { origin: APP_ORIGIN }, signal: AbortSignal.timeout(20_000) });
     const text = await res.text();
     let body: Record<string, unknown> | null = null;
     try {
@@ -43,13 +43,13 @@ async function getJson(url: string): Promise<{ status: number; acao: string | nu
   }
 }
 
-const corsOk = (acao: string | null) => acao === '*' || acao === PAGES_ORIGIN;
+const corsOk = (acao: string | null) => acao === '*' || acao === APP_ORIGIN;
 
 async function main() {
   const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && all[i - 1] !== '--site');
   const [mintArg, evidenceArg] = positional;
   const siteIdx = process.argv.indexOf('--site');
-  const site = (siteIdx >= 0 ? process.argv[siteIdx + 1] : undefined) ?? `${PAGES_ORIGIN}/solvent/`;
+  const site = (siteIdx >= 0 ? process.argv[siteIdx + 1] : undefined) ?? `${APP_ORIGIN}/`;
   if (!mintArg || !evidenceArg) throw new Error('usage: verify-railway.ts <public mint URL> <public evidence URL> [--site <url>] [--no-browser]');
   const mint = mintArg.replace(/\/$/, '');
   const evidence = evidenceArg.replace(/\/$/, '');
@@ -69,8 +69,8 @@ async function main() {
   check('B. the delegation names the mint\'s NUT-06 identity', !!identity && s.mint_identity_pubkey === identity, `${String(s.mint_identity_pubkey)}`);
   check('C. the Lightning backend is labelled', s.lightning_backend === 'fakewallet' || s.lightning_backend === 'lnd', `lightning_backend = ${String(s.lightning_backend)}`);
   check('C. the broken-promise demo is enabled', s.demo_omission_enabled === true);
-  check('D. mint CORS allows the GitHub Pages site', corsOk(info.acao), `access-control-allow-origin: ${info.acao}`);
-  check('D. evidence CORS allows the GitHub Pages site', corsOk(st.acao), `access-control-allow-origin: ${st.acao}`);
+  check('D. mint CORS allows the public app', corsOk(info.acao), `access-control-allow-origin: ${info.acao}`);
+  check('D. evidence CORS allows the public app', corsOk(st.acao), `access-control-allow-origin: ${st.acao}`);
 
   const last = s.last_publication as { epoch_index: number; status: string; event_id: string | null } | null | undefined;
   if (!last) {

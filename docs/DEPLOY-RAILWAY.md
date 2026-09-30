@@ -1,6 +1,6 @@
 # Deploy the real SOLVENT mint on Railway
 
-The same patched CDK mint and SOLVENT sidecar as [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md), packaged for Railway. The website stays on GitHub Pages; Railway runs only the mint and the evidence API.
+The same patched CDK mint and SOLVENT sidecar as [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md), packaged for Railway. The website is a static build (Vercel at https://solvent-ashen.vercel.app/, mirrored on GitHub Pages); Railway runs only the mint and the evidence API.
 
 ## Why one Railway service, not two
 
@@ -84,12 +84,17 @@ This checks the following:
 - **C. Evidence service:** health, binding to the public mint URL, and the backend label.
 - **D. CORS:** requests from the GitHub Pages origin.
 - **E. Nostr:** the latest epoch's event on public relays.
-- **F. Browser:** a real browser on https://theweirddee.github.io/solvent/ runs the honest flow (`ACCEPT_VERIFIED`) and the broken-promise flow (`REFUSE_ISSUANCE_OMITTED`). Together these cover the receipt endpoint, the epoch evidence, the live reserve and the Nostr fetch-back.
+- **F. Browser:** a real browser on the public app (https://solvent-ashen.vercel.app/) runs the honest flow (`ACCEPT_VERIFIED`) and the broken-promise flow (`REFUSE_ISSUANCE_OMITTED`). Together these cover the receipt endpoint, the epoch evidence, the live reserve and the Nostr fetch-back.
 
 The public page is:
 
 ```text
-https://theweirddee.github.io/solvent/#/mint?mint=https%3A%2F%2F<mint domain>&evidence=https%3A%2F%2F<evidence domain>
+https://solvent-ashen.vercel.app/#/mint?mint=https%3A%2F%2F<mint domain>&evidence=https%3A%2F%2F<evidence domain>
+```
+
+The production builds default `#/mint` to this deployment (`.env.production`), so the plain https://solvent-ashen.vercel.app/#/mint connects to it without parameters.
+
+```text
 ```
 
 ## Changing the mint URL
