@@ -324,14 +324,23 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
   try {
     const keyset = await activeKeyset(cfg);
     let custom: OutputData | null = null;
+    let legacyOmit = false;
     if (mode === 'omit') {
       // Build the output first: its B_ is registered before the mint ever sees it.
       custom = OutputData.createSingleRandomData(AMOUNT, keyset.id);
       const bm = custom.blindedMessage.B_;
       opDetail('Registering the broken-promise request for this exact issuance…');
       const r = await getJson<{ error?: string; state?: string }>(`${cfg.evidenceUrl}/v1/solvent/demo/omit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ blinded_message: bm }) });
-      if (r.status !== 202) throw new Error(`the evidence service did not accept the broken-promise request (${r.body.error ?? `HTTP ${r.status}`}). Nothing was minted, so nothing ran as an honest issuance instead.`);
-      step(`Broken-promise request registered for issuance ${bm.slice(0, 12)}… — before minting, so the epoch cannot close without it.`, 'info');
+      if (r.status === 404) {
+        // An evidence service from before pre-registration: it only accepts a
+        // request for an existing issuance, so register right after minting.
+        legacyOmit = true;
+        step('This evidence service accepts the broken-promise request only after issuance; it is sent right after minting.', 'info');
+      } else if (r.status !== 202) {
+        throw new Error(`the evidence service did not accept the broken-promise request (${r.body.error ?? `HTTP ${r.status}`}). Nothing was minted, so nothing ran as an honest issuance instead.`);
+      } else {
+        step(`Broken-promise request registered for issuance ${bm.slice(0, 12)}… — before minting, so the epoch cannot close without it.`, 'info');
+      }
     }
     const proof = await obtainEcash(cfg, custom);
     const publicKey = keyset.keys[String(proof.amount)]!;
@@ -346,6 +355,10 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
       throw new Error(`the mint's liability receipt is missing or invalid (status ${receipt.status})`);
     }
     step(`2. The mint signed a promise to count this issuance in accounting epoch ${receipt.target_epoch}.`, 'ok');
+    if (legacyOmit) {
+      const r2 = await getJson<{ error?: string }>(`${cfg.evidenceUrl}/v1/solvent/demo/omit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ blinded_message: bm }) });
+      if (r2.status !== 202) throw new Error(`the evidence service did not accept the broken-promise request after minting (${r2.body.error ?? `HTTP ${r2.status}`}). This issuance was not made a broken promise, so it is not presented as one.`);
+    }
     if (mode === 'omit') step(`Demo: the mint's real epoch closer will leave this issuance out of epoch ${receipt.target_epoch}.`, 'info');
 
     const r: MintRun = { mode, cfg, proof: proofToJson(proof), publicKey, bm, epoch: receipt.target_epoch, startedAt: new Date().toISOString() };
@@ -353,7 +366,8 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
     current = { run: r, evidence: null, verification: null };
     const evidence = await waitForEvidence(r);
     current.evidence = evidence;
-    if (mode === 'omit' && evidence.omission?.state !== 'applied') {
+    // Older services do not report the request's state; the verdict alone then shows it.
+    if (mode === 'omit' && evidence.omission !== undefined && evidence.omission?.state !== 'applied') {
       step(`This issuance was NOT omitted (request ${evidence.omission?.state ?? 'unknown'}): this run is not a broken promise. It is verified below as what it is.`, 'fail');
     }
     const v = await verifyRun(r, evidence);

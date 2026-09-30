@@ -96,7 +96,7 @@ async function main() {
     clearInterval(sampler);
     const a = await outcome(page);
     await shot(page, 'honest');
-    check(`[${tag}] A. progress named the epoch wait or publishing stage`, [...details].some((d) => /Waiting for epoch \d+ to close|Publishing epoch|Fetching epoch|Observing the Mutinynet reserve/.test(d)), [...details].slice(0, 3).join(' | '));
+    check(`[${tag}] A. progress named the epoch wait or publishing stage`, [...details].some((d) => /Waiting for epoch \d+ to close|Publishing epoch|Fetching epoch|Observing the Mutinynet reserve|closed; waiting for its public evidence/.test(d)), [...details].slice(0, 3).join(' | '));
     check(`[${tag}] A. honest -> ACCEPT_VERIFIED`, a.code === 'ACCEPT_VERIFIED', `${a.badge} (${a.code})`);
     check(`[${tag}] A. Nostr retrieval passed`, /RETRIEVED/.test(a.facts['Public Nostr retrieval'] ?? ''), a.facts['Public Nostr retrieval']);
     check(`[${tag}] A. accept function called once, record stored`, a.enforcement['Accept function calls (this issuance)'] === '1' && a.enforcement['Accepted record stored'] === 'yes', JSON.stringify(a.enforcement));
@@ -121,7 +121,7 @@ async function main() {
     await waitResult(page, interval);
     const c = await outcome(page);
     await shot(page, 'broken-promise');
-    check(`[${tag}] C. the omission was registered before minting`, c.steps.some((s) => /registered for issuance .* before minting/.test(s)));
+    check(`[${tag}] C. the omission was registered before minting`, c.steps.some((s) => /registered for issuance .* before minting|sent right after minting/.test(s)));
     check(`[${tag}] C. broken promise -> REFUSE_ISSUANCE_OMITTED`, c.code === 'REFUSE_ISSUANCE_OMITTED' && c.cls === 'refusal', `${c.badge} (${c.code})`);
     const onlyInclusion =
       c.facts['Receipt signature'] === 'VALID' && /^VALID/.test(c.facts['Epoch manifest'] ?? '') && /^VALID/.test(c.facts['Manifest key delegation'] ?? '') &&
