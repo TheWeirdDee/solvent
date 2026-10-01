@@ -1,0 +1,57 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:55:40.796Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "expected": "REFUSE_NOSTR_EVENT_NOT_FOUND",
+  "decision": "REFUSE",
+  "reason_code": "REFUSE_NOSTR_EVENT_NOT_FOUND",
+  "event_id_never_published": "955711b9b05b13090c0b5d4ec6f4a9a7d4d41147a6f4ff6dbb2b7fe731d1afc3",
+  "nostr_live": {
+    "supplied": true,
+    "relayReachable": true,
+    "eventFetched": false,
+    "providedCopyValid": true,
+    "publicationVerified": false,
+    "signatureValid": true,
+    "freshnessValid": true,
+    "bindingValid": false,
+    "verified": false,
+    "reasonCode": "REFUSE_NOSTR_EVENT_NOT_FOUND",
+    "detail": "Relay(s) reachable, but none returned the required public event — public retrieval could not be independently confirmed. The bundle's own signed copy is cryptographically valid, but that alone does not establish public publication. No relay returned any matching evidence event."
+  },
+  "observed": {
+    "relayQueries": [
+      {
+        "relayReachable": true,
+        "events": []
+      },
+      {
+        "relayReachable": true,
+        "events": []
+      }
+    ],
+    "now": 1790708131,
+    "nut06": {
+      "ok": true,
+      "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+    },
+    "chain": {
+      "ok": true,
+      "tipHeight": 3466168,
+      "chainState": [
+        [
+          "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+          {
+            "exists": true,
+            "confirmed": true,
+            "value": 1000000,
+            "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+            "spent": false
+          }
+        ]
+      ],
+      "detail": "live Esplora query succeeded (tip 3466168)"
+    }
+  }
+}

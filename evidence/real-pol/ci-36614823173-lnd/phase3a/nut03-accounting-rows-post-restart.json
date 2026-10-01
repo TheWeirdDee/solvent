@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_accounting_rows",
+  "timestamp": "2026-09-29T18:54:33.487Z",
+  "pass": true,
+  "rows_before_swap": {
+    "consumed": 36,
+    "issued": 36,
+    "signed": 36
+  },
+  "rows_after_swap": {
+    "consumed": 42,
+    "issued": 42,
+    "signed": 42
+  },
+  "consumed_rows_created": 6,
+  "issued_rows_created": 6,
+  "receipt_rows_created": 6,
+  "expected_consumed_rows": 6,
+  "expected_issued_rows": 6,
+  "expected_receipt_rows": 6,
+  "invariant": "P2-S1, P2-S2, P2-S3 (INVARIANTS.md)"
+}

@@ -14,6 +14,7 @@ export const DOC_REGISTRY: DocMeta[] = [
   { id: 'verification-bundle', navLabel: 'Verification bundle schema', title: 'Verification bundle schema', path: 'docs/verification-bundle.md' },
   { id: 'nostr-schema', navLabel: 'Nostr schema', title: 'Nostr schema', path: 'docs/nostr-schema.md' },
   { id: 'reserve-attestation', navLabel: 'Reserve attestation', title: 'Reserve attestation', path: 'docs/reserve-attestation.md' },
+  { id: 'evidence-index', navLabel: 'Evidence index', title: 'Evidence index — what each record proves', path: 'evidence/README.md' },
   { id: 'attack-corpus', navLabel: 'Attack corpus', title: 'Attack corpus', path: 'ATTACKS.md' },
   { id: 'trust-boundaries', navLabel: 'Trust boundaries', title: 'Trust boundaries', path: 'docs/trust-boundaries.md' },
   { id: 'reality-map', navLabel: 'Reality map', title: 'Reality map — what is real, where', path: 'docs/REALITY-MAP.md' },

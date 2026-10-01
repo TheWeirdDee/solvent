@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_conservation",
+  "timestamp": "2026-09-29T18:54:33.487Z",
+  "pass": true,
+  "input_sats": 1000,
+  "output_sats": 1000,
+  "fee_sats": 0,
+  "input_fee_ppk": 0,
+  "equation": "1000 = 1000 + 0",
+  "equation_holds": true,
+  "invariant": "P2-S5 (fees disabled), P2-S6 (fees enabled) — INVARIANTS.md"
+}

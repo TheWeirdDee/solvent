@@ -1,0 +1,50 @@
+{
+  "victim": {
+    "decision": "REFUSE",
+    "reasonCode": "REFUSE_ISSUANCE_OMITTED",
+    "reason": "This mint signed a promise to account for this liability in the target epoch, but its signed epoch accounting omits it.",
+    "checks": {
+      "parses": true,
+      "supportedKeyset": true,
+      "dleqPresent": true,
+      "dleqValid": true,
+      "bPrimeReconstructed": true,
+      "receiptValid": true,
+      "targetEpochClosed": true,
+      "manifestValid": true,
+      "inclusionValid": false,
+      "liabilityArithmeticValid": true,
+      "delegationValid": true,
+      "reserveCoverage": null,
+      "nostrEvidence": null
+    },
+    "mint": "http://127.0.0.1:8085",
+    "amount": 64,
+    "keyset": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "reconstructedBPrime": "026cf542e36e4152b29eef76dc0d9581bc7b0f5db94d67329ea4b54ce0f87b5479"
+  },
+  "sibling": {
+    "decision": "REFUSE",
+    "reasonCode": "REFUSE_UNVERIFIABLE",
+    "reason": "A required check could not be independently verified in this build.",
+    "checks": {
+      "parses": true,
+      "supportedKeyset": true,
+      "dleqPresent": true,
+      "dleqValid": true,
+      "bPrimeReconstructed": true,
+      "receiptValid": true,
+      "targetEpochClosed": true,
+      "manifestValid": true,
+      "inclusionValid": true,
+      "liabilityArithmeticValid": true,
+      "delegationValid": true,
+      "reserveCoverage": null,
+      "nostrEvidence": null
+    },
+    "mint": "http://127.0.0.1:8085",
+    "amount": 32,
+    "keyset": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "reconstructedBPrime": "029b7338431d07e2975e5c706045fea019244496a9f62909605963ec048ff82add"
+  }
+}

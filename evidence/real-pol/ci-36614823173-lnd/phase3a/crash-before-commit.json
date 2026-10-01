@@ -1,0 +1,6 @@
+{
+  "label": "CRASH_BEFORE_COMMIT_ROLLBACK",
+  "method": "real kill -9 via SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS (patches/cdk/0003-*.patch), a debug-only hook compiled out of release builds",
+  "result": "row counts identical before and after — the interrupted transaction left nothing behind",
+  "note": "this is a rollback, not a recovery — nothing was ever durably written for the killed attempt to recover"
+}

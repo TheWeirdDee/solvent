@@ -1,0 +1,6 @@
+{
+  "endpoint": "GET /v1/solvent/pol-receipt/{blinded_message}",
+  "source": "patches/cdk/0005-*.patch",
+  "classification": "named SOLVENT extension beyond the pinned draft's inline-response requirement",
+  "doc": "docs/draft-alignment.md"
+}

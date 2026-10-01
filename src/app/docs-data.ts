@@ -16,13 +16,14 @@ import deployRealMintRaw from '../../docs/DEPLOY-REAL-MINT.md?raw';
 import deployRailwayRaw from '../../docs/DEPLOY-RAILWAY.md?raw';
 import demoRunbookRaw from '../../docs/DEMO-RUNBOOK.md?raw';
 import realityMapRaw from '../../docs/REALITY-MAP.md?raw';
+import evidenceIndexRaw from '../../evidence/README.md?raw';
 import { DOC_REGISTRY, type DocMeta } from './docs-registry.js';
 
 export interface DocEntry extends DocMeta {
   raw: string;
 }
 
-const RAW: Record<string, string> = { 'start-here': startHereRaw, 'getting-started': gettingStartedRaw, 'protocol': protocolRaw, 'verification-bundle': verificationBundleRaw, 'nostr-schema': nostrSchemaRaw, 'reserve-attestation': reserveAttestationRaw, 'attack-corpus': attacksRaw, 'trust-boundaries': trustBoundariesRaw, 'reality-map': realityMapRaw, 'draft-alignment': draftAlignmentRaw, 'verify-in-5': verifyIn5Raw, 'deploy-real-mint': deployRealMintRaw, 'deploy-railway': deployRailwayRaw, 'demo-runbook': demoRunbookRaw, 'readme': readmeRaw };
+const RAW: Record<string, string> = { 'start-here': startHereRaw, 'getting-started': gettingStartedRaw, 'protocol': protocolRaw, 'verification-bundle': verificationBundleRaw, 'nostr-schema': nostrSchemaRaw, 'reserve-attestation': reserveAttestationRaw, 'attack-corpus': attacksRaw, 'trust-boundaries': trustBoundariesRaw, 'reality-map': realityMapRaw, 'evidence-index': evidenceIndexRaw, 'draft-alignment': draftAlignmentRaw, 'verify-in-5': verifyIn5Raw, 'deploy-real-mint': deployRealMintRaw, 'deploy-railway': deployRailwayRaw, 'demo-runbook': demoRunbookRaw, 'readme': readmeRaw };
 
 export const DOCS: DocEntry[] = DOC_REGISTRY.map((d) => ({ ...d, raw: RAW[d.id]! }));
 

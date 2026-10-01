@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_swap",
+  "timestamp": "2026-09-29T18:54:33.487Z",
+  "pass": true,
+  "input_sats": 1000,
+  "input_proof_count": 6,
+  "output_sats": 1000,
+  "output_proof_count": 6,
+  "fee_sats": 0,
+  "consumed_rows_created": 6,
+  "issued_rows_created": 6,
+  "receipt_rows_created": 6,
+  "signed_receipts": "6/6",
+  "original_proof_states_before": [
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT"
+  ],
+  "original_proof_states_after": [
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT"
+  ],
+  "replacement_proof_states_after": [
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT"
+  ],
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "SPENT",
+      "actual": [
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT"
+      ]
+    },
+    "replacements": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "originals were also checked before the swap: UNSPENT,UNSPENT,UNSPENT,UNSPENT,UNSPENT,UNSPENT (expected all UNSPENT)",
+    "pass": true
+  },
+  "expected": {
+    "input_sats": 1000,
+    "output_sats": 1000,
+    "fee_sats": 0,
+    "consumed_rows_created": 6,
+    "issued_rows_created": 6,
+    "receipt_rows_created": 6,
+    "signed_receipts": "6/6"
+  },
+  "actual": {
+    "input_sats": 1000,
+    "output_sats": 1000,
+    "fee_sats": 0,
+    "consumed_rows_created": 6,
+    "issued_rows_created": 6,
+    "receipt_rows_created": 6,
+    "signed_receipts": "6/6"
+  },
+  "invariant": "P2-S1, P2-S2, P2-S3, P2-S7, P2-S8, P2-S11, P2-S12, P2-S13 (INVARIANTS.md)"
+}

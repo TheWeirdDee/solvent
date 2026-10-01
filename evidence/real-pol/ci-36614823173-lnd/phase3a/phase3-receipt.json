@@ -1,0 +1,63 @@
+{
+  "endpoint": "http://127.0.0.1:8085/v1/solvent/pol-receipt/{blinded_message}",
+  "receipts": [
+    {
+      "amount": 512,
+      "blinded_message": "033f49c5d75e36d7df2484430bd22b6662b3998ffdcad71e19bee97339b5bdd686",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "d55aeda976fce101ef08de128175eb20b59301830a3c171080b5e4b46a1d2fa41cf7541a48fe018924931bdd224cd1fc7bedb71d0760b6e1b7f96d5e139ea334"
+    },
+    {
+      "amount": 256,
+      "blinded_message": "03db544c2e22bc36c76fa163ded70b6843fa451495ab79e137c58c9825509e9f2f",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "1e2b157c0b0a97a32778d05142b2e2e2e35339c1534b31040069c85e720de6205be97a4f23ca87954308cc03cd660ff43da5e0ca8f572d3dd452502e5bf9ce42"
+    },
+    {
+      "amount": 128,
+      "blinded_message": "0375cd0f57f66c5b74700cc138addab23dbea4c8132534ce876008285f6a2abb18",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "5d141b6a19f3d8f8ffd6be464066987716f52dbcea05b5e2081668a759039c540c476730084e17897c0bb82ef673ef888232a277da4ba81eb7fa326f2866030a"
+    },
+    {
+      "amount": 64,
+      "blinded_message": "035e1f06b85944d44891f59dd2d80f169d1a94525aae9a1e60a20440557b008a13",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "7c6e23237e4a2f475dd0e31feb39ecf605367c7a3b5db0af47936666c38cb31e787206f9e0a143b41561b9b0534bfa18cd6c95d3544c2cf6863ec2401457ba00"
+    },
+    {
+      "amount": 32,
+      "blinded_message": "035d4ad49578f8fc14a467cd728f564fbc172573be04edee7309d9c4d7f167b577",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "0919f0ed3eae2a7b1e6c6bcf46154154d99ecac06ee1939b4fe0f2676e354a8eb5b67704933cdf04dc8d0e75cb3212d1cc4d335547fc33b5189735502d98b298"
+    },
+    {
+      "amount": 8,
+      "blinded_message": "03a2f2a1bc8817b56593e6eb680f7e3ea1a2a34050d84f5548a1be4f0a01712e94",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "68a514ae9dab416a794a97997eb29ad8bb7b24efda8e5c8a18cedf90e574fe997ac71268ff0f5f471bd0b01b3d6cf1f0f7e3354aa444c144534285adaed5c9f0"
+    }
+  ],
+  "swapReceipts": [
+    {
+      "amount": 512,
+      "blinded_message": "0242f018edb72144040b1ee136667e32226655f56fdb808dcff025a6bd35782b2b",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "ef4d4e4190dfbc241ae49b5806da9f49c2a564ec7582820cbdeb611079707fa32e2dacdb984a8ed8bc6fd7da069195a0b790b9c5197f922f2740def7f32096f3"
+    },
+    {
+      "amount": 256,
+      "blinded_message": "02748b7119163d10c52301d77e79d0caa5a50ce0249a7377b9c0b259bddcf9edf2",
+      "status": "signed",
+      "target_epoch": 1,
+      "signature": "ccee5072643c98d0f7d2cf047a131c97b53eb75cb2b96849ebb31a7bfc2de41cdb9d6f8bc3234b39c5cfc1aab391d8acb8f489fdb81ea1f521dd277a398d4a90"
+    }
+  ]
+}

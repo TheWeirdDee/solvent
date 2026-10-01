@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_nut07_reconciliation",
+  "timestamp": "2026-09-29T18:54:34.140Z",
+  "pass": true,
+  "reconciled_through_nut07": [
+    {
+      "scenario": "successful swap",
+      "file": "nut03-swap.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "successful swap after restart",
+      "file": "nut03-swap-post-restart.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "failed swap",
+      "file": "nut03-failed-swap.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "double-spend after swap",
+      "file": "nut03-double-spend.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "response-loss recovery (NUT-09 restore)",
+      "file": "nut03-response-loss.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "multi-swap",
+      "file": "nut03-multi-swap.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "SPENT",
+        "actual": [
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT",
+          "SPENT"
+        ]
+      },
+      "replacements": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "pass": true
+    },
+    {
+      "scenario": "crash before commit (originals released after restart)",
+      "file": "nut03-crash-before-commit.json",
+      "present": true,
+      "checked": true,
+      "originals": {
+        "expected": "UNSPENT",
+        "actual": [
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT",
+          "UNSPENT"
+        ]
+      },
+      "replacements": null,
+      "pass": true
+    }
+  ],
+  "not_reconciled_through_nut07": [
+    {
+      "scenario": "restart (accounting state unchanged)",
+      "file": "nut03-restart.json",
+      "reason": "the claim is that swap-scoped accounting rows are unchanged across a process restart — measured by real row counts, not proof states. The swap performed after restart has its own NUT-07 block (nut03-swap-post-restart.json)."
+    },
+    {
+      "scenario": "privacy linkage",
+      "file": "docs/privacy.md",
+      "reason": "a static source/schema audit, not a runtime property — there is no runtime evidence file for it by design"
+    }
+  ],
+  "method": "collated from each scenario file's own real nut07 block; no new checks performed here",
+  "invariant": "P2-S11, P2-S12 (INVARIANTS.md)"
+}

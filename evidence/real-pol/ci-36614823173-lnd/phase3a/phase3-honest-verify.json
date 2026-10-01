@@ -1,0 +1,24 @@
+{
+  "decision": "REFUSE",
+  "reasonCode": "REFUSE_UNVERIFIABLE",
+  "reason": "A required check could not be independently verified in this build.",
+  "checks": {
+    "parses": true,
+    "supportedKeyset": true,
+    "dleqPresent": true,
+    "dleqValid": true,
+    "bPrimeReconstructed": true,
+    "receiptValid": true,
+    "targetEpochClosed": true,
+    "manifestValid": true,
+    "inclusionValid": true,
+    "liabilityArithmeticValid": true,
+    "delegationValid": true,
+    "reserveCoverage": null,
+    "nostrEvidence": null
+  },
+  "mint": "http://127.0.0.1:8085",
+  "amount": 128,
+  "keyset": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+  "reconstructedBPrime": "0375cd0f57f66c5b74700cc138addab23dbea4c8132534ce876008285f6a2abb18"
+}

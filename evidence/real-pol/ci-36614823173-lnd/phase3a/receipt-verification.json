@@ -1,0 +1,4 @@
+{
+  "method": "independent BIP-340 Schnorr verification against the mint's own public /v1/keys response, zero signatory access",
+  "scope": "nut04-mint and real-wallet-consumption runs"
+}

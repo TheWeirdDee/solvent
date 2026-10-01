@@ -1,0 +1,137 @@
+{
+  "_evidence": {
+    "run_id": "36614823173-phase3b",
+    "generated_at": "2026-09-29T18:55:40.796Z",
+    "lightning_backend": "lnd",
+    "note": "Holder bundle for offline replay. Its Cashu proof is spent at the end of this run (see phase3-proofs-spent.json)."
+  },
+  "proof": {
+    "id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "amount": 8,
+    "C": "02c14f3286e078c07886ce93d342c473494a6459747c0dbe965f73464972cfc16d",
+    "secret": "3ed4f782eb1ddb49d0ae712159f9f2d9ec68c9dc889ffe89ace72e2d47ad72db",
+    "dleq": {
+      "s": "0bee7c7356c8d4b94fce81ce3cbddc73b9d741262c4aa36a57d0404143106b9a",
+      "e": "f6380d7a5603d6203c530b785ac743b4b25d5f4e5a622311367e13caec2dc2e4",
+      "r": "ddb06ed19bcf66acf76d8843bd5f0e43fb3d08c4c3248d1af6c83fa66da80541"
+    }
+  },
+  "mint": "http://127.0.0.1:8085",
+  "keysetId": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+  "amountPublicKeyHex": "03a854b2f506df009131453945ea00a9b3091362cb2526be6c02ab39b14e7f2137",
+  "receipt": {
+    "target_epoch": 6,
+    "signature": "fdab918e2fae1b119d4f24a3b9fa303fe7c9a14dbd6e6277d636ae4e4d89caf52e2eeb3eb6b059efd5f48f484299dfa651e56fff9364ee73401808984d1f4993"
+  },
+  "manifest": {
+    "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "unit": "sat",
+    "epoch_index": 6,
+    "timestamp": "2026-09-29T18:55:31Z",
+    "previous_global_digest": "80b1b108ff3186df8ab68a89359fe87df637a4ed203c1bc3ffa958bfef9ecf87",
+    "issued_mmr_size": 107,
+    "issued_mmr_root_hash": "4ba146ed0a3a768f877c765c5535e5577761c95a4ce36248714ba2bae8995313",
+    "issued_mmr_root_sum": 17044,
+    "spent_mmr_size": 50,
+    "spent_mmr_root_hash": "e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567",
+    "spent_mmr_root_sum": 8768,
+    "outstanding_balance": 8276,
+    "active": true,
+    "deactivation_epoch": 0
+  },
+  "manifestSignature": "71e07318a6891b72baa9a415ff3dbbc4494b7930faf0fe96016d77fe1e942a1029faee6547ba4f46622d380080b8db85ce99394563029822cc9ee80d5801cac9",
+  "masterPublicKeyHex": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+  "issuedMmrSize": 107,
+  "inclusionProof": {
+    "leafIndex": 106,
+    "siblingPath": [],
+    "peaks": [
+      {
+        "hash": "b62cf611ad7547a3521fd80b5a9e0594fd6972fdb97f3ec28def46b14a8380a8",
+        "sum": "10164"
+      },
+      {
+        "hash": "dfe19debd93fad1528e51ff8af6f7a9db102768701c7ef0e7c93bebe24f1dd0d",
+        "sum": "5544"
+      },
+      {
+        "hash": "7860528386ed1c28608e27aa6bdc72b17875058169d9a6e68e3980a90b280b3f",
+        "sum": "1264"
+      },
+      {
+        "hash": "72a0e2ac31ca31a0bcaaa60b9c7f7fbbf3ff049ce30f07e621043e3c98aef4fd",
+        "sum": "64"
+      },
+      {
+        "hash": "c32d5e394b5a150f0216747c68620adefac0d9faad60753db3a5e421116f5e3c",
+        "sum": "8"
+      }
+    ]
+  },
+  "reserveAttestation": {
+    "statement": {
+      "network": "bitcoin-signet-mutinynet",
+      "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+      "outpoints": [
+        {
+          "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+          "vout": 0,
+          "value_sats": 1000000,
+          "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+        }
+      ],
+      "timestamp": "2026-09-29T18:55:31Z",
+      "block_height": 3466167
+    },
+    "statementSignature": "b8a28554ed02e9dd91918479ee7ae3ca8a815a408b02a62454f83d7c2873947f6a8c7829cdd0eaffac441d27c257b744c201fc2052bf6a4f86e85bd09d1ea540",
+    "bindingSignature": "d78a102d345e8ae93deeb0847b906d1b920f6e345a9dd14b150ebf6b1c25439c84ee939fbb3f9ab8defaaa991e39604e3035f3a8c3fc9362df3532be539241f7",
+    "masterPublicKeyHex": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac"
+  },
+  "nostrEvent": {
+    "kind": 8181,
+    "created_at": 1790708131,
+    "tags": [
+      [
+        "M",
+        "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac"
+      ],
+      [
+        "E",
+        "6"
+      ],
+      [
+        "K",
+        "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e"
+      ]
+    ],
+    "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"http://127.0.0.1:8085\",\"mint_identity\":\"03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac\",\"keyset_id\":\"01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e\",\"epoch_index\":6,\"manifest_digest\":\"cafbe4e6925158ac67133c243d515427732e2797f8f66027c6aa111a3c5ccab9\",\"manifest_signature\":\"71e07318a6891b72baa9a415ff3dbbc4494b7930faf0fe96016d77fe1e942a1029faee6547ba4f46622d380080b8db85ce99394563029822cc9ee80d5801cac9\",\"global_digest\":\"1f93e6f75a60448860209685c346befeb6bef560f6f00f6711ceb86f26544bcd\",\"issued_mmr_root_hash\":\"4ba146ed0a3a768f877c765c5535e5577761c95a4ce36248714ba2bae8995313\",\"issued_mmr_root_sum\":17044,\"spent_mmr_root_hash\":\"e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567\",\"spent_mmr_root_sum\":8768,\"outstanding_balance\":8276,\"reserve_digest\":\"c54888d0d8f6d07196a4c578caf1202712bbccea135f33534c0c304196ce2145\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790708131,\"valid_until\":1790711731,\"proof_uri\":\"solvent-phase3b://36614823173-phase3b/not-found\",\"mint_nut06_pubkey\":\"03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494\",\"manifest_key_delegation_digest\":\"70406c12e61b3e1916da545af19e8860d2e70533a2e10048e2ef9d35196a8297\",\"reserve_binding_digest\":\"ceab66a907584b6c9f8298c0f164047ef6e44b9562ff1ca38aa5d9f662e01651\",\"previous_global_digest\":\"80b1b108ff3186df8ab68a89359fe87df637a4ed203c1bc3ffa958bfef9ecf87\",\"keyset_count\":1}",
+    "pubkey": "2f72d0b7319811233438c64699eabad40ac8a7e493f49bfad1f2fc253b1440a6",
+    "id": "955711b9b05b13090c0b5d4ec6f4a9a7d4d41147a6f4ff6dbb2b7fe731d1afc3",
+    "sig": "c2375e3a59d123a9525284800bbc42295d2551d3d11991b9cd8113a6bd82126f37920730cd1eaf2ed21e532f1ca52e3163c50ad4dbcc7f298e2459eb13b2b90d"
+  },
+  "delegation": {
+    "created_at": 1790708074,
+    "manifest_pubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_identity_xonly_pubkey": "d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_url": "http://127.0.0.1:8085",
+    "schema": "solvent/manifest-key-delegation/v1",
+    "signature": "daeb2c84821549b088a72f76da4058234f506db50e4816b32cef51447b916568dd1f6a9a17a1b0497e013f90d8831fd51cbf5016aa6abb514a9dad08a65b2a7d",
+    "valid_from_epoch": 1
+  },
+  "reserveBinding": {
+    "schema": "solvent/reserve-binding/v1",
+    "mint_url": "http://127.0.0.1:8085",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "epoch_index": 6,
+    "manifest_digest": "cafbe4e6925158ac67133c243d515427732e2797f8f66027c6aa111a3c5ccab9",
+    "global_digest": "1f93e6f75a60448860209685c346befeb6bef560f6f00f6711ceb86f26544bcd",
+    "reserve_statement_digest": "c54888d0d8f6d07196a4c578caf1202712bbccea135f33534c0c304196ce2145",
+    "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "reserve_network": "bitcoin-signet-mutinynet",
+    "created_at": 1790708131,
+    "valid_until": 1790711731,
+    "signature": "751488bfb41e5431a72f4171c11cf059d2c4cc097335982ade47602140638bcae15812b232640d2bcb87ed16c1db82daf6b3bb0e11558a42f4c5622f1a8d94f7"
+  },
+  "epochKeysetCount": 1
+}

@@ -1,0 +1,48 @@
+{
+  "closeFullyStaged": true,
+  "signal": "SIGKILL",
+  "closerLog": "\n> solvent@0.1.0 pol:epoch-close\n> tsx src/cli/real-cashu/pol-epoch-close.ts /tmp/regtest/mint/cdk-mintd.sqlite\n\nSOLVENT TEST HOOK: epoch close fully staged, delaying 60000ms before COMMIT",
+  "before": {
+    "epochs": [
+      {
+        "epoch_index": 1,
+        "state": "CLOSED",
+        "global_digest": "f117eaaffbecc1c034bfe59edc2bb3507cc58cf15711ea1356c85667fce9ddb6"
+      },
+      {
+        "epoch_index": 2,
+        "state": "CLOSED",
+        "global_digest": "ce527c0af5fed9a7e50f7f7a3403b604e8627134a8fb9c4277298fa192b44889"
+      },
+      {
+        "epoch_index": 3,
+        "state": "OPEN",
+        "global_digest": null
+      }
+    ],
+    "keysetManifests": 2,
+    "omissions": 1
+  },
+  "after": {
+    "epochs": [
+      {
+        "epoch_index": 1,
+        "state": "CLOSED",
+        "global_digest": "f117eaaffbecc1c034bfe59edc2bb3507cc58cf15711ea1356c85667fce9ddb6"
+      },
+      {
+        "epoch_index": 2,
+        "state": "CLOSED",
+        "global_digest": "ce527c0af5fed9a7e50f7f7a3403b604e8627134a8fb9c4277298fa192b44889"
+      },
+      {
+        "epoch_index": 3,
+        "state": "OPEN",
+        "global_digest": null
+      }
+    ],
+    "keysetManifests": 2,
+    "omissions": 1
+  },
+  "unchanged": true
+}

@@ -1,0 +1,26 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:54:43.388Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "delegation": {
+    "created_at": 1790708074,
+    "manifest_pubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_identity_xonly_pubkey": "d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "mint_url": "http://127.0.0.1:8085",
+    "schema": "solvent/manifest-key-delegation/v1",
+    "signature": "daeb2c84821549b088a72f76da4058234f506db50e4816b32cef51447b916568dd1f6a9a17a1b0497e013f90d8831fd51cbf5016aa6abb514a9dad08a65b2a7d",
+    "valid_from_epoch": 1
+  },
+  "nut06_observed": {
+    "ok": true,
+    "pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494"
+  },
+  "manifest_pubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+  "first_epoch_signed_by_key": 1,
+  "verification": {
+    "ok": true
+  },
+  "produced_by": "cdk-mintd solvent delegate-manifest-key (patches/cdk/0008)"
+}

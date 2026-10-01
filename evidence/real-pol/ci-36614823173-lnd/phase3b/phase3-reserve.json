@@ -1,0 +1,33 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:54:44.320Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "network": "bitcoin-signet-mutinynet",
+  "observation": {
+    "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+    "vout": 0,
+    "valueSats": 1000000,
+    "scriptPubKeyHex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "spent": false,
+    "tipHeight": 3466166
+  },
+  "statement": {
+    "network": "bitcoin-signet-mutinynet",
+    "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "outpoints": [
+      {
+        "txid": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb",
+        "vout": 0,
+        "value_sats": 1000000,
+        "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
+      }
+    ],
+    "timestamp": "2026-09-29T18:54:44Z",
+    "block_height": 3466166
+  },
+  "statement_signature": "4ee35b19309bd035473b49e5ef738a8fb0f4d9ed9c02d34500ba0d69792782eab813dec9bf5ca4fd092464a1c0d822ecc805f597563f22839fd018a361f4ca03",
+  "reserve_control_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+  "outstanding_balance": 8236,
+  "covers_outstanding": true
+}

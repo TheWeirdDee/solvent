@@ -1,0 +1,46 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:55:26.919Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "event_id": "03420fa28cc2005c05db6cf76cd41de2d57fe8539b449ca0fdc84965b1c1e657",
+  "fetched_event": {
+    "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"http://127.0.0.1:8085\",\"mint_identity\":\"03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac\",\"keyset_id\":\"01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e\",\"epoch_index\":5,\"manifest_digest\":\"31915f289d99d1d7700a6c954206514f1632fc97b5765e919bc0615698eccd8c\",\"manifest_signature\":\"95e3e5aa3e6e74ff86306a19db5ba115cf19b1248d40f1086f06bc5700f0d436553d0bd3ef33792a0af777bf622f6276d810c775f7502b632dbb5597370a66b8\",\"global_digest\":\"80b1b108ff3186df8ab68a89359fe87df637a4ed203c1bc3ffa958bfef9ecf87\",\"issued_mmr_root_hash\":\"4f7f020405e08f63c77683afe744ee463d38cba92d1c446c7f79e78576ceb772\",\"issued_mmr_root_sum\":17036,\"spent_mmr_root_hash\":\"e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567\",\"spent_mmr_root_sum\":8768,\"outstanding_balance\":8268,\"reserve_digest\":\"3642937e80c49b1a0c5036701cf7e91b717971ae90de229d47a649ed9f6bbc71\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1790708107,\"valid_until\":1790711707,\"proof_uri\":\"solvent-phase3b://36614823173-phase3b/phase3-omission\",\"mint_nut06_pubkey\":\"03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494\",\"manifest_key_delegation_digest\":\"70406c12e61b3e1916da545af19e8860d2e70533a2e10048e2ef9d35196a8297\",\"reserve_binding_digest\":\"7bf51d592418aa3210038766081b865621ca71411f724a87c9d8c43b7abc6a53\",\"previous_global_digest\":\"83f8d525f14d1dfd2be085b5f9db3c4547c86d59185518b1704e598cdb913802\",\"keyset_count\":1}",
+    "created_at": 1790708107,
+    "id": "03420fa28cc2005c05db6cf76cd41de2d57fe8539b449ca0fdc84965b1c1e657",
+    "kind": 8181,
+    "pubkey": "2f72d0b7319811233438c64699eabad40ac8a7e493f49bfad1f2fc253b1440a6",
+    "sig": "52d4664b47dc706d4252f5bb53fe48a5c27b691f76133d5170e1cb8679ea19a59e4f316dbe5e2f0e554bcc495be355d90f995f6e25d43594b1411296ee4f3be3",
+    "tags": [
+      [
+        "M",
+        "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac"
+      ],
+      [
+        "E",
+        "5"
+      ],
+      [
+        "K",
+        "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e"
+      ]
+    ]
+  },
+  "per_relay": [
+    {
+      "relay": "wss://relay.damus.io",
+      "found": true
+    },
+    {
+      "relay": "wss://nos.lol",
+      "found": true
+    },
+    {
+      "relay": "wss://relay.nostr.band",
+      "found": false
+    }
+  ],
+  "id_matches": true,
+  "signature_valid": true,
+  "content_bindings_valid": true
+}

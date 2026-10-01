@@ -1,0 +1,35 @@
+{
+  "openEpoch": 3,
+  "closedEpochs": [
+    1,
+    2
+  ],
+  "audits": [
+    {
+      "epochIndex": 1,
+      "ok": true,
+      "failures": []
+    },
+    {
+      "epochIndex": 2,
+      "ok": true,
+      "failures": []
+    }
+  ],
+  "digestChain": [
+    {
+      "epochIndex": 1,
+      "previousGlobalDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+      "globalDigest": "f117eaaffbecc1c034bfe59edc2bb3507cc58cf15711ea1356c85667fce9ddb6",
+      "chainsToPrevious": true
+    },
+    {
+      "epochIndex": 2,
+      "previousGlobalDigest": "f117eaaffbecc1c034bfe59edc2bb3507cc58cf15711ea1356c85667fce9ddb6",
+      "globalDigest": "ce527c0af5fed9a7e50f7f7a3403b604e8627134a8fb9c4277298fa192b44889",
+      "chainsToPrevious": true
+    }
+  ],
+  "ok": true,
+  "generatedAt": "2026-09-29T18:54:41.577Z"
+}

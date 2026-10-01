@@ -1,0 +1,24 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:55:42.432Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "proofs": [
+    {
+      "Y": "0269dcb160b5bb033b605206c7eadfa0400ac703bf16e7ef7c09e6996700ba4320",
+      "amount": 64,
+      "state": "SPENT"
+    },
+    {
+      "Y": "02a3519d45b1470defcd2bc5f9d8019a3db217d1fd392a4e2427bc991673db9156",
+      "amount": 64,
+      "state": "SPENT"
+    },
+    {
+      "Y": "02658b428976edc7f5dba22c634ebc3311188563a17929389acfed0474171b03e8",
+      "amount": 8,
+      "state": "SPENT"
+    }
+  ],
+  "note": "The holder proofs inside the verify-input bundles were swapped away after verification; their secrets no longer control any ecash."
+}

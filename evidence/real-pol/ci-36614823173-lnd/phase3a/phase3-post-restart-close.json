@@ -1,0 +1,32 @@
+{
+  "epochIndex": 3,
+  "previousGlobalDigest": "ce527c0af5fed9a7e50f7f7a3403b604e8627134a8fb9c4277298fa192b44889",
+  "globalDigest": "fef2762f3f5a9d06ac5566a418a73f801b901654fd0a3db8d0337a26565c293c",
+  "manifestPubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+  "keysets": [
+    {
+      "manifest": {
+        "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+        "unit": "sat",
+        "epoch_index": 3,
+        "timestamp": "2026-09-29T18:54:42Z",
+        "previous_global_digest": "ce527c0af5fed9a7e50f7f7a3403b604e8627134a8fb9c4277298fa192b44889",
+        "issued_mmr_size": 103,
+        "issued_mmr_root_hash": "d0a206ea502f45d0511a78114a69d5ecac102db5eed728673d846588b3343daf",
+        "issued_mmr_root_sum": 16908,
+        "spent_mmr_size": 50,
+        "spent_mmr_root_hash": "e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567",
+        "spent_mmr_root_sum": 8768,
+        "outstanding_balance": 8140,
+        "active": true,
+        "deactivation_epoch": 0
+      },
+      "manifestDigest": "70ada91bae1396e450a70084912400fe55c35ad706ccca1ada84504b204a9cba",
+      "manifestSignature": "3742d142ed5933f33707cbaf9f2c78b5c0085b825dfc4b3bb0ee3fca1017d3ba146b0d4294fa356ede16b7679d466543d073152ecacec718d03b91794946e2dd"
+    }
+  ],
+  "nextOpenEpoch": 4,
+  "omitted": null,
+  "unbackedIssuedRowsExcluded": 0,
+  "unbackedConsumedRowsExcluded": 0
+}

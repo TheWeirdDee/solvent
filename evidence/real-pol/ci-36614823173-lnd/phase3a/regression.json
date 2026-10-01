@@ -1,0 +1,6 @@
+{
+  "npm_test": "gating step earlier in this same CI run",
+  "npm_build": "gating step earlier in this same CI run",
+  "npm_attacks": "gating step earlier in this same CI run",
+  "note": "this workflow fails fast on any regression step failure, so this evidence file only being written at all is itself evidence those steps passed"
+}

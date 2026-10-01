@@ -1,0 +1,6 @@
+{
+  "signing_happens": "before begin_transaction() (stateless, mirrors blind_sign)",
+  "receipt_write_happens": "inside the same transaction as the issued-liability trigger, before commit",
+  "crash_window_result": "CW-B (anywhere inside the open transaction) is all-or-nothing by SQLite transaction atomicity",
+  "doc": "docs/receipt-lifecycle.md"
+}

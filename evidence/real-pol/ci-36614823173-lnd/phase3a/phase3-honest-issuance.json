@@ -1,0 +1,33 @@
+{
+  "mint": "http://127.0.0.1:8085",
+  "keysetId": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+  "quote": "01a0ee84-cb5b-74da-aa23-bb3aafeb9047",
+  "settlement": "lnd",
+  "openEpochBeforeIssuance": 1,
+  "outputs": [
+    {
+      "amount": 512,
+      "blinded_message": "033f49c5d75e36d7df2484430bd22b6662b3998ffdcad71e19bee97339b5bdd686"
+    },
+    {
+      "amount": 256,
+      "blinded_message": "03db544c2e22bc36c76fa163ded70b6843fa451495ab79e137c58c9825509e9f2f"
+    },
+    {
+      "amount": 128,
+      "blinded_message": "0375cd0f57f66c5b74700cc138addab23dbea4c8132534ce876008285f6a2abb18"
+    },
+    {
+      "amount": 64,
+      "blinded_message": "035e1f06b85944d44891f59dd2d80f169d1a94525aae9a1e60a20440557b008a13"
+    },
+    {
+      "amount": 32,
+      "blinded_message": "035d4ad49578f8fc14a467cd728f564fbc172573be04edee7309d9c4d7f167b577"
+    },
+    {
+      "amount": 8,
+      "blinded_message": "03a2f2a1bc8817b56593e6eb680f7e3ea1a2a34050d84f5548a1be4f0a01712e94"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+{
+  "finding": "sign_pol_receipt() has no HTTP route; the retrieval endpoint is read-only (SELECT-only, never triggers signing); the signed message is always mint-constructed, never caller-supplied",
+  "doc": "docs/cdk-signatory-audit.md"
+}

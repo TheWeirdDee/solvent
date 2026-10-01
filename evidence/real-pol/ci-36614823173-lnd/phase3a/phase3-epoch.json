@@ -1,0 +1,39 @@
+{
+  "closed": {
+    "epochIndex": 1,
+    "previousGlobalDigest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "globalDigest": "f117eaaffbecc1c034bfe59edc2bb3507cc58cf15711ea1356c85667fce9ddb6",
+    "manifestPubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+    "keysets": [
+      {
+        "manifest": {
+          "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+          "unit": "sat",
+          "epoch_index": 1,
+          "timestamp": "2026-09-29T18:54:35Z",
+          "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+          "issued_mmr_size": 101,
+          "issued_mmr_root_hash": "a8ea6779e7be6b74f39424450312817b3f9e3f7a163092bdc208e7d35a178433",
+          "issued_mmr_root_sum": 16868,
+          "spent_mmr_size": 50,
+          "spent_mmr_root_hash": "e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567",
+          "spent_mmr_root_sum": 8768,
+          "outstanding_balance": 8100,
+          "active": true,
+          "deactivation_epoch": 0
+        },
+        "manifestDigest": "fe58f3203af92072f42f3a676be567899899794d5d5dccd04b0645936f233a53",
+        "manifestSignature": "dc999383b4ad72d96ae3c4e5b52d24b2789c669d00584252492896ff8f80dc7069e01d88c64f396b355303afb6ef899ba2249e666153f2553a742864bdcbe440"
+      }
+    ],
+    "nextOpenEpoch": 2,
+    "omitted": null,
+    "unbackedIssuedRowsExcluded": 3,
+    "unbackedConsumedRowsExcluded": 0
+  },
+  "audit": {
+    "epochIndex": 1,
+    "ok": true,
+    "failures": []
+  }
+}

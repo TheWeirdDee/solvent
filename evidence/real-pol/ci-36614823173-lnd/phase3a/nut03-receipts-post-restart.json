@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_receipts",
+  "timestamp": "2026-09-29T18:54:33.487Z",
+  "pass": true,
+  "receipts_signed": 6,
+  "receipts_verified": 6,
+  "total_outputs": 6,
+  "per_output": [
+    {
+      "index": 0,
+      "blinded_message_hex": "0297406151aa318ad1870deb816fc44e0725cb88b5d4b90db3d36dc8cf5998a8b1",
+      "amount": 512,
+      "status": "signed",
+      "verified": true
+    },
+    {
+      "index": 1,
+      "blinded_message_hex": "03c873f404882109d478aa72d5e1467ce913846e7ebc8d501b175afbda7be03d3c",
+      "amount": 256,
+      "status": "signed",
+      "verified": true
+    },
+    {
+      "index": 2,
+      "blinded_message_hex": "033ba348f149fe6552fed19fb58e8b929813a8fe33346adb91fb062a6f186cdb99",
+      "amount": 128,
+      "status": "signed",
+      "verified": true
+    },
+    {
+      "index": 3,
+      "blinded_message_hex": "036659b9616c0b62658c4eb85b6972bfdfcb425e1c2ababe8a0c5896ac63313a7b",
+      "amount": 64,
+      "status": "signed",
+      "verified": true
+    },
+    {
+      "index": 4,
+      "blinded_message_hex": "021023e83245ee7798ce1f2ab1aa99b863ba65bdf4b5493c6fbe8cfe19c3c418a5",
+      "amount": 32,
+      "status": "signed",
+      "verified": true
+    },
+    {
+      "index": 5,
+      "blinded_message_hex": "033da8398c6b58bf47a8d60e4c14515c678ff986df5bc87a98c13d71f46835fcf4",
+      "amount": 8,
+      "status": "signed",
+      "verified": true
+    }
+  ],
+  "verification_method": "independent BIP-340 Schnorr verification against the mint's own public /v1/keys response",
+  "invariant": "P2-S3, P2-S13 (INVARIANTS.md)"
+}

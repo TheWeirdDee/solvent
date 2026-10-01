@@ -1,0 +1,7 @@
+{
+  "scope": "mint (NUT-04)",
+  "cdk_blind_signature": 12,
+  "solvent_issued_liability": 12,
+  "solvent_signed_receipts": 12,
+  "all_equal": true
+}

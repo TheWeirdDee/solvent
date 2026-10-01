@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_response_loss_recovery",
+  "timestamp": "2026-09-29T18:54:17.713Z",
+  "pass": true,
+  "swap_committed": true,
+  "client_response_deliberately_lost": true,
+  "nut09_restore_called": true,
+  "replacement_proofs_recovered": 6,
+  "expected_replacement_proofs": 6,
+  "original_proof_states": [
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT",
+    "SPENT"
+  ],
+  "restored_proof_states": [
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT",
+    "UNSPENT"
+  ],
+  "receipts_recovered": 6,
+  "expected_receipts": 6,
+  "accounting_rows_before_restore": {
+    "consumed": 24,
+    "issued": 24,
+    "signed": 24
+  },
+  "accounting_rows_after_restore": {
+    "consumed": 24,
+    "issued": 24,
+    "signed": 24
+  },
+  "duplicates_created": 0,
+  "expected_duplicates_created": 0,
+  "restore_endpoint": "POST /v1/restore (crates/cdk-axum, real CDK NUT-09 endpoint, not a SOLVENT addition)",
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "SPENT",
+      "actual": [
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT"
+      ]
+    },
+    "replacements": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "replacements are the proofs rebuilt from the NUT-09 restore response, not from the discarded swap response",
+    "pass": true
+  },
+  "invariant": "P2-S9, P2-S10 (INVARIANTS.md)"
+}

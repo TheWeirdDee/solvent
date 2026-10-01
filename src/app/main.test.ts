@@ -965,6 +965,39 @@ describe('SOLVENT web client (jsdom) — publish / evidence pipeline panel', () 
     const reserveSummary = byId<HTMLElement>('publisher-reserve');
     expect(reserveSummary.textContent).toContain('bitcoin-signet-mutinynet');
     expect(reserveSummary.textContent).toContain('PASS');
+    // Captured runs are labelled as captured, with their dates.
+    expect(byId<HTMLElement>('publisher-nostr-title').textContent).toMatch(/CAPTURED .* UTC/);
+    expect(byId<HTMLElement>('publisher-reserve-title').textContent).toMatch(/CAPTURED .* UTC/);
+  });
+
+  it('leads with the committed real-LND evidence: verdicts read from the files, linked to the files and the CI runs', async () => {
+    await goToPublish();
+    const p3b = byId<HTMLElement>('ev-phase3b');
+    expect(p3b.textContent).toContain('ACCEPT_VERIFIED');
+    expect(p3b.textContent).toContain('REFUSE_ISSUANCE_OMITTED');
+    expect(p3b.textContent).toMatch(/13\/13 checks true/);
+    expect(p3b.textContent).toMatch(/12\/13 true; false: inclusionValid/);
+    expect(p3b.textContent).toContain('npm run verify:phase3b-evidence -- evidence/real-pol/ci-36614823173-lnd/phase3b');
+    const hrefs = (root: HTMLElement) => Array.from(root.querySelectorAll('a')).map((a) => a.getAttribute('href') ?? '');
+    expect(hrefs(p3b)).toEqual(expect.arrayContaining([
+      'https://github.com/TheWeirdDee/solvent/blob/main/evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-accept.json',
+      'https://github.com/TheWeirdDee/solvent/blob/main/evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-omission-refuse.json',
+      'https://github.com/TheWeirdDee/solvent/actions/runs/36614823173',
+    ]));
+    expect(hrefs(p3b).some((h) => h.startsWith('https://njump.me/'))).toBe(true);
+    expect(hrefs(p3b).some((h) => h.startsWith('https://mutinynet.com/tx/'))).toBe(true);
+    const nut = byId<HTMLElement>('ev-nut05');
+    expect(nut.textContent).toMatch(/lnd/);
+    expect(hrefs(nut)).toEqual(expect.arrayContaining(['https://github.com/TheWeirdDee/solvent/blob/main/evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json', 'https://github.com/TheWeirdDee/solvent/actions/runs/36619816959']));
+    expect(hrefs(byId<HTMLElement>('ev-ci'))).toEqual(expect.arrayContaining([
+      'https://github.com/TheWeirdDee/solvent/actions/runs/36150315347',
+      'https://github.com/TheWeirdDee/solvent/actions/runs/36614823173',
+      'https://github.com/TheWeirdDee/solvent/actions/runs/36619816959',
+    ]));
+    for (const a of Array.from(byId<HTMLElement>('panel-publish').querySelectorAll<HTMLAnchorElement>('a[href^="http"]'))) {
+      expect(a.target).toBe('_blank');
+      expect(a.rel).toMatch(/noopener/);
+    }
   });
 });
 
@@ -1394,7 +1427,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     window.location.hash = '#/docs?doc=trust-boundaries';
     await waitFor(() => byId<HTMLElement>('docs-doc-content').textContent!.includes('Trust boundaries'));
     const labels = Array.from(document.querySelectorAll('#docs-nav .docs-nav-link')).map((b) => b.textContent);
-    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ']);
+    expect(labels).toEqual(['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Evidence index', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ']);
     expect(document.querySelector('#docs-nav .docs-nav-link.active')?.textContent).toBe('Trust boundaries');
   });
 
@@ -1419,7 +1452,7 @@ describe('SOLVENT web client (jsdom) — docs', () => {
     await goToDocs();
     const select = byId<HTMLSelectElement>('docs-mobile-select');
     expect(document.querySelector('label[for="docs-mobile-select"]')?.textContent).toMatch(/docs menu/i);
-    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'attack-corpus', 'trust-boundaries', 'reality-map', 'draft-alignment', 'verify-in-5', 'deploy-real-mint', 'deploy-railway', 'demo-runbook', 'readme', 'faq']);
+    expect(Array.from(select.options).map((o) => o.value)).toEqual(['start-here', 'getting-started', 'protocol', 'verification-bundle', 'nostr-schema', 'reserve-attestation', 'evidence-index', 'attack-corpus', 'trust-boundaries', 'reality-map', 'draft-alignment', 'verify-in-5', 'deploy-real-mint', 'deploy-railway', 'demo-runbook', 'readme', 'faq']);
     select.value = 'reserve-attestation';
     select.dispatchEvent(new Event('change'));
     await waitFor(() => window.location.hash.includes('reserve-attestation'));

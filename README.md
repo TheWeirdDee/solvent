@@ -105,13 +105,16 @@ The complete line-by-line table is in [`docs/REALITY-MAP.md`](docs/REALITY-MAP.m
 
 ## Evidence
 
-| Milestone | CI run (Real Cashu + SOLVENT Integration, real LND) | Offline check |
-| --- | --- | --- |
-| NUT-03 swap accounting | [36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) | `npm run verify:nut03-evidence -- 36150315347` |
-| Epoch lifecycle (Phase 3A) and public solvency evidence (Phase 3B) | [36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173): honest `ACCEPT_VERIFIED`, broken promise `REFUSE_ISSUANCE_OMITTED` | `npm run verify:phase3b-evidence -- <artifact>/evidence/real-pol/36614823173-phase3b` |
-| NUT-05 melt accounting, plus all of the above again | [36619816959](https://github.com/TheWeirdDee/solvent/actions/runs/36619816959) | `nut05-melt.json` in the run artifact |
+Every real-LND result below is **committed to this repository**, so it can be read directly and survives the expiry of GitHub's CI artifacts (December 2026). The full index, with backends, dates, event ids and verification commands, is [`evidence/README.md`](evidence/README.md).
 
-Each run's `real-cashu-evidence` artifact holds the machine-readable JSON. It is secret-scanned before upload, and every holder proof it contains is spent before the run ends.
+| Milestone (real LND) | Committed evidence | Original CI run | Check it |
+| --- | --- | --- | --- |
+| **Phase 3B: public solvency evidence.** Honest `ACCEPT_VERIFIED` (13/13 checks) and broken promise `REFUSE_ISSUANCE_OMITTED` (only inclusion fails) | [`phase3-accept.json`](evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-accept.json) · [`phase3-omission-refuse.json`](evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-omission-refuse.json) · [full package](evidence/real-pol/ci-36614823173-lnd/phase3b/) | [36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173) | `npm run verify:phase3b-evidence -- evidence/real-pol/ci-36614823173-lnd/phase3b` (offline replay) |
+| **NUT-05: melt with change, accounted** | [`nut05-melt.json`](evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json) | [36619816959](https://github.com/TheWeirdDee/solvent/actions/runs/36619816959) | Inspect the JSON |
+| **Phase 3A / Phase 2: epoch lifecycle, mint-native accounting, crash and restart** | [`phase3a/`](evidence/real-pol/ci-36614823173-lnd/phase3a/) (public audit record; two never-spent proof files withheld, so not offline-replay complete) | [36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173) | Inspect the JSON |
+| **NUT-03: swap accounting** | in the run artifact | [36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) | `npm run verify:nut03-evidence -- 36150315347` |
+
+The live public mint's evidence (fakewallet Lightning) is published as it runs: see *Live mint* and *Evidence* in the app. The CI artifacts are secret-scanned before upload. Committed packages contain no keys, and only Cashu proofs recorded as spent.
 
 ## Why SOLVENT exists
 

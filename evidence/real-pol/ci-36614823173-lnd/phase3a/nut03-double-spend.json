@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_double_spend",
+  "timestamp": "2026-09-29T18:54:16.786Z",
+  "pass": true,
+  "real_mint_request_attempted": true,
+  "mint_response": "Token Already Spent",
+  "originals_spent_after_first_swap": true,
+  "originals_still_spent_after_refusal": true,
+  "first_swap_replacements_unspent": true,
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "SPENT",
+      "actual": [
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT"
+      ]
+    },
+    "replacements": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "originals checked after the first (successful) swap and again after the refused reuse attempt; \"replacements\" are the first swap's outputs — the refused attempt produced none",
+    "pass": true
+  },
+  "note": "the same real event as nut03-failed-swap.json — reusing already-spent swap inputs is both the failed-swap and the double-spend-after-swap case here, not two different code paths",
+  "invariant": "P2-S4, P2-S11 (INVARIANTS.md)"
+}

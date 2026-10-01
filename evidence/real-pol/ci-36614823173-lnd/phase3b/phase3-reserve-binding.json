@@ -1,0 +1,22 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:54:44.320Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "binding": {
+    "schema": "solvent/reserve-binding/v1",
+    "mint_url": "http://127.0.0.1:8085",
+    "mint_identity_pubkey": "03d902f35f560e0470c63313c7369168d9d7df2d49bf295fd9fb7cb109ccee0494",
+    "epoch_index": 4,
+    "manifest_digest": "0f943db57316ff02b02e9000e8551fc05f23853709c301d36df94f8a693b505a",
+    "global_digest": "83f8d525f14d1dfd2be085b5f9db3c4547c86d59185518b1704e598cdb913802",
+    "reserve_statement_digest": "5ea32a2b647bd3d4243338d0d473f8461b24081c6e4168fb283727f3afeac163",
+    "reserve_pubkey": "971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895",
+    "reserve_network": "bitcoin-signet-mutinynet",
+    "created_at": 1790708084,
+    "valid_until": 1790711684,
+    "signature": "74bab38aa1c74acf5bc3909348184cca32ebaa98d560ca53ee934522a5da473777a37221db1a80c2095f4fccaded32f8ba48e3754f6c0f7519181c860b2cb5c3"
+  },
+  "binding_digest": "9d77224829d4217e64a9c1ba1f221f1294fd666138eb718cb60381af2dc9ab4b",
+  "signer": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac"
+}

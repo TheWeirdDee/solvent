@@ -1,0 +1,18 @@
+{
+  "quote": "01a0ee84-cea3-73d1-a357-27ae65b47ab2",
+  "settlement": "lnd",
+  "victim": {
+    "blindedMessage": "026cf542e36e4152b29eef76dc0d9581bc7b0f5db94d67329ea4b54ce0f87b5479",
+    "amount": 64
+  },
+  "receipt": {
+    "status": "signed",
+    "target_epoch": 2,
+    "signature": "aa90b4dc7e1c9984999f8be34160a7b565e77600f8f6acf92357bd1b6def7fc937bb4830777a65f6599c00a820af9dc01f43be617cd601f8f8c6d588fed17d14"
+  },
+  "receiptAfterClose": {
+    "status": "signed",
+    "target_epoch": 2,
+    "signature": "aa90b4dc7e1c9984999f8be34160a7b565e77600f8f6acf92357bd1b6def7fc937bb4830777a65f6599c00a820af9dc01f43be617cd601f8f8c6d588fed17d14"
+  }
+}

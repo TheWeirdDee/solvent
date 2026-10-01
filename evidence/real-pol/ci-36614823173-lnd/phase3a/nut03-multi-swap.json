@@ -1,0 +1,127 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_multi_swap",
+  "timestamp": "2026-09-29T18:54:25.811Z",
+  "pass": true,
+  "before": {
+    "issued_sat": 11107,
+    "consumed_sat": 5000,
+    "outstanding_sat": 6107
+  },
+  "swaps": [
+    {
+      "label": "A",
+      "issued_sat": 12107,
+      "consumed_sat": 6000,
+      "outstanding_sat": 6107,
+      "outstanding_unchanged": true,
+      "nut07": {
+        "checked": true,
+        "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+        "originals": {
+          "expected": "SPENT",
+          "actual": [
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT"
+          ]
+        },
+        "replacements": {
+          "expected": "UNSPENT",
+          "actual": [
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT"
+          ]
+        },
+        "pass": true
+      },
+      "pass": true
+    },
+    {
+      "label": "B",
+      "issued_sat": 13107,
+      "consumed_sat": 7000,
+      "outstanding_sat": 6107,
+      "outstanding_unchanged": true,
+      "nut07": {
+        "checked": true,
+        "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+        "originals": {
+          "expected": "SPENT",
+          "actual": [
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT",
+            "SPENT"
+          ]
+        },
+        "replacements": {
+          "expected": "UNSPENT",
+          "actual": [
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT",
+            "UNSPENT"
+          ]
+        },
+        "pass": true
+      },
+      "pass": true
+    }
+  ],
+  "expected_outstanding_sat": 6107,
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "SPENT",
+      "actual": [
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT"
+      ]
+    },
+    "replacements": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "per-step detail is in swaps[].nut07; this is the union across both swaps",
+    "pass": true
+  },
+  "measurement_method": "whole-database SUM(amount) over solvent_issued_liability/solvent_consumed_liability, not row counts — a delta relative to this script's own baseline, since other CI steps mint/swap in the same database",
+  "invariant": "P2-S9 extended to consecutive swaps (INVARIANTS.md)"
+}

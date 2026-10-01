@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_crash_before_commit",
+  "timestamp": "2026-09-29T18:54:24.819Z",
+  "pass": true,
+  "label": "CRASH_BEFORE_COMMIT_ROLLBACK",
+  "crash_method": "real SIGKILL (kill -9) sent to the real mint process",
+  "crash_location": "inside SwapSaga::finalize(), before tx.commit() — patches/cdk/0006-*.patch's SOLVENT_TEST_DELAY_BEFORE_COMMIT_MS hook",
+  "sigkill_sent": true,
+  "row_counts_before_crash": {
+    "consumed": 24,
+    "issued": 24,
+    "signed_receipts": 24
+  },
+  "row_counts_after_crash_and_restart": {
+    "consumed": 24,
+    "issued": 24,
+    "signed_receipts": 24
+  },
+  "row_counts_after_crash_before_restart": {
+    "consumed": 24,
+    "issued": 24,
+    "signed_receipts": 24
+  },
+  "partial_accounting_rows_created": {
+    "consumed": 0,
+    "issued": 0,
+    "signed_receipts": 0
+  },
+  "expected_partial_accounting_rows_created": {
+    "consumed": 0,
+    "issued": 0,
+    "signed_receipts": 0
+  },
+  "recovery_mechanism_invoked": "Mint::recover_from_incomplete_sagas() — real, pre-existing CDK code (crates/cdk/src/mint/start_up_check.rs), called automatically from Mint::start() on the restart that follows the kill",
+  "original_proof_count": 6,
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "after restart + CDK compensation the originals must not be SPENT or stuck PENDING. No replacements are checked: none were ever durably issued. CDK reports rowless proofs as UNSPENT, so this proves \"usable again\", not \"was compensated\" — the row-count diff covers the latter.",
+    "pass": true
+  },
+  "invariant": "P2-S4, P2-S9 (INVARIANTS.md)"
+}

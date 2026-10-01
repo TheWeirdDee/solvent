@@ -49,7 +49,7 @@ const WIDTHS: { width: number; height: number }[] = [
 // (collapsed JSON, a pasted bundle) is data, not product copy, and is
 // excluded because innerText skips closed <details> and textarea values.
 const FORBIDDEN_PRIMARY = [/solvent-fixture-mint/i, /test environment/i, /fresh identity every time/i, /\bfixture\b/i, /\btest mint\b/i, /demo scenario/i, /fresh demo identity/i, /create test ecash/i];
-const EXPECTED_DOCS_NAV = ['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ'];
+const EXPECTED_DOCS_NAV = ['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Evidence index', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ'];
 const TITLES: Record<string, string> = {
   'panel-home': 'SOLVENT — Auditable Ecash',
   'panel-mint': 'SOLVENT — Live Mint',

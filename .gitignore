@@ -11,3 +11,9 @@ deploy/mint.env
 deploy/sidecar.env
 deploy/mint.toml
 deploy/secrets/
+
+# Generated local evidence output (never curated evidence; see evidence/README.md)
+evidence/railway-shots/
+evidence/real-pol/local-20*/
+evidence/real-pol/nut05-local-20*/
+evidence/real-pol/phase3b-local-20*/

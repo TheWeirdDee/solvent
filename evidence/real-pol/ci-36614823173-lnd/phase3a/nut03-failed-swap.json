@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "36614823173",
+  "operation": "nut03_failed_swap",
+  "timestamp": "2026-09-29T18:54:16.786Z",
+  "pass": true,
+  "real_mint_request_attempted": true,
+  "mint_response": "Token Already Spent",
+  "consumed_rows_before": 18,
+  "consumed_rows_after": 18,
+  "issued_rows_before": 18,
+  "issued_rows_after": 18,
+  "receipt_rows_before": 18,
+  "receipt_rows_after": 18,
+  "new_consumed_rows": 0,
+  "new_issued_rows": 0,
+  "new_receipt_rows": 0,
+  "expected": {
+    "new_consumed_rows": 0,
+    "new_issued_rows": 0,
+    "new_receipt_rows": 0
+  },
+  "nut07": {
+    "checked": true,
+    "method": "real POST /v1/checkstate (NUT-07) against the real mint, via cashu-ts Mint.check({ Ys })",
+    "originals": {
+      "expected": "SPENT",
+      "actual": [
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT",
+        "SPENT"
+      ]
+    },
+    "replacements": {
+      "expected": "UNSPENT",
+      "actual": [
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT",
+        "UNSPENT"
+      ]
+    },
+    "note": "originals checked after the first (successful) swap and again after the refused reuse attempt; \"replacements\" are the first swap's outputs — the refused attempt produced none",
+    "pass": true
+  },
+  "invariant": "P2-S4 (INVARIANTS.md)"
+}

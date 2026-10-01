@@ -1,0 +1,5 @@
+{
+  "mechanism": "SQLite AFTER UPDATE trigger on blind_signature, fires inside CDK's own transaction",
+  "source": "migrations/solvent-accounting/0001_nut04_issued_liability.sql",
+  "verified_by": "npm run verify:pol-atomicity (real transaction-abort test against the real database)"
+}

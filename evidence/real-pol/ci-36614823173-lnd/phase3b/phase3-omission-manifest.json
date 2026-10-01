@@ -1,0 +1,39 @@
+{
+  "run_id": "36614823173-phase3b",
+  "generated_at": "2026-09-29T18:55:07.909Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "epoch_index": 5,
+  "keyset_count": 1,
+  "manifest": {
+    "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+    "unit": "sat",
+    "epoch_index": 5,
+    "timestamp": "2026-09-29T18:55:07Z",
+    "previous_global_digest": "83f8d525f14d1dfd2be085b5f9db3c4547c86d59185518b1704e598cdb913802",
+    "issued_mmr_size": 106,
+    "issued_mmr_root_hash": "4f7f020405e08f63c77683afe744ee463d38cba92d1c446c7f79e78576ceb772",
+    "issued_mmr_root_sum": 17036,
+    "spent_mmr_size": 50,
+    "spent_mmr_root_hash": "e00e32dce5b2d7837f038204f250fceadbb6e38e436c05cfd9a51492f31e7567",
+    "spent_mmr_root_sum": 8768,
+    "outstanding_balance": 8268,
+    "active": true,
+    "deactivation_epoch": 0
+  },
+  "manifest_signature": "95e3e5aa3e6e74ff86306a19db5ba115cf19b1248d40f1086f06bc5700f0d436553d0bd3ef33792a0af777bf622f6276d810c775f7502b632dbb5597370a66b8",
+  "manifest_pubkey": "03cf2497d696f28f4b1b31cb6126c920f1b5e268c08ac113684758cc14fe5a76ac",
+  "manifest_digest": "31915f289d99d1d7700a6c954206514f1632fc97b5765e919bc0615698eccd8c",
+  "global_digest": "80b1b108ff3186df8ab68a89359fe87df637a4ed203c1bc3ffa958bfef9ecf87",
+  "previous_global_digest": "83f8d525f14d1dfd2be085b5f9db3c4547c86d59185518b1704e598cdb913802",
+  "audit": {
+    "epochIndex": 5,
+    "ok": true,
+    "failures": []
+  },
+  "receipt": {
+    "target_epoch": 5,
+    "signature": "71627e750c964fef5583cf5189c9d157be571f625ee453f7445a9f7cad8ebf1ac19dbe81f2c1b9852b93527c612aa1f7c44e9b9ae637c120cd9cadeec7a83a5b"
+  },
+  "inclusion_proof_present": false
+}

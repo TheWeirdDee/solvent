@@ -739,62 +739,70 @@
       </div>
     </main>
 
-    <!-- ============ PUBLISH / EVIDENCE PIPELINE ============ -->
+    <!-- ============ EVIDENCE ============ -->
     <main id="panel-publish" class="route route-app panel" hidden>
-      <p class="eyebrow">Mint evidence pipeline</p>
-      <h1 class="page-heading">How a mint&rsquo;s<br />evidence gets published.</h1>
-      <p class="page-sub">
-        The real v2 operator pipeline, shown read-only against the last real evidence this repository generated.
-      </p>
+      <p class="eyebrow">Evidence</p>
+      <h1 class="page-heading">Inspect the<br />evidence.</h1>
+      <p class="page-sub">Every claim SOLVENT makes, with the record behind it. The real-LND results are committed to the repository, so they can be read directly and replayed offline. The full index is <a href="https://github.com/TheWeirdDee/solvent/blob/main/evidence/README.md" target="_blank" rel="noopener noreferrer">evidence/README.md&nbsp;&#8599;</a>.</p>
 
-      <div class="pipeline-flow">
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">01</p>
-          <p class="pipeline-step-title">Issuance receipts</p>
-          <p class="pipeline-step-cmd">npm run gate1</p>
-        </div>
-        <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">02</p>
-          <p class="pipeline-step-title">Close epoch</p>
-          <p class="pipeline-step-cmd">npm run gate2</p>
-        </div>
-        <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">03</p>
-          <p class="pipeline-step-title">Issued / spent sum-MMR</p>
-          <p class="pipeline-step-cmd">src/pol/mmr.ts</p>
-        </div>
-        <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">04</p>
-          <p class="pipeline-step-title">Sign manifest</p>
-          <p class="pipeline-step-cmd">src/pol/manifest.ts</p>
-        </div>
-        <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">05</p>
-          <p class="pipeline-step-title">Bind reserve evidence</p>
-          <p class="pipeline-step-cmd">npm run gate6</p>
-        </div>
-        <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
-        <div class="pipeline-step">
-          <p class="pipeline-step-label">06</p>
-          <p class="pipeline-step-title">Publish Nostr state</p>
-          <p class="pipeline-step-cmd">npm run gate5</p>
-        </div>
-      </div>
+      <section class="evidence-block" aria-labelledby="ev-lnd-title">
+        <p class="evidence-kind evidence-kind-lnd">REAL-LND CI EVIDENCE</p>
+        <h2 id="ev-lnd-title" class="evidence-block-title">Phase 3B &mdash; honest ACCEPT and broken-promise REFUSE, over real Lightning</h2>
+        <p class="evidence-block-sub">A real patched CDK mint over real regtest LND; the epoch published to public Nostr relays and bound to a Mutinynet reserve; verified by the same verifier as the app.</p>
+        <div id="ev-phase3b" class="evidence-cards"></div>
+      </section>
 
-      <div class="publish-grid">
-        <div class="card">
-          <p class="publisher-summary-title">Real last-published Nostr evidence</p>
-          <div id="publisher-nostr" class="publisher-summary"></div>
+      <section class="evidence-block" aria-labelledby="ev-nut05-title">
+        <p class="evidence-kind evidence-kind-lnd">REAL-LND CI EVIDENCE</p>
+        <h2 id="ev-nut05-title" class="evidence-block-title">NUT-05 &mdash; melt with change, accounted</h2>
+        <div id="ev-nut05" class="evidence-cards"></div>
+      </section>
+
+      <section class="evidence-block" aria-labelledby="ev-live-title">
+        <p class="evidence-kind evidence-kind-live">PUBLIC RAILWAY EVIDENCE &middot; LIVE</p>
+        <h2 id="ev-live-title" class="evidence-block-title">The public demo mint, right now</h2>
+        <div id="ev-live" class="evidence-cards"><p class="evidence-block-sub">Loading the live mint&rsquo;s status&hellip;</p></div>
+      </section>
+
+      <section class="evidence-block" aria-labelledby="ev-ci-title">
+        <p class="evidence-kind">CI RUNS</p>
+        <h2 id="ev-ci-title" class="evidence-block-title">Where the records come from</h2>
+        <ul id="ev-ci" class="evidence-list"></ul>
+      </section>
+
+      <section class="evidence-block" aria-labelledby="ev-ref-title">
+        <p class="evidence-kind evidence-kind-ref">CAPTURED REFERENCE EVIDENCE</p>
+        <h2 id="ev-ref-title" class="evidence-block-title">Reference runs &mdash; snapshots, not current status</h2>
+        <div id="ev-reference" class="evidence-cards"></div>
+        <div class="publish-grid">
+          <div class="card">
+            <p class="publisher-summary-title" id="publisher-nostr-title">Gate 5 &mdash; Nostr publication (captured)</p>
+            <div id="publisher-nostr" class="publisher-summary"></div>
+          </div>
+          <div class="card">
+            <p class="publisher-summary-title" id="publisher-reserve-title">Gate 6 &mdash; Signet reserve attestation (captured)</p>
+            <div id="publisher-reserve" class="publisher-summary"></div>
+          </div>
         </div>
-        <div class="card">
-          <p class="publisher-summary-title">Real last-verified Signet reserve</p>
-          <div id="publisher-reserve" class="publisher-summary"></div>
+      </section>
+
+      <section class="evidence-block" aria-labelledby="ev-pipe-title">
+        <p class="evidence-kind">HOW A MINT PUBLISHES</p>
+        <h2 id="ev-pipe-title" class="evidence-block-title">The operator pipeline</h2>
+        <div class="pipeline-flow">
+          <div class="pipeline-step"><p class="pipeline-step-label">01</p><p class="pipeline-step-title">Issuance receipts</p><p class="pipeline-step-cmd">npm run gate1</p></div>
+          <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
+          <div class="pipeline-step"><p class="pipeline-step-label">02</p><p class="pipeline-step-title">Close epoch</p><p class="pipeline-step-cmd">npm run gate2</p></div>
+          <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
+          <div class="pipeline-step"><p class="pipeline-step-label">03</p><p class="pipeline-step-title">Issued / spent sum-MMR</p><p class="pipeline-step-cmd">src/pol/mmr.ts</p></div>
+          <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
+          <div class="pipeline-step"><p class="pipeline-step-label">04</p><p class="pipeline-step-title">Sign manifest</p><p class="pipeline-step-cmd">src/pol/manifest.ts</p></div>
+          <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
+          <div class="pipeline-step"><p class="pipeline-step-label">05</p><p class="pipeline-step-title">Bind reserve evidence</p><p class="pipeline-step-cmd">npm run gate6</p></div>
+          <div class="pipeline-arrow" aria-hidden="true">&darr;</div>
+          <div class="pipeline-step"><p class="pipeline-step-label">06</p><p class="pipeline-step-title">Publish Nostr state</p><p class="pipeline-step-cmd">npm run gate5</p></div>
         </div>
-      </div>
+      </section>
     </main>
 
     <!-- ============ PROTOCOL ============ -->

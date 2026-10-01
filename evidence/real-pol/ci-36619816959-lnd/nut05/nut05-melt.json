@@ -1,0 +1,95 @@
+{
+  "run_id": "36619816959-nut05",
+  "generated_at": "2026-09-29T19:36:24.063Z",
+  "lightning_backend": "lnd",
+  "pass": true,
+  "epoch": 7,
+  "quote": "01a0eeab-10d3-71e0-8060-1ea38eb34445",
+  "lightning_amount_sat": 300,
+  "fee_reserve_sat": 6,
+  "fee_paid_sat": 0,
+  "inputs": {
+    "count": 6,
+    "total_sat": 1000,
+    "spent_ys": [
+      "027e136007316defd598c556055872d8baf2c4faae98fd56e0cd014234d02e7c08",
+      "022c5bd52e93ef45b2f470aaa7ba5c4b3aa9830f5514606496a017af541d8dc1fe",
+      "02f0735d41721580a492cea7486dd24b5bc5d0a099452868c9937e9767b55b30ea",
+      "0226c45a4be954fd19f43f1353c0ab13c4fadc1e5ff2443b43a25b2343946c22ed",
+      "02690e33172f133021047294573c9f85970f7d0a5d23c7b92374ea71fd9f9bbae4",
+      "0252adcb990fc2c19a3fb7dbb2583e7ca5ad5d1c3b4013b31e06c8400ceb37613f"
+    ]
+  },
+  "change": {
+    "count": 6,
+    "total_sat": 700,
+    "outputs": [
+      {
+        "blinded_message": "0316803fcd0f84c1d18b40872d6af796a5cb4900e6a74f04facd07836e608cb37c",
+        "amount": 512,
+        "target_epoch": 7,
+        "receipt": "signed"
+      },
+      {
+        "blinded_message": "03d2ce2ddc147310a02299806c52a8feb253d6e6cec2cc29963395b0980897b2d2",
+        "amount": 128,
+        "target_epoch": 7,
+        "receipt": "signed"
+      },
+      {
+        "blinded_message": "027a293aab611b6e6b91975ffd6f72c593b44019550bbb1f0d8fc8c6aba81fe707",
+        "amount": 32,
+        "target_epoch": 7,
+        "receipt": "signed"
+      },
+      {
+        "blinded_message": "03ab12f2d6b10f3c2e967bb9c98575e82fb408e7ce56f50649e4ad1a895c5afff4",
+        "amount": 16,
+        "target_epoch": 7,
+        "receipt": "signed"
+      },
+      {
+        "blinded_message": "02ce74d66aafae615ac59d5e8ec79fe76a14509c56a67786b9765b83db1c78839c",
+        "amount": 8,
+        "target_epoch": 7,
+        "receipt": "signed"
+      },
+      {
+        "blinded_message": "0241a30a779ac973dc8026b93f261882eac5dacfc1eb04a78d0dcc7c63b9ca7b06",
+        "amount": 4,
+        "target_epoch": 7,
+        "receipt": "signed"
+      }
+    ]
+  },
+  "ecash_destroyed_sat": 300,
+  "outstanding_before_sat": 8276,
+  "outstanding_after_sat": 8976,
+  "failed_payment": "refused: Invoice already paid.",
+  "double_spend": "refused: Token Already Spent",
+  "closed_epoch": {
+    "index": 7,
+    "manifest": {
+      "keyset_id": "01df97b6fb8a572a718d7df7fcbf4387e2d455134ea8004c9c8c51e1b3391f909e",
+      "unit": "sat",
+      "epoch_index": 7,
+      "timestamp": "2026-09-29T19:36:24Z",
+      "previous_global_digest": "c27ae63c1ec9f4dfce076d92981e2ac43f83916721bfad7880a1e231e596d9ec",
+      "issued_mmr_size": 124,
+      "issued_mmr_root_hash": "3bf8b99b1e1ae52f0d353a552e1d35dd8e145fc875610caff2277c5c0b4146df",
+      "issued_mmr_root_sum": 19280,
+      "spent_mmr_size": 59,
+      "spent_mmr_root_hash": "ecb8349aeea859d993d6004f023f4578230538df0bd63da401cb33b2519b8e26",
+      "spent_mmr_root_sum": 9904,
+      "outstanding_balance": 9376,
+      "active": true,
+      "deactivation_epoch": 0
+    },
+    "audit": {
+      "epochIndex": 7,
+      "ok": true,
+      "failures": []
+    }
+  },
+  "settled_on_lnd": true
+}

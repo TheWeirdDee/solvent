@@ -1,0 +1,9 @@
+{
+  "method": "cargo test -p cdk-signatory --lib sign_pol_receipt (direct Rust unit tests, not HTTP-simulated — the method has no HTTP route)",
+  "cases": [
+    "correct keyset + amount -> signs and independently verifies",
+    "nonexistent keyset -> refused",
+    "valid keyset, amount not in keyset -> refused",
+    "expired keyset -> refused"
+  ]
+}

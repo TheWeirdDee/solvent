@@ -1,0 +1,26 @@
+{
+  "inputs": [
+    {
+      "amount": 512
+    },
+    {
+      "amount": 256
+    }
+  ],
+  "consumedRowsInEpoch": {
+    "rows": 2,
+    "sats": 768
+  },
+  "replacementOutputs": [
+    {
+      "amount": 512,
+      "blinded_message": "0242f018edb72144040b1ee136667e32226655f56fdb808dcff025a6bd35782b2b",
+      "target_epoch": 1
+    },
+    {
+      "amount": 256,
+      "blinded_message": "02748b7119163d10c52301d77e79d0caa5a50ce0249a7377b9c0b259bddcf9edf2",
+      "target_epoch": 1
+    }
+  ]
+}

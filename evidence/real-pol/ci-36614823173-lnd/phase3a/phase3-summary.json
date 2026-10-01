@@ -1,0 +1,11 @@
+{
+  "runId": "36614823173",
+  "mint": "http://127.0.0.1:8085",
+  "lightning": "lnd",
+  "failures": 0,
+  "phase3bNotYetSupplied": [
+    "nostr publication",
+    "live reserve"
+  ],
+  "generatedAt": "2026-09-29T18:54:36.568Z"
+}
