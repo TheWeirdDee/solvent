@@ -46,7 +46,7 @@ async function getJson(url: string): Promise<{ status: number; acao: string | nu
 const corsOk = (acao: string | null) => acao === '*' || acao === APP_ORIGIN;
 
 async function main() {
-  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && all[i - 1] !== '--site');
+  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--site', '--expect-identity'].includes(all[i - 1] ?? ''));
   const [mintArg, evidenceArg] = positional;
   const siteIdx = process.argv.indexOf('--site');
   const site = (siteIdx >= 0 ? process.argv[siteIdx + 1] : undefined) ?? `${APP_ORIGIN}/`;
@@ -59,8 +59,15 @@ async function main() {
 
   const info = await getJson(`${mint}/v1/info`);
   const identity = typeof info.body?.pubkey === 'string' ? info.body.pubkey : '';
-  check('A. mint /v1/info answers', info.status === 200 && /^0[23][0-9a-f]{64}$/.test(identity), `HTTP ${info.status}, NUT-06 pubkey ${identity || 'missing'}`);
+  // A static site (e.g. a mis-built frontend) answers every path with HTML and
+  // HTTP 200 — so the body, not the status, is what proves this is the mint.
+  check('A. mint /v1/info answers with the real CDK mint (JSON, not a web page)', info.status === 200 && info.body !== null && /^cdk-mintd\//.test(String(info.body.version ?? '')) && /^0[23][0-9a-f]{64}$/.test(identity), `HTTP ${info.status}, version ${String(info.body?.version ?? 'none — not JSON')}, NUT-06 pubkey ${identity || 'missing'}`);
+  const expectIdx = process.argv.indexOf('--expect-identity');
+  const expected = expectIdx >= 0 ? process.argv[expectIdx + 1] : undefined;
+  if (expected) check('A. the mint identity is unchanged', identity === expected, `expected ${expected}`);
 
+  const root = await getJson(`${evidence}/`);
+  check('C. evidence service answers / with its endpoint map', root.status === 200 && root.body?.service === 'SOLVENT evidence service', `HTTP ${root.status}`);
   const health = await getJson(`${evidence}/healthz`);
   check('C. evidence service /healthz answers', health.status === 200 && health.body?.ok === true, `HTTP ${health.status}, open epoch ${String(health.body?.open_epoch)}`);
   const st = await getJson(`${evidence}/v1/solvent/status`);

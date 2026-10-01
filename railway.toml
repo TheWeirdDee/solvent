@@ -1,13 +1,16 @@
 # Railway config-as-code for the SOLVENT mint + sidecar service
 # (docs/DEPLOY-RAILWAY.md). One service, one volume at /data, two public
-# domains (port 8085 = mint, port 8086 = evidence API). The website stays on
-# GitHub Pages.
+# domains (port 8085 = mint, port 8086 = evidence API). The website is hosted
+# on Vercel, never here: this service must build deploy/railway/Dockerfile.
+# If a Railway build log ever says "Deploying as vite static site", the
+# service's dashboard build settings are overriding this file — see
+# docs/DEPLOY-RAILWAY.md, "Troubleshooting".
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "deploy/railway/Dockerfile"
 # Rebuild only when something in the image changes (the frontend and docs
-# are served by GitHub Pages, not by this service).
+# are served by Vercel, not by this service).
 watchPatterns = [
   "deploy/railway/**",
   "deploy/mint/**",

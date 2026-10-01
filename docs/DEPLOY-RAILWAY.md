@@ -97,6 +97,28 @@ The production builds default `#/mint` to this deployment (`.env.production`), s
 ```text
 ```
 
+## Troubleshooting: Railway built the website instead of the mint
+
+**Symptoms:**
+- the build log says `Detected Node`, `Deploying as vite static site`, `runtime: caddy`;
+- the mint URL's `/v1/info` returns the SOLVENT web page (HTML);
+- the evidence URL answers "Application failed to respond".
+
+**Cause:** Railway's auto-detection (Railpack) was used instead of `railway.toml`'s `builder = "DOCKERFILE"`. That happens when the service's own build settings take precedence over the repository config. The static site answers every path with `index.html` and HTTP 200, so the `/v1/info` healthcheck passes and the wrong build is marked healthy.
+
+**Fix (state is not affected; the volume, variables and domains stay):**
+1. Service → **Settings** → **Build** → **Builder** = **Dockerfile**.
+2. Same section → **Dockerfile Path** = `deploy/railway/Dockerfile`.
+3. Redeploy the latest `main`.
+
+The build log must then show the Docker build stages (`FROM rust:1-bookworm AS build` …), not "vite static site".
+
+**Check:**
+```sh
+npm run verify:railway -- https://<mint domain> https://<evidence domain> --no-browser --expect-identity <the mint's NUT-06 pubkey>
+```
+It fails on an HTML `/v1/info`, on a missing endpoint map at `/`, or on a changed identity.
+
 ## Changing the mint URL
 
 The delegation is bound to the URL at first boot, and the container refuses to start under a different one. To move to a new domain, either:
