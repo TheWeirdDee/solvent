@@ -9,7 +9,7 @@ Five ways in, from quickest to deepest. The public app is <https://solvent-ashen
 - **Mint & verify an honest issuance** → `ACCEPT_VERIFIED`
 - **Break the promise** → `REFUSE_ISSUANCE_OMITTED`
 
-A step-by-step judge walkthrough is in [Start here](#/docs?doc=start-here).
+A step-by-step judge walkthrough is in [Start here](#/docs?doc=start-here). Every record behind SOLVENT's claims (including the real-Lightning CI results) is on the [Evidence page](#/publish).
 
 ## 2. Re-check published evidence
 

@@ -30,6 +30,16 @@ export function initDocsPanel(): void {
   nav.innerHTML = entries.map((e) => `<button type="button" class="docs-nav-link" data-doc="${e.id}">${e.label}</button>`).join('');
   mobileSelect.innerHTML = entries.map((e) => `<option value="${e.id}">${e.label}</option>`).join('');
 
+  // In-page anchors inside a doc (#section) scroll within the doc; they never
+  // replace the #/docs route, so refresh and back/forward keep working.
+  docContent.addEventListener('click', (e) => {
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#"]');
+    const href = a?.getAttribute('href') ?? '';
+    if (!a || href.startsWith('#/')) return;
+    e.preventDefault();
+    docContent.querySelector(`[id="${CSS.escape(href.slice(1))}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   function renderDoc(entry: DocEntry) {
     docContent.hidden = false;
     faqContent.hidden = true;

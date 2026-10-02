@@ -111,7 +111,7 @@ A real relay miss can be transient — observed directly during this build: the 
 As of the run whose evidence is currently checked in:
 
 - Nostr event id: see `evidence/nostr/live-demo.json` → `bundle.nostrEvent.id`
-- Published to: `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.nostr.band` — see `publishResults` in the same file for which relay(s) actually acked (one relay timing out and being tolerated is expected — same one-relay-down redundancy as attacks A17-A18); `fetchBackConfirmed: true` means an independent fetch-back immediately after publishing genuinely found it.
+- Published to (historical / captured reference configuration): `wss://relay.damus.io`, `wss://nos.lol`, `wss://relay.nostr.band`; since 2026-09-30 the reference case is published to the current set (`POL_RELAYS`) — see `publishResults` in the same file for which relay(s) actually acked (one relay timing out and being tolerated is expected — same one-relay-down redundancy as attacks A17-A18); `fetchBackConfirmed: true` means an independent fetch-back immediately after publishing genuinely found it.
 - Mint identity (master pubkey): `bundle.masterPublicKeyHex`
 - Epoch: 12; amount: 70,000 sats, fully included
 - Manifest/global digest: recomputable from `bundle.manifest` (see `manifestDigestHex()`/`computeGlobalDigestHex()`) — never trust a value copied out of a doc; recompute it.
@@ -186,7 +186,7 @@ loadCanonicalLiveDemoBundle() / verifyCanonicalLiveDemo()
        └── npm run verify:submission (required "Canonical Live Public Demo" line)
 ```
 
-Both the browser (bundled by Vite at build time) and CLI scripts (read by `tsx` at run time) resolve the exact same `import ... from '../../evidence/nostr/live-demo.json' with { type: 'json' }` — there is no second file for any caller to drift onto. `npm run verify:submission`'s historical `Gate 5 (live relay evidence, historical)` / `Gate 6 (live Signet UTXO, historical)` lines are explicitly labeled as historical mechanism evidence and are **not** a substitute for the `Canonical Live Public Demo` line, which is a real, right-now call to `verifyCanonicalLiveDemo()` — confirmed empirically: a transient Esplora network blip during this pass made that one line (and only that line) fail on one run and pass on an immediate re-run, exactly as a live check should. `SUBMISSION READY` is impossible while it fails (`tests/cli/verify-submission.test.ts`).
+Both the browser (bundled by Vite at build time) and CLI scripts (read by `tsx` at run time) resolve the exact same `import ... from '../../evidence/nostr/live-demo.json' with { type: 'json' }` — there is no second file for any caller to drift onto. `npm run verify:submission`'s historical `Gate 5 (live relay evidence, historical)` / `Gate 6 (live Signet UTXO, historical)` lines are explicitly labeled as historical mechanism evidence and are **not** a substitute for the `Canonical Live Public Demo` line, which is a real, right-now call to `verifyCanonicalLiveDemo()` — confirmed empirically: a transient Esplora network blip during this pass made that one line (and only that line) fail on one run and pass on an immediate re-run, exactly as a live check should. `ENGINEERING READY` (and therefore `SUBMISSION READY`) is impossible while it fails (`tests/cli/verify-submission.test.ts`).
 
 ## What "ACCEPT" from `verify()` means right now
 

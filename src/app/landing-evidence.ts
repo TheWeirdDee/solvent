@@ -6,7 +6,8 @@
 // outcome set.
 import { verifyPolEvidenceEvent } from '../nostr/pol-event.js';
 import { fetchOutspend, fetchTxOutScript } from '../reserve/esplora.js';
-import { escapeHtml, formatAgo, formatUtc, mutinynetTxUrl, njumpUrl } from './decision-view.js';
+import { escapeHtml, formatUtc, mutinynetTxUrl, njumpUrl } from './decision-view.js';
+import { freshnessLabel, observe, timeWithAgo, type Observation } from './live-status.js';
 import { ATTACK_CORPUS, NOSTR_EVIDENCE, RESERVE_EVIDENCE } from './evidence-data.js';
 import { FAQ } from './faq-data.js';
 import { formatSats, truncateHex } from './format.js';
@@ -56,35 +57,45 @@ function renderCapturedReserve(reason: string): void {
  * and its signature verified here; the reserve UTXO is queried on chain.
  * Every status carries the time it was observed.
  */
-async function renderLive(): Promise<void> {
+/**
+ * The live Railway mint's latest publication and reserve. Each value is an
+ * observation with its own checked-at time: fetched now (LIVE) or reused from
+ * an observation younger than MAX_AGE_MS (CACHED SNAPSHOT). Called on every
+ * arrival at the landing page and when the tab becomes visible again.
+ */
+export async function refreshLandingLive(): Promise<void> {
   const evidenceUrl = env.VITE_SOLVENT_EVIDENCE_URL?.replace(/\/+$/, '');
   if (!evidenceUrl) {
     renderCapturedNostr('this build has no live mint configured');
     renderCapturedReserve('this build has no live mint configured');
     return;
   }
-  let st: LiveStatus;
+  let status: Observation<LiveStatus>;
   try {
-    st = (await (await fetch(`${evidenceUrl}/v1/solvent/status`)).json()) as LiveStatus;
+    status = await observe('status', async () => (await (await fetch(`${evidenceUrl}/v1/solvent/status`)).json()) as LiveStatus);
   } catch {
     renderCapturedNostr('the live mint could not be reached just now');
     renderCapturedReserve('the live mint could not be reached just now');
     return;
   }
+  const st = status.data;
   const p = st.last_publication;
   if (p?.event_id && p.status === 'published') {
-    byId('nostr-source').innerHTML = `<span class="live-tag">LIVE RAILWAY MINT</span> Epoch ${p.epoch_index} · published ${formatUtc(p.published_at)} (${formatAgo(p.published_at)})`;
+    byId('nostr-source').innerHTML = `<span class="live-tag">LIVE RAILWAY MINT</span> Epoch ${p.epoch_index} · published ${timeWithAgo(p.published_at)} · status ${freshnessLabel(status)}`;
     byId('nostr-relays').textContent = (p.acked ?? []).map(host).join(', ') || '—';
     byId('nostr-event-id').innerHTML = `<a href="${njumpUrl(p.event_id)}" target="_blank" rel="noopener noreferrer">${truncateHex(p.event_id, 14, 10)} ↗</a>`;
     try {
-      const r = (await (await fetch(`${evidenceUrl}/v1/solvent/nostr/event/${p.event_id}`)).json()) as { events: Parameters<typeof verifyPolEvidenceEvent>[0][]; fetched_from: string[]; fetched_at: string };
-      const ev = r.events.find((e) => e.id === p.event_id);
-      const v = ev ? verifyPolEvidenceEvent(ev) : null;
-      byId('nostr-sig').textContent = v?.signatureValid ? `VALID (verified here, ${formatUtc(new Date())})` : ev ? 'INVALID' : 'NOT RETRIEVED';
-      byId('nostr-state').textContent = ev ? `ON ${r.fetched_from.map(host).join(', ')} — checked ${formatUtc(r.fetched_at)}` : `NOT FOUND ON RELAYS — checked ${formatUtc(r.fetched_at)}`;
+      const fetched = await observe(`event:${p.event_id}`, async () => {
+        const r = (await (await fetch(`${evidenceUrl}/v1/solvent/nostr/event/${p.event_id}`)).json()) as { events: Parameters<typeof verifyPolEvidenceEvent>[0][]; fetched_from: string[] };
+        const ev = r.events.find((e) => e.id === p.event_id);
+        return { found: !!ev, valid: ev ? verifyPolEvidenceEvent(ev).signatureValid : false, from: r.fetched_from };
+      });
+      const f = fetched.data;
+      byId('nostr-sig').innerHTML = f.valid ? `VALID (verified in this browser, ${timeWithAgo(fetched.checkedAt)})` : f.found ? 'INVALID' : 'NOT RETRIEVED';
+      byId('nostr-state').innerHTML = f.found ? `ON ${f.from.map(host).join(', ')} — ${freshnessLabel(fetched)}` : `NOT FOUND ON RELAYS — ${freshnessLabel(fetched)}`;
     } catch {
       byId('nostr-sig').textContent = 'NOT CHECKED (relay fetch failed)';
-      byId('nostr-state').textContent = `PUBLISHED ${formatUtc(p.published_at)}`;
+      byId('nostr-state').innerHTML = `PUBLISHED ${timeWithAgo(p.published_at)}`;
     }
   } else {
     renderCapturedNostr('the live mint has not published an epoch yet');
@@ -99,21 +110,22 @@ async function renderLive(): Promise<void> {
   byId('reserve-network').textContent = st.reserve_network ?? 'bitcoin-signet-mutinynet';
   byId('reserve-utxo').innerHTML = `<a href="${mutinynetTxUrl(txid)}" target="_blank" rel="noopener noreferrer">${truncateHex(txid, 10, 6)}:${vout} ↗</a>`;
   try {
-    const [out, spend] = await Promise.all([fetchTxOutScript(txid, Number(vout)), fetchOutspend(txid, Number(vout))]);
-    const checked = new Date();
-    if (!out) throw new Error('outpoint not found');
-    byId('reserve-amount').textContent = formatSats(out.value);
-    byId('reserve-utxo-state').textContent = spend.spent ? 'SPENT' : 'UNSPENT';
+    const chain = await observe(`reserve:${txid}:${vout}`, async () => {
+      const [out, spend] = await Promise.all([fetchTxOutScript(txid, Number(vout)), fetchOutspend(txid, Number(vout))]);
+      if (!out) throw new Error('outpoint not found');
+      return { value: out.value, spent: spend.spent };
+    });
+    byId('reserve-amount').textContent = formatSats(chain.data.value);
+    byId('reserve-utxo-state').textContent = chain.data.spent ? 'SPENT' : 'UNSPENT';
     const owed = p?.outstanding_balance;
     byId('reserve-liabilities').textContent = typeof owed === 'number' ? `${formatSats(owed)} (epoch ${p!.epoch_index})` : '—';
-    byId('reserve-coverage').textContent = typeof owed === 'number' ? (!spend.spent && out.value >= owed ? 'COVERED' : 'NOT COVERED') : '—';
-    byId('reserve-checked').textContent = `${formatUtc(checked)} (${formatAgo(checked)})`;
-    setInterval(() => (byId('reserve-checked').textContent = `${formatUtc(checked)} (${formatAgo(checked)})`), 15_000);
+    byId('reserve-coverage').textContent = typeof owed === 'number' ? (!chain.data.spent && chain.data.value >= owed ? 'COVERED' : 'NOT COVERED') : '—';
+    byId('reserve-checked').innerHTML = freshnessLabel(chain);
   } catch (err) {
     byId('reserve-amount').textContent = '—';
     byId('reserve-utxo-state').textContent = `NOT CHECKED (${(err as Error).message})`;
     byId('reserve-coverage').textContent = '—';
-    byId('reserve-checked').textContent = formatUtc(new Date());
+    byId('reserve-checked').innerHTML = `not observed — attempted ${timeWithAgo(Date.now())}`;
   }
 }
 
@@ -155,7 +167,7 @@ function renderFaqAccordion(): void {
 }
 
 export function renderLandingEvidence(): void {
-  void renderLive();
+  void refreshLandingLive();
   renderAttackCorpus();
   renderFaqAccordion();
 }

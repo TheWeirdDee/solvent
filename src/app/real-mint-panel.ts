@@ -28,15 +28,16 @@ import {
   decisionCopy,
   decisionFacts,
   escapeHtml,
-  formatAgo,
   formatUtc,
   mutinynetTxUrl,
   njumpUrl,
   nostrDiagnosticsHtml,
+  primalUrl,
   renderDecision,
   resultClass,
 } from './decision-view.js';
 import { formatSats } from './format.js';
+import { timeWithAgo } from './live-status.js';
 import { relayAssistFor } from './relay-assist.js';
 import { verifySubmission, type SubmissionVerification } from './submission.js';
 
@@ -117,6 +118,22 @@ let current: { run: MintRun; evidence: IssuanceResponse | null; verification: Su
 
 // -------------------- current-operation card --------------------
 
+const reducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Brings an element into view only if it is not already visible — never scroll-jacks a reader who looked away. */
+function reveal(target: HTMLElement, block: ScrollLogicalPosition): void {
+  const r = target.getBoundingClientRect();
+  const topbar = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
+  if (r.top >= topbar && r.bottom <= window.innerHeight) return;
+  target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block });
+}
+
+/** Is the reader watching the operation card (any part of it on screen)? */
+function watchingOp(): boolean {
+  const r = el('mint-op').getBoundingClientRect();
+  return r.bottom > 0 && r.top < window.innerHeight;
+}
+
 let opTimer: ReturnType<typeof setInterval> | null = null;
 let opStarted = 0;
 
@@ -133,8 +150,7 @@ function opStart(title: string): void {
   tick();
   if (opTimer) clearInterval(opTimer);
   opTimer = setInterval(tick, 1000);
-  const r = card.getBoundingClientRect();
-  if (r.top < 0 || r.top > window.innerHeight - 120) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  reveal(card, 'center');
 }
 
 function opDetail(text: string): void {
@@ -152,7 +168,10 @@ function step(text: string, state: 'run' | 'ok' | 'fail' | 'info' = 'run'): HTML
   const li = document.createElement('li');
   li.className = `mint-step mint-step-${state}`;
   li.textContent = text;
+  const watching = watchingOp();
   el('mint-steps').appendChild(li);
+  // Keep the newest step in view while the reader is following the operation.
+  if (watching) reveal(li, 'nearest');
   return li;
 }
 
@@ -198,9 +217,9 @@ function renderReality(cfg: RealMintConfig, info: { name?: string; version?: str
 function renderLiveStatus(s: SidecarStatus): void {
   const p = s.last_publication;
   const box = el('mint-live-status');
-  const checked = `checked ${formatUtc(new Date())}`;
+  const checked = `status checked ${timeWithAgo(Date.now())}`;
   box.innerHTML = p
-    ? `<span class="live-tag">LIVE RAILWAY MINT</span> Last publication: epoch ${p.epoch_index} · ${escapeHtml(p.status)} · ${formatUtc(p.published_at)} (${formatAgo(p.published_at)})${p.event_id ? ` · event <a href="${njumpUrl(p.event_id)}" target="_blank" rel="noopener noreferrer"><code>${p.event_id.slice(0, 12)}…</code> ↗</a>` : ''} · open epoch ${s.open_epoch} · ${checked}`
+    ? `<span class="live-tag">LIVE RAILWAY MINT</span> Last publication: epoch ${p.epoch_index} · ${escapeHtml(p.status)} · ${timeWithAgo(p.published_at)}${p.event_id ? ` · event <a href="${njumpUrl(p.event_id)}" target="_blank" rel="noopener noreferrer"><code>${p.event_id.slice(0, 12)}…</code> ↗</a>` : ''} · open epoch ${s.open_epoch} · ${checked}`
     : `<span class="live-tag">LIVE RAILWAY MINT</span> No epoch published yet — the first issuance closes one. Open epoch ${s.open_epoch} · ${checked}`;
 }
 
@@ -382,6 +401,8 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
 async function retry(): Promise<void> {
   if (!current || busy) return;
   busy = true;
+  // The shown result belongs to the previous check: withdraw it while this one runs.
+  el('mint-result').hidden = true;
   setButtons(true, 'Re-verifying the same issuance…');
   opStart(`Retrying verification of the same issuance (epoch ${current.run.epoch}) — no new ecash is minted`);
   try {
@@ -511,6 +532,7 @@ function evidenceCardHtml(v: SubmissionVerification): string {
   ];
   const actions = [
     eventId ? `<a class="btn btn-outline btn-sm" href="${njumpUrl(eventId)}" target="_blank" rel="noopener noreferrer">Open Nostr event ↗</a>` : '',
+    eventId ? `<a class="btn btn-outline btn-sm" href="${primalUrl(eventId)}" target="_blank" rel="noopener noreferrer">Alternate viewer ↗</a>` : '',
     outpoint ? `<a class="btn btn-outline btn-sm" href="${mutinynetTxUrl(outpoint.txid)}" target="_blank" rel="noopener noreferrer">Open reserve transaction ↗</a>` : '',
     eventId ? `<button type="button" class="btn btn-outline btn-sm copy-evidence-btn" data-copy="${escapeHtml(eventId)}">Copy event ID</button>` : '',
     `<button type="button" class="btn btn-outline btn-sm copy-evidence-btn" data-copy="${escapeHtml(JSON.stringify(e.receipt))}">Copy receipt</button>`,
@@ -524,6 +546,8 @@ function evidenceCardHtml(v: SubmissionVerification): string {
       <p>This bundle contains the Cashu proof secret and can represent spendable ecash until the proof is spent. On this demo mint (fakewallet) it has no monetary value, but treat it as money on a real mint.</p>
       <button type="button" class="btn btn-solid btn-sm" id="mint-dl-replay-confirm">Download it anyway</button>
     </div>
+    <p class="explorer-note">External viewers can be unavailable; SOLVENT does not need them. The signed event it verified is below.</p>
+    <details class="evidence"><summary>The signed Nostr event SOLVENT verified (raw)</summary><pre class="raw-json">${escapeHtml(JSON.stringify((evidence!.evidence as { nostrEvent?: unknown }).nostrEvent ?? null, null, 2))}</pre></details>
     <details class="evidence"><summary>Public retrieval, relay by relay</summary>${nostrDiagnosticsHtml(v.nostrLive)}</details>`;
 }
 
@@ -544,15 +568,20 @@ function showResult(): void {
   el('mint-dl-replay').addEventListener('click', () => (el('mint-replay-warning').hidden = false));
   el('mint-dl-replay-confirm').addEventListener('click', () => download(`solvent-replay-bundle-epoch-${current!.run.epoch}.json`, replayBundle()));
   el('mint-technical').innerHTML = `<details><summary>Raw verification result (JSON)</summary><pre>${escapeHtml(JSON.stringify(result, null, 2))}</pre></details>`;
+  // The op card's retry is for runs that could not complete; the result's own
+  // retry re-checks a finished honest run (or a could-not-complete one) in place.
   el('mint-retry-btn').hidden = cls !== 'availability';
+  el('mint-result-retry-btn').hidden = cls === 'refusal';
   el('mint-result').hidden = false;
-  el('mint-result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // The decision is the point of the run: bring its headline into view.
+  reveal(el('mint-decision-badge'), 'start');
 }
 
 export function initRealMintPanel(): void {
   el('mint-honest-btn').addEventListener('click', () => void run('honest'));
   el('mint-omit-btn').addEventListener('click', () => void run('omit'));
   el('mint-retry-btn').addEventListener('click', () => void retry());
+  el('mint-result-retry-btn').addEventListener('click', () => void retry());
   el('mint-again-btn').addEventListener('click', () => {
     current = null;
     try {
@@ -563,6 +592,6 @@ export function initRealMintPanel(): void {
     el('mint-result').hidden = true;
     el('mint-op').hidden = true;
     el('mint-retry-btn').hidden = true;
-    el('mint-honest-btn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    reveal(el('mint-honest-btn'), 'center');
   });
 }

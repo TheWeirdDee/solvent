@@ -12,7 +12,7 @@
 // the problem and the solution; no primary route shows reference-lab/test
 // wording; no horizontal overflow at 1440/1024/768/390; the docs sidebar is
 // sticky on desktop and replaced by a working menu on mobile; the reference
-// check shows one compact progress line and one nine-check list, the exact
+// check shows one compact progress line and one list of eight checks plus the decision, the exact
 // event id and reserve outpoint, and updates "Last checked" when re-run; the
 // decision outweighs its headline; the lab keeps one mint identity across
 // issuances. Plus (September 30 audit): route titles, landing-only anchors,
@@ -286,7 +286,7 @@ async function main(): Promise<boolean> {
     const progressRows = await page.locator('#progress-steps .progress-step').count();
     const ids = (await page.textContent('#live-checked-ids')) ?? '';
     record('live check reaches a real decision', /^(✓ ACCEPT|✕ REFUSE|⟳ NOT ACCEPTED — COULD NOT COMPLETE)$/.test(badge), `${badge} — ${headline}`);
-    record('live check: one compact progress line, one nine-check list', steps === 9 && progressRows === 1 && (await page.locator('#progress-panel').isHidden()), `${steps} checks in the result, ${progressRows} progress row(s)`);
+    record('live check: one compact progress line, one list (8 checks + decision)', steps === 9 && progressRows === 1 && (await page.locator('#progress-panel').isHidden()), `${steps} checks in the result, ${progressRows} progress row(s)`);
     record('live check shows the exact Nostr event id and reserve txid:vout', /[0-9a-f]{64}/.test(ids) && /[0-9a-f]{64}:\d+/.test(ids));
     const nostr = (await page.textContent('#live-status-nostr'))?.trim() ?? '';
     const reserve = (await page.textContent('#live-status-reserve'))?.trim() ?? '';
@@ -355,14 +355,106 @@ async function main(): Promise<boolean> {
     }
     record('every in-app link in every rendered doc resolves', broken.length === 0, `${crawled} links; ${broken.slice(0, 5).join(', ')}`);
 
-    // ---- protocol: a visible section index ----
+    // ---- protocol: section index lands below the sticky header; marker, deep links, back/forward ----
     await go(page, base, '#/protocol', 'panel-protocol');
     const tocItems = await page.locator('#protocol-toc-list a').count();
     const tocVisible = await page.locator('#protocol-toc-list').isVisible();
+    const headerBottom = () => page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().bottom);
+    const topOf = (id: string) => page.locator(`#${id}`).evaluate((el) => el.getBoundingClientRect().top);
+    const activeToc = () => page.locator('#protocol-toc-list a.active').getAttribute('data-target');
+    const badLandings: string[] = [];
+    for (const id of await page.$$eval('#protocol-toc-list a[data-target]', (as) => as.map((a) => (a as HTMLAnchorElement).dataset.target!))) {
+      await page.locator(`#protocol-toc-list a[data-target="${id}"]`).click();
+      await page.waitForTimeout(700);
+      const top = await topOf(id);
+      const hb = await headerBottom();
+      const atBottom = await page.evaluate(() => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2);
+      // A section near the page end cannot scroll to the top; it must still be below the header and marked.
+      if (top < hb || (top > hb + 60 && !atBottom) || (await activeToc()) !== id) badLandings.push(`${id}: top ${Math.round(top)} vs header ${Math.round(hb)}, active ${await activeToc()}`);
+    }
+    record('protocol: every TOC entry lands its heading just below the sticky header, with the matching marker', tocVisible && tocItems >= 12 && badLandings.length === 0, badLandings.slice(0, 3).join('; ') || `${tocItems} entries`);
+    record('protocol: choosing a section records #/protocol?section=…', /^#\/protocol\?section=p-[\w-]+$/.test(await page.evaluate(() => window.location.hash)));
     await page.locator('#protocol-toc-list a[data-target="p-reserve"]').click();
+    await page.waitForTimeout(500);
+    await page.locator('#protocol-toc-list a[data-target="p-omission"]').click();
+    await page.waitForTimeout(500);
+    await page.goBack();
+    await page.waitForTimeout(800);
+    record('protocol: back returns to the previous section', (await page.evaluate(() => window.location.hash)) === '#/protocol?section=p-reserve' && (await topOf('p-reserve')) >= (await headerBottom()) - 1 && (await topOf('p-reserve')) < (await headerBottom()) + 60);
+    await page.goto(`${base}/#/protocol?section=p-nostr`);
+    await page.waitForFunction(() => document.getElementById('panel-protocol')?.hidden === false);
+    await page.waitForTimeout(800);
+    record('protocol: a direct link to a section loads it below the header', (await topOf('p-nostr')) >= (await headerBottom()) - 1 && (await topOf('p-nostr')) < (await headerBottom()) + 60 && (await activeToc()) === 'p-nostr', `top ${Math.round(await topOf('p-nostr'))}, header ${Math.round(await headerBottom())}`);
+
+    // ---- landing anchors: direct load, refresh, back/forward ----
+    await page.goto(`${base}/#problem`);
     await page.waitForTimeout(900);
-    const reserveTop = await page.locator('#p-reserve').evaluate((el) => el.getBoundingClientRect().top);
-    record('protocol: sticky section index jumps to a section without leaving the route', tocVisible && tocItems >= 12 && reserveTop < 300 && window_hash_is(await page.evaluate(() => window.location.hash)), `${tocItems} items, target top ${Math.round(reserveTop)}`);
+    const landingOk = async () =>
+      (await page.locator('#panel-home').isVisible()) &&
+      (await page.title()) === 'SOLVENT — Auditable Ecash' &&
+      (await page.locator('.topbar .nav-landing-anchor').first().isVisible()) &&
+      Math.abs((await page.locator('#problem').evaluate((el) => el.getBoundingClientRect().top)) - (await headerBottom())) < 40;
+    record('landing anchor #problem loaded directly: landing page, its title, its anchors, the section in view', await landingOk(), `title ${await page.title()}`);
+    await page.reload();
+    await page.waitForTimeout(900);
+    record('landing anchor survives a refresh', await landingOk());
+    await page.goto(`${base}/#/mint`);
+    await page.waitForFunction(() => document.getElementById('panel-mint')?.hidden === false);
+    await page.goBack();
+    await page.waitForTimeout(900);
+    record('back to a landing anchor from another route renders the landing section', await landingOk(), await page.evaluate(() => window.location.hash));
+
+    // ---- Evidence page reachable from the docs, with refresh and back/forward ----
+    await go(page, base, '#/docs?doc=readme', 'panel-docs');
+    const evLink = page.locator('#docs-doc-content a[href="#/publish"]').first();
+    record('the README rendered in-app links the Evidence page in-app (#/publish)', (await evLink.count()) > 0);
+    await evLink.click();
+    await page.waitForFunction(() => document.getElementById('panel-publish')?.hidden === false, undefined, { timeout: 10000 });
+    await page.reload();
+    await page.waitForFunction(() => document.getElementById('panel-publish')?.hidden === false, undefined, { timeout: 10000 });
+    await page.goBack();
+    await page.waitForFunction(() => document.getElementById('panel-docs')?.hidden === false, undefined, { timeout: 10000 });
+    await page.goForward();
+    await page.waitForFunction(() => document.getElementById('panel-publish')?.hidden === false, undefined, { timeout: 10000 });
+    record('Evidence link: lands on #/publish, survives refresh, back/forward work', (await page.evaluate(() => window.location.hash)) === '#/publish');
+    await go(page, base, '#/docs?doc=readme', 'panel-docs');
+    await page.locator('#docs-doc-content a[href="#evidence"]').first().click();
+    await page.waitForTimeout(700);
+    record('an in-page doc anchor (#evidence) scrolls within the doc without leaving the route', (await page.evaluate(() => window.location.hash)) === '#/docs?doc=readme' && (await page.locator('#panel-docs').isVisible()));
+
+    // ---- hero: the reference example is labelled as such ----
+    await go(page, base, '#/', 'panel-home');
+    await page.waitForFunction(() => /decided .* UTC/.test(document.getElementById('hero-caption')?.textContent ?? ''), undefined, { timeout: 30000 }).catch(() => {});
+    record('hero terminal is labelled a reference example with the time it was decided', /REFERENCE EXAMPLE/.test((await page.textContent('.terminal-scope')) ?? '') && /decided .* UTC/.test((await page.textContent('#hero-caption')) ?? ''));
+
+    // ---- a verification result is bound to its exact input (typing, upload, drop) ----
+    await go(page, base, '#/verify?mode=evidence', 'panel-verify');
+    record('Verify evidence says drag-and-drop is supported', /drop a \.json file/i.test((await page.textContent('#bundle-drop')) ?? ''));
+    const verifyExample = async () => {
+      await go(page, base, '#/verify?mode=evidence', 'panel-verify');
+      await page.click('#manual-load-example-btn');
+      await page.click('#manual-verify-btn');
+      await page.waitForFunction(() => !document.getElementById('manual-result')?.hidden && (document.getElementById('manual-decision-badge')?.textContent ?? '').length > 0, undefined, { timeout: 60000 });
+      return page.inputValue('#manual-bundle-input');
+    };
+    const actionable = async () => !(await page.locator('#manual-result').isHidden()) && !(await page.isDisabled('#manual-accept-btn')) && (await page.getAttribute('#manual-result', 'data-stale')) !== 'true';
+    const exampleText = await verifyExample();
+    const firstBadge = ((await page.textContent('#manual-decision-badge')) ?? '').trim();
+    await page.locator('#manual-bundle-input').press('End');
+    await page.locator('#manual-bundle-input').type(' x');
+    record('after a verification, typing into the evidence makes the old result stale and Accept unusable', !(await actionable()) && (await page.getAttribute('#manual-result', 'data-stale')) === 'true' && (await page.locator('#manual-stale-note').isVisible()), `first result ${firstBadge}`);
+    await verifyExample();
+    await page.setInputFiles('#manual-bundle-file', { name: 'other.json', mimeType: 'application/json', buffer: Buffer.from(exampleText.replace('"keysetId": "', '"keysetId": "ff')) });
+    await page.waitForTimeout(400);
+    record('after a verification, uploading a different file invalidates the old result', !(await actionable()));
+    await verifyExample();
+    await page.evaluate((text) => {
+      const dt = new DataTransfer();
+      dt.items.add(new File([text], 'dropped-other.json', { type: 'application/json' }));
+      document.getElementById('bundle-drop')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+    }, exampleText.replace('"keysetId": "', '"keysetId": "ee'));
+    await page.waitForTimeout(400);
+    record('after a verification, dropping a different file invalidates the old result', !(await actionable()));
 
     // ---- live mint: judge path + two-experience copy ----
     await go(page, base, '#/mint', 'panel-mint');

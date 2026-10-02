@@ -11,6 +11,7 @@
 import { maxAttestationAgeBlocks, RESERVE_FRESHNESS_POLICY } from '../reserve/evaluate.js';
 import type { ReasonCode } from '../verifier/reasons.js';
 import type { VerifyResult } from '../verifier/verify.js';
+import { nip19 } from 'nostr-tools';
 import { formatSats, truncateHex } from './format.js';
 import type { NostrLiveStatus, ReserveLiveStatus } from './submission.js';
 
@@ -18,7 +19,11 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]!);
 }
 
-// -------------------- the nine checks --------------------
+// -------------- the eight checks, then the decision --------------
+//
+// SOLVENT's model: 8 verification checks (6 from the bundle itself, then
+// public Nostr retrieval and reserve coverage) + 1 final acceptance
+// decision. The decision is listed last but is not a ninth check.
 
 export type StepState = 'ok' | 'fail' | 'na';
 
@@ -48,7 +53,7 @@ function localChecks(result: VerifyResult): boolean[] {
 }
 
 /**
- * State of each of the nine steps. verify() stops at the first failing
+ * State of each of the eight checks plus the decision row. verify() stops at the first failing
  * local check, so the checks after it never ran and show as "not reached"
  * rather than as failures. Steps 7-8 are the live Nostr/reserve results,
  * which verifySubmission() establishes independently of the local chain.
@@ -190,17 +195,17 @@ export function decisionCopy(result: VerifyResult, reserveLive: ReserveLiveStatu
   if (result.decision === 'ACCEPT') {
     return {
       title: 'ACCEPT VERIFIED.',
-      body: "The token and its signatures are valid, the mint's signed promise is included in its closed accounting epoch, that state was independently retrieved from public Nostr relays, and the live Bitcoin reserve covers what the mint owes.",
+      body: "The token and its signatures are valid, the mint's signed promise is included in its closed accounting epoch, that state was independently retrieved from public Nostr relays, and the Bitcoin reserve, observed just now, covers the liabilities in that committed accounting state.",
     };
   }
   if (UNSUPPORTED_MINT_CODES.includes(code)) {
     return { title: 'UNSUPPORTED MINT.', body: `${UNSUPPORTED_MINT_BODY} ${result.reason}` };
   }
   if (code === 'REFUSE_ISSUANCE_OMITTED') {
-    return { title: TITLES[code]!, body: 'The cryptography is valid, but the promise is broken. The mint signed a receipt promising to count this issuance in this epoch; its own signed, published, closed epoch leaves it out — two valid signed statements from the same mint that contradict each other.' };
+    return { title: TITLES[code]!, body: 'The cryptography is valid, but the promise is broken. The mint signed a receipt promising to count this issuance in this epoch; its evidence for that signed, published, closed epoch carries no inclusion proof for it — and an honest mint could always give one. Two valid signed statements from the same mint that cannot both be kept.' };
   }
   if (code === 'REFUSE_RESERVE_SHORT') {
-    return { title: TITLES[code]!, body: 'The issuance is correctly accounted for, but the independently verified reserve is below what the mint owes.' };
+    return { title: TITLES[code]!, body: 'The issuance is correctly accounted for, but the independently verified reserve is below the liabilities in the mint’s committed accounting state.' };
   }
   if (localValid && reserveLive.supplied && reserveLive.queried && !reserveLive.queryOk) {
     return {
@@ -261,7 +266,7 @@ export function factsHtml(facts: DecisionFact[]): string {
  * or LOCAL for the lab's local-only check, which never reaches a decision.
  */
 /**
- * The four things a newcomer checks, and which of the nine technical checks
+ * The four things a newcomer checks, and which of the eight technical checks
  * belong to each — so the checklist reads as one protocol, not two.
  */
 export const CHECK_GROUPS: { title: string; plain: string; steps: number[] }[] = [
@@ -271,7 +276,7 @@ export const CHECK_GROUPS: { title: string; plain: string; steps: number[] }[] =
   { title: 'Reserve coverage', plain: 'Bitcoin the verifier observes itself, covering the committed liabilities', steps: [7] },
 ];
 
-export const CHECK_BRIDGE = 'Four things are checked — receipt, closed accounting state, public evidence, reserve coverage — expanded below into the verifier’s nine technical checks.';
+export const CHECK_BRIDGE = 'Four things are checked — receipt, closed accounting state, public evidence, reserve coverage — expanded below into the verifier’s eight checks, followed by one final decision (ACCEPT or REFUSE).';
 
 export function renderDecision(
   els: DecisionElements,
@@ -301,7 +306,7 @@ export function renderDecision(
 
 /**
  * Compact live progress while verification runs: one line naming the four
- * groups being checked. The nine-step checklist is rendered once, in the
+ * groups being checked. The eight-check list (and the decision) is rendered once, in the
  * result (renderDecision) — never twice.
  */
 export function renderProgressSteps(container: HTMLElement): HTMLElement[] {
@@ -329,6 +334,16 @@ export function mutinynetTxUrl(txid: string): string {
 
 export function njumpUrl(eventId: string): string {
   return `https://njump.me/${eventId}`;
+}
+
+/** An alternate public viewer (NIP-19 note id), for when the primary explorer is down. */
+export function primalUrl(eventId: string): string {
+  return `https://primal.net/e/${nip19.noteEncode(eventId)}`;
+}
+
+/** Primary + alternate explorer links. Explorers are conveniences: SOLVENT verifies the event itself, and either may be unavailable. */
+export function nostrExplorerLinks(eventId: string): string {
+  return `<a href="${njumpUrl(eventId)}" target="_blank" rel="noopener noreferrer">njump ↗</a> · <a href="${primalUrl(eventId)}" target="_blank" rel="noopener noreferrer">Primal ↗</a> <span class="explorer-note">(external viewers; may be unavailable — not needed for verification)</span>`;
 }
 
 const NETWORK_NAMES: Record<string, string> = { 'bitcoin-signet-mutinynet': 'Mutinynet (Bitcoin Signet)' };
@@ -386,7 +401,7 @@ export function contradictionCard(promisedSats: number, reportedSats: number): s
       <dt>Manifest-reported issuance</dt><dd>${formatSats(reportedSats)}</dd>
       <dt>Omitted</dt><dd class="contradiction-omitted">${formatSats(Math.max(0, omitted))}</dd>
     </dl>
-    <p class="contradiction-sentence">The mint signed a receipt promising to count ${formatSats(promisedSats)}. Its own signed closed-epoch manifest does not include it. SOLVENT refuses on that contradiction alone.</p>
+    <p class="contradiction-sentence">The mint signed a receipt promising to count ${formatSats(promisedSats)} in this epoch. Its evidence for that signed, closed epoch carries no inclusion proof for the issuance. SOLVENT refuses on that contradiction alone.</p>
   </div>`;
 }
 
@@ -403,7 +418,7 @@ export function shortfallCard(liabilities: number, liveReserve: number): string 
       <dt>Shortfall</dt><dd class="contradiction-omitted">${formatSats(shortfall)}</dd>
       <dt>Coverage</dt><dd>${coverage.toFixed(1)}%</dd>
     </dl>
-    <p class="contradiction-sentence">SOLVENT re-queried the reserve UTXO just now and confirmed its real on-chain value. That value (${formatSats(liveReserve)}) is below what the mint owes (${formatSats(liabilities)}), so SOLVENT refuses.</p>
+    <p class="contradiction-sentence">SOLVENT re-queried the reserve UTXO just now and confirmed its real on-chain value. That value (${formatSats(liveReserve)}) is below the committed liabilities (${formatSats(liabilities)}), so SOLVENT refuses.</p>
   </div>`;
 }
 

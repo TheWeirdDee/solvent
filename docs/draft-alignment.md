@@ -14,7 +14,7 @@ SOLVENT never refers to it as "NUT-388" in product copy — only "Cashu PR #388 
 
 ## What is implemented byte-exact to the draft
 
-Every item below is validated against the draft's own official test vectors (`tests/pol-tests.md`), not self-authored fixtures — see `tests/pol/mmr.test.ts` and `tests/pol/manifest.test.ts`.
+Every item below is validated against the draft's own official test vectors (the draft repository's `pol-tests.md`), not self-authored fixtures — see `tests/pol/mmr.test.ts` and `tests/pol/manifest.test.ts`.
 
 - **sum-MMR leaf hashing** (`Leaf_issued = SHA256(bytes(B_))`, `Leaf_spent = SHA256(bytes(Y))`, sum = amount) — `src/pol/mmr.ts`.
 - **sum-MMR parent/peak-bagging** (`hash_P = SHA256(hash_L || hash_R || bytes_8(sum_L) || bytes_8(sum_R))`, right-to-left bagging, uint64 overflow rejection) — matches the official 2-leaf, 3-leaf, and 3→4-consistency vectors exactly, including root hash and root sum.

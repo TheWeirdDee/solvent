@@ -325,7 +325,7 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(section.textContent).toMatch(/what did the mint promise/i);
     expect(section.textContent).toMatch(/did the closed epoch keep the promise/i);
     expect(section.textContent).toMatch(/does the observed reserve cover the committed liabilities/i);
-    expect(section.textContent).toMatch(/nine technical checks/i);
+    expect(section.textContent).toMatch(/eight checks answer, before one final decision/i);
   });
 
   it('the reserve section shows the real, live-verified Signet reserve evidence', async () => {
@@ -491,9 +491,9 @@ describe('SOLVENT web client (jsdom) — Live check', () => {
     expect(byId<HTMLElement>('live-dates').textContent).toMatch(/FRESH until/);
   });
 
-  it('the nine checks use the new wording — "signed epoch manifest", never "published accounting record"', async () => {
+  it('the eight checks use the new wording — "signed epoch manifest", never "published accounting record"', async () => {
     await runLiveCheck();
-    // One compact progress line while running; the nine checks appear once, in the result.
+    // One compact progress line while running; the eight checks and the decision appear once, in the result.
     expect(byId<HTMLElement>('progress-steps').querySelectorAll('.progress-step')).toHaveLength(1);
     expect(byId<HTMLElement>('progress-panel').hidden).toBe(true);
     expect(document.querySelectorAll('#mode-live .chain-step')).toHaveLength(9);
@@ -750,6 +750,96 @@ describe('SOLVENT web client (jsdom) — Verify evidence', () => {
     expect(evidence).toMatch(/reserve verified/i);
     expect(evidence).toContain('1,500,000 sats');
     expect(evidence).toMatch(/500,000 sats/);
+  });
+});
+
+describe('SOLVENT web client (jsdom) — a result is bound to the exact input it verified', () => {
+  const input = () => byId<HTMLTextAreaElement>('manual-bundle-input');
+  const acceptBtn = () => byId<HTMLButtonElement>('manual-accept-btn');
+  const stale = () => byId<HTMLElement>('manual-result').dataset.stale === 'true' && !byId<HTMLElement>('manual-stale-note').hidden;
+  /** Type into the box the way a user does: value change + input event. */
+  const typeInto = (text: string) => {
+    input().value = text;
+    input().dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  async function acceptedExample(): Promise<string> {
+    await switchToMode('evidence');
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    byId<HTMLButtonElement>('manual-verify-btn').click();
+    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).toBe('✓ ACCEPT');
+    expect(acceptBtn().disabled).toBe(false);
+    expect(stale()).toBe(false);
+    return input().value;
+  }
+
+  it('A. ACCEPT, then a one-character edit: Accept is disabled and the result is marked stale', async () => {
+    const text = await acceptedExample();
+    const i = text.indexOf('"keysetId": "') + '"keysetId": "'.length;
+    typeInto(text.slice(0, i) + (text[i] === '0' ? '1' : '0') + text.slice(i + 1));
+    expect(acceptBtn().disabled).toBe(true);
+    expect(stale()).toBe(true);
+    expect(byId<HTMLElement>('manual-status').textContent).toMatch(/evidence changed.*verify again/i);
+  });
+
+  it('A2. a whitespace-only edit is not a semantic change; undoing an edit restores the same evidence', async () => {
+    const text = await acceptedExample();
+    typeInto(`  ${text}\n\n`);
+    expect(stale()).toBe(false);
+    expect(acceptBtn().disabled).toBe(false);
+    typeInto(text.replace('"keysetId": "', '"keysetId": "x'));
+    expect(stale()).toBe(true);
+    typeInto(text);
+    expect(stale()).toBe(false);
+    expect(acceptBtn().disabled).toBe(false);
+  });
+
+  it('B. ACCEPT, then malformed input: no actionable old ACCEPT', async () => {
+    await acceptedExample();
+    typeInto('{ "proof": ');
+    expect(acceptBtn().disabled).toBe(true);
+    expect(stale()).toBe(true);
+  });
+
+  it('C + H. ACCEPT, then a different valid bundle: even a forced click cannot accept it, and no acceptance happens', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await acceptedExample();
+    typeInto(submissionBundleToJson((await createTestEcash()).submissionBundle));
+    expect(acceptBtn().disabled).toBe(true);
+    expect(stale()).toBe(true);
+    // A stale control re-enabled by any means still cannot act: the click
+    // handler re-checks the input fingerprint itself.
+    acceptBtn().disabled = false;
+    acceptBtn().click();
+    expect(byId<HTMLElement>('manual-accepted-panel').hidden).toBe(true);
+    expect(acceptBtn().disabled).toBe(true);
+  });
+
+  it('G. a REFUSE result is also marked stale when the input changes', async () => {
+    const { createTestEcash } = await import('./protocol-demo.js');
+    const { submissionBundleToJson } = await import('./bundle-json.js');
+    await verifyPasted(submissionBundleToJson((await createTestEcash()).submissionBundle));
+    expect(byId<HTMLElement>('manual-decision-badge').textContent).not.toBe('✓ ACCEPT');
+    typeInto(`${input().value.trim().slice(0, -1)}, "extra": 1}`);
+    expect(stale()).toBe(true);
+  });
+
+  it('loading another bundle (example / file) replaces the shown result instead of leaving it attached', async () => {
+    await acceptedExample();
+    typeInto('{}');
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    expect(byId<HTMLElement>('manual-result').hidden).toBe(true);
+  });
+
+  it('an edit made WHILE verification runs leaves that result stale (bound to the input at the start)', async () => {
+    await switchToMode('evidence');
+    byId<HTMLButtonElement>('manual-load-example-btn').click();
+    byId<HTMLButtonElement>('manual-verify-btn').click();
+    typeInto(`${input().value.trim().slice(0, -1)}, "extra": 1}`);
+    await waitFor(() => !byId<HTMLElement>('manual-result').hidden, 8000);
+    expect(stale()).toBe(true);
+    expect(acceptBtn().disabled).toBe(true);
   });
 });
 

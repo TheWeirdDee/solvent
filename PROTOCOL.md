@@ -70,10 +70,23 @@ manifest_message = "{keyset_id}:{unit}:{epoch_index}:{timestamp}:{previous_globa
                      {spent_mmr_size}:{spent_mmr_root_hash}:{spent_mmr_root_sum}:
                      {outstanding_balance}:{active}:{deactivation_epoch}"
 
-mint_signature = BIP340_Schnorr_Sign(SHA256(manifest_message), master_private_key)
+mint_signature = BIP340_Schnorr_Sign(SHA256(manifest_message), manifest_private_key)
 ```
 
 Keysets sort by unit then keyset_id, lexicographically by encoded bytes. Implementation: `src/pol/manifest.ts`. Evidence: `evidence/gate-2/`. Validated exactly against the draft's epoch-1 test vector (keyset leaf hash, global digest, manifest message string, and the official BIP-340 signature verifies against our computed digest).
+
+### 4a. Who signs what on a real mint
+
+Three distinct keys and one signed link between two of them:
+
+| Role | Key | Where a verifier gets it | Signs |
+|---|---|---|---|
+| **Mint identity** | the mint's NUT-06 key: its BIP-32 master key, held by CDK's signatory | `GET <mint>/v1/info` → `pubkey`, fetched from the mint itself, never from the bundle | the **delegation** only |
+| **Manifest signer** | a separate SOLVENT manifest key, held by the evidence service | the bundle's `masterPublicKeyHex` (named for the draft's "master key" role) | every epoch manifest, and the epoch-scoped reserve binding |
+| **Delegation** | `solvent/manifest-key-delegation/v1`, signed by the mint identity (`patches/cdk/0008`) | the bundle's `delegation` | "manifest key K speaks for mint identity I at mint URL U, from epoch E" |
+| **Reserve control** | the Taproot key of the reserve UTXO | the reserve statement | the reserve statement |
+
+For a real mint, the verifier fetches the NUT-06 identity from the mint and checks that the delegation is signed by it, names this mint URL, names the manifest key that signed this epoch, and is valid for this epoch. Only then does it trust any manifest. This happens right after the manifest signature check, and failures refuse with `REFUSE_DELEGATION_*`. The reference fixtures (the captured reference case, the lab) have no NUT-06 identity; their manifest key is their identity. Details: `docs/manifest-key-delegation.md`.
 
 ## 5. The hero contradiction (Gate 3)
 
@@ -84,15 +97,22 @@ holder reconstructs B' (§1)
   -> that epoch's manifest signature verifies (§4)
   -> attempt sum-MMR inclusion for B' at the claimed amount (§3)
 
-inclusion found  -> continue toward ACCEPT
-inclusion missing -> REFUSE_ISSUANCE_OMITTED
+inclusion proof supplied and valid    -> continue toward ACCEPT
+inclusion proof supplied but invalid  -> REFUSE_MMR_PROOF_INVALID  (a bad proof, not an omission)
+no inclusion proof for the promised B' -> REFUSE_ISSUANCE_OMITTED
 ```
+
+**Why an absent proof is a broken promise, and what it is not.** SOLVENT does not have a cryptographic non-membership proof, and a merely malformed proof establishes nothing about the mint. The contradiction rests on SOLVENT's accounting construction:
+- every issuance the mint signs becomes a leaf of the epoch's append-only issued sum-MMR, in the same database transaction as the signature (`migrations/solvent-accounting/`, `patches/cdk/0007`);
+- the mint's closer signs the root of that sum-MMR.
+
+So an honest mint can always produce an inclusion proof, against its own signed root, for an issuance it promised to that epoch. Two signed statements then stand side by side: the receipt ("count `B'` in epoch N") and a signed, closed epoch N whose evidence carries no proof for `B'`. That is the hero case. On the public demo it is produced by the real closer, which leaves out exactly the requested issuance. The receipt and the manifest are each valid; together they show the promise was not kept.
 
 Fraud evidence object: `src/pol/fraud.ts`, schema `leaf_omission_or_mismatch` (draft challenge type 1). Self-contained — a judge can recompute the decision from `evidence/hero/fraud-evidence.json` plus the public keyset/master keys alone, without trusting SOLVENT's frontend.
 
 ## 6. Decision rule
 
-`src/verifier/verify.ts` implements checks 1-9 of the full rule (parse → keyset support → DLEQ present → DLEQ valid → `B'` reconstructed → receipt valid → epoch closed → manifest valid → inclusion valid → liability arithmetic valid) directly, plus two externally-supplied `{verified: boolean, reasonCode?}` objects for reserve coverage (checks 11-13) and Nostr evidence (checks 14-17). `verify()` itself stays synchronous and does zero network I/O — the real Gate 5/6 evaluators (§8, §9 below) run first and hand their result in. Missing reserve/Nostr context fails closed to `REFUSE_UNVERIFIABLE`, never silent ACCEPT. Stable reason codes: `src/verifier/reasons.ts`.
+`src/verifier/verify.ts` implements checks 1-9 of the full rule (the rule's own fine-grained numbering; the app groups the same logic into **8 verification checks plus 1 final decision**) (parse → keyset support → DLEQ present → DLEQ valid → `B'` reconstructed → receipt valid → epoch closed → manifest valid → inclusion valid → liability arithmetic valid) directly, plus two externally-supplied `{verified: boolean, reasonCode?}` objects for reserve coverage (checks 11-13) and Nostr evidence (checks 14-17). `verify()` itself stays synchronous and does zero network I/O — the real Gate 5/6 evaluators (§8, §9 below) run first and hand their result in. Missing reserve/Nostr context fails closed to `REFUSE_UNVERIFIABLE`, never silent ACCEPT. Stable reason codes: `src/verifier/reasons.ts`.
 
 ## 7. Real acceptance side effect (Gate 4)
 

@@ -39,9 +39,9 @@ export const FAQ: FaqEntry[] = [
   },
   {
     q: 'Is the Lightning payment on the live mint real?',
-    a: "No — the public mint uses CDK's fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI.",
-    linkLabel: 'Reality map',
-    linkHref: '#/docs?doc=reality-map',
+    a: "No — the public mint uses CDK's fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI; those results are committed and shown on the Evidence page.",
+    linkLabel: 'See the real-LND evidence',
+    linkHref: '#/publish',
   },
   {
     q: 'What does Re-check published evidence actually check?',
@@ -85,6 +85,6 @@ export const FAQ: FaqEntry[] = [
   },
   {
     q: 'What happens if Nostr or reserve data cannot be verified?',
-    a: 'SOLVENT fails closed: unverifiable evidence refuses the token, the same as evidence that actively fails. It never silently treats "unknown" as "accepted."',
+    a: 'Nothing is accepted — SOLVENT fails closed. But the result says what happened: a relay or the reserve service could not be reached ("verification could not complete"), which is not a finding against the mint. Retry verification re-checks the same issuance once it is reachable. A proven refusal (red REFUSE) is reserved for evidence that was checked and failed.',
   },
 ];

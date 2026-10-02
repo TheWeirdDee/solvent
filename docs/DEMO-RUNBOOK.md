@@ -1,78 +1,60 @@
 # Demo runbook
 
-A 3–5 minute demo of SOLVENT, with the exact commands and URLs. Two tracks:
+The recording sequence for the demo video, on the canonical app <https://solvent-ashen.vercel.app/>. It takes about 5 minutes. Everything shown is live, except the committed real-LND records in steps 20–21: those are recorded CI evidence, and should be introduced as such.
 
-- **Track A — the public app (no setup).** https://solvent-ashen.vercel.app/: the landing page, then the real Railway-hosted mint, already connected.
-- **Track B — self-hosted real mint.** The same patched CDK mint and SOLVENT sidecar, run locally or on your own host (see [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md)).
+Say plainly, once, that the public mint's Lightning is **fakewallet** (a demo backend whose invoices settle by themselves), and that real Lightning is shown by the committed CI evidence.
 
-Both mints run fakewallet Lightning, and the page labels it as such. The real-LND evidence is the CI runs in the README's Evidence table.
-
-## Before you start
+## Before recording
 
 ```sh
-curl -s https://solvent-production-9c92.up.railway.app/healthz    # {"ok":true,...}: the live backend is up
+curl -s https://solvent-production-2029.up.railway.app/v1/info | head -c 120   # real CDK mint: cdk-mintd/0.18.1, pubkey 0294d5b0…
+curl -s https://solvent-production-9c92.up.railway.app/healthz                 # evidence service: {"ok":true,…}
+npm run verify:submission    # expect: ENGINEERING READY / SUBMISSION BLOCKED: DEMO VIDEO URL (until this video's URL is added)
 ```
 
-For Track B, or to re-check the reference case offline:
+Use a fresh browser profile, so no earlier issuance is restored.
+
+## The sequence
+
+| # | Time | Show | Say |
+|---|---|---|---|
+| 1 | 0:00 | <https://solvent-ashen.vercel.app/> | "SOLVENT checks whether an ecash mint kept its promise." |
+| 2 | 0:10 | The hero and the "In plain words" primer | "Ecash is digital cash a mint issues against bitcoin. A valid token proves the mint signed it — not that the mint counted it in its books." |
+| 3 | 0:30 | **Try the live mint** → `#/mint` | "This is a real, patched CDK Cashu mint on Railway." |
+| 4 | 0:40 | The mint card: NUT-06 identity, "Demo fakewallet", LIVE RAILWAY MINT line | "Its Lightning is a demo backend, and it says so. Everything SOLVENT checks is real." |
+| 5 | 0:50 | **Mint & verify an honest issuance** | The operation card appears under the button. |
+| 6 | 1:00 | Step 2 of the card | "The mint signed a receipt: a promise to count this issuance in accounting epoch N." |
+| 7 | 1:10 | The countdown, then "ACK from …" relays | "Epoch N closes and is published to public Nostr relays." |
+| 8 | 1:30 | The result's reserve row | "The reserve UTXO is re-queried on Mutinynet now." |
+| 9 | 1:40 | **✓ ACCEPT** — `ACCEPT_VERIFIED` | "Receipt, closed epoch, public evidence and reserve all check out." |
+| 10 | 1:50 | Enforcement card: accept function calls = 1 | "The verdict triggered a real acceptance side effect, once." |
+| 11 | 2:00 | **Retry verification (same issuance)** | "Re-checking the same issuance; no new ecash is minted." |
+| 12 | 2:15 | Enforcement card again: calls still 1, "already accepted" | "Never accepted twice." |
+| 13 | 2:25 | **Start again** → **Break the promise** | "Now the mint's real closer is told to leave this exact issuance out." |
+| 14 | 2:35 | Step 2: the receipt for epoch N | "The mint still signs the same kind of promise." |
+| 15 | 2:50 | "Epoch N closed and published" | "The epoch closes, signed and published, without it." |
+| 16 | 3:10 | **✕ REFUSE — BROKEN PROMISE** (`REFUSE_ISSUANCE_OMITTED`): receipt VALID, manifest VALID, evidence RETRIEVED, reserve COVERED, promised issuance MISSING | "Every signature is valid. The promise was broken." |
+| 17 | 3:25 | Enforcement card: accept calls = 0, store changed: no | "Refused ecash never reaches acceptance." |
+| 18 | 3:35 | **Open Nostr event** / **Download public evidence** | "The public record, and the evidence file, for anyone to check." |
+| 19 | 3:50 | Header → **Evidence** (`#/publish`) | "Every record is here." |
+| 20 | 4:00 | Real-LND Phase 3B card: `ACCEPT_VERIFIED` (13/13), `REFUSE_ISSUANCE_OMITTED` (only inclusion fails), the committed files, CI run 36614823173 | "The same pipeline over real Lightning, in CI. It's committed, and it replays offline." |
+| 21 | 4:20 | Real-LND NUT-05 card | "A real Lightning payment by melting ecash, with the change accounted for." |
+| 22 | 4:35 | Landing → attack corpus, `npm run attacks` | "25 adversarial cases, each refused for the right reason." |
+| 23 | 4:45 | Landing → "What SOLVENT proves / does not change" | "The mint is still custodial; this is a test network; the PoL semantics follow a draft proposal." |
+
+## If something goes wrong while recording
+
+| Symptom | Meaning | What to do |
+|---|---|---|
+| Amber **"could not complete"** | A relay or the reserve API was unreachable; nothing was accepted | Click **Retry verification (same issuance)** |
+| "Waiting for epoch N to close" for a long time | Epochs close about every 30 s once they hold an issuance | Wait; the card shows the countdown |
+| An external explorer (njump) errors | A third-party viewer is down; SOLVENT does not depend on it | Use **Alternate viewer**, or the raw signed event in the result |
+| `REFUSE_NOSTR_STALE` on *Re-check published evidence* | The reference case is past its freshness window | Run the *Refresh Live Evidence* workflow |
+
+## Self-hosting (optional, not part of the video)
+
+The same mint and evidence service run locally or on any host: see [`DEPLOY-REAL-MINT.md`](DEPLOY-REAL-MINT.md) (Docker Compose) or [`DEPLOY-RAILWAY.md`](DEPLOY-RAILWAY.md). The headless version of steps 5–17:
 
 ```sh
-npm ci
-npm run verify:submission     # expect: SUBMISSION READY
+npm run verify:real-mint:browser -- https://solvent-ashen.vercel.app/ - -
 ```
-
-If `verify:submission` reports stale live evidence, run `npm run live-demo` (publishes a fresh kind 8181 event and re-signs the reserve statement) and re-run it.
-
-## Track A — the public app (≈4 min)
-
-| Time | Show | Say |
-| --- | --- | --- |
-| 0:00 | https://solvent-ashen.vercel.app/ | "A valid Cashu token proves the mint signed it — not that the mint counted it." The hero terminal shows a reference mint that omitted a promised issuance, decided by the real verifier as the page loads: **PROMISED ISSUANCE OMITTED**. |
-| 0:45 | **Try the live mint** → `#/mint` | A real patched CDK mint on Railway, its NUT-06 identity, and "Demo fakewallet — invoices settle automatically". Nothing to paste. |
-| 1:00 | **Mint & verify an honest issuance** | The operation card appears under the button: the mint signs a receipt promising epoch N; the card counts down to N's close, then shows which relays ACKed the publication; the browser fetches the event back and re-queries the Mutinynet reserve. Result: **ACCEPT_VERIFIED**; the Enforcement card shows accept function calls: 1. |
-| 2:15 | **Start again** → **Break the promise** | Before minting, the page registers this exact issuance for omission; the real epoch closer leaves it out. Receipt VALID, manifest VALID, delegation VALID, public evidence RETRIEVED, reserve COVERED — promised issuance MISSING. Result: **REFUSE — BROKEN PROMISE** (`REFUSE_ISSUANCE_OMITTED`); accept function calls: 0. Open the Nostr event from the result. |
-| 3:15 | `#/verify` → **Re-check published evidence** | A captured reference case, published earlier and re-checked live now (it mints nothing): **ACCEPT_VERIFIED**. |
-| 3:45 | README Evidence table | Real-LND CI runs: 36614823173 (Phase 3A/3B), 36619816959 (NUT-05). |
-
-## Track B — self-hosted real mint (≈5 min)
-
-Start the stack (Docker):
-
-```sh
-cd deploy
-cp mint.env.example mint.env && cp sidecar.env.example sidecar.env   # fill in keys
-cp mint.fakewallet.toml mint.toml
-mkdir -p secrets && cp <reserve key>.json secrets/reserve-key.json
-docker compose up -d --build
-curl -s localhost:8085/v1/info | head -c 200     # mint up
-curl -s localhost:8086/healthz                   # sidecar up, epoch open
-```
-
-Serve the site and open the real-mint page:
-
-```sh
-npm run dev
-# http://localhost:5173/#/mint?mint=http://localhost:8085&evidence=http://localhost:8086
-```
-
-| Time | Show | Say |
-| --- | --- | --- |
-| 0:00 | `#/mint` header | The Lightning mode shown comes from the sidecar (e.g. "Demo fakewallet — invoices settle automatically"). |
-| 0:30 | **Mint & verify an honest issuance** | Real NUT-04 mint, receipt for epoch N; the sidecar closes N, publishes to Nostr, the browser fetches it back and checks the reserve. Result: **ACCEPT_VERIFIED**. |
-| 2:00 | **Break the promise** | The sidecar omits exactly this issuance from the epoch it was promised to (`SOLVENT_DEMO_ALLOW_OMISSION=1`). All signatures remain valid. Result: **REFUSE_ISSUANCE_OMITTED**, only the inclusion check fails. |
-| 3:30 | `curl -s localhost:8086/v1/solvent/status` | Closed epochs, publication ids, backend label. |
-| 4:00 | `npm run verify:phase3b-evidence -- evidence/real-pol/phase3b-local-fakewallet` | Offline replay of a committed real run. |
-
-Headless version of the same flow (what CI runs):
-
-```sh
-npm run verify:real-mint:browser -- http://localhost:5173/ http://localhost:8085 http://localhost:8086
-```
-
-## If something goes wrong
-
-| Symptom | Cause | Fix |
-| --- | --- | --- |
-| `REFUSE_NOSTR_EVENT_NOT_FOUND` / `…_UNAVAILABLE` | Relays did not return the event | Retry; check `SOLVENT_NOSTR_RELAYS`. This is correct fail-closed behaviour. |
-| `REFUSE_NOSTR_STALE` on the Live Public Demo | Reference event older than its freshness window | `npm run live-demo`, commit, redeploy (or run the *Refresh Live Evidence* workflow). |
-| `#/mint` stuck on "3. Waiting for epoch N to close" | Sidecar not closing | `docker compose logs sidecar`; the epoch closes only once it holds liabilities. |
-| Reserve check fails | Esplora (mutinynet.com) unreachable | Retry; the verifier refuses rather than guessing. |

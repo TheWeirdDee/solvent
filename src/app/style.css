@@ -4269,3 +4269,18 @@ body:not([data-route='home']) .nav-landing-anchor { display: none !important; }
 .evidence-card .evidence-links { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; }
 .evidence-list { margin: 0; padding-left: 18px; color: var(--text-muted-on-dark); line-height: 1.7; }
 .evidence-list li { overflow-wrap: anywhere; }
+
+/* A result that no longer matches the input is visibly inactive. */
+.stale-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--amber); background: var(--amber-dim); color: var(--text-on-dark); line-height: 1.5; }
+.result-card[data-stale='true'] > :not(.stale-note) { opacity: 0.45; }
+.mint-result-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.mint-result-actions .btn { flex: 1 1 220px; min-height: 44px; white-space: normal; }
+.mint-result-actions-note { margin: 8px 0 0; font-size: 0.86rem; color: var(--text-subtle-on-dark); line-height: 1.5; }
+
+/* In-page scroll targets land below the sticky header, never under it. */
+:root { --header-offset: 96px; }
+.protocol-doc h2[id], .doc-article [id], #mint-op, #mint-result, #mint-decision-badge { scroll-margin-top: var(--header-offset); }
+.terminal-scope { margin: 0 0 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); }
+.cache-tag { display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(205, 191, 177, 0.14); color: var(--text-muted-on-dark); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.04em; }
+.explorer-note { font-size: 0.82rem; color: var(--text-subtle-on-dark); }
+.bundle-drop-hint { font-size: 0.86rem; color: var(--text-subtle-on-dark); }

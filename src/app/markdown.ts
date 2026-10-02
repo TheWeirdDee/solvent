@@ -31,6 +31,9 @@ function normalizePath(p: string): string {
 
 /** Repo-relative links: to a doc the site renders -> in-app route; anything else -> the file on GitHub. */
 export function resolveDocLink(url: string, c: LinkContext = ctx): { href: string; external: boolean } {
+  // The canonical app linking to itself: an in-app route, same tab.
+  const app = /^https:\/\/solvent-ashen\.vercel\.app\/(#\/.*)$/.exec(url);
+  if (app) return { href: app[1]!, external: false };
   if (/^(https?:|mailto:)/.test(url)) return { href: url, external: true };
   if (url.startsWith('#')) return { href: url, external: false };
   const [pathPart = '', anchor] = url.split('#');
@@ -43,13 +46,44 @@ export function resolveDocLink(url: string, c: LinkContext = ctx): { href: strin
 }
 
 const REPO_PATH = /^(src|evidence|patches|migrations|deploy|docs|tests|\.github)\/[\w./-]+$/;
+/** Local or secret paths a reader creates themselves: shown as code, never linked. */
+const PRIVATE_PATH = /^deploy\/secrets(\/|$)|\.env$|^deploy\/mint\.toml$/;
+/** The CDK patch series, so `patches/cdk/0003` can link the exact file. */
+const CDK_PATCHES: Record<string, string> = {
+  '0001': '0001-add-sign_pol_receipt-to-signatory.patch',
+  '0002': '0002-add-record_pol_receipt_signature-db-hook.patch',
+  '0003': '0003-wire-pol-receipt-signing-into-nut04-issuance.patch',
+  '0004': '0004-recover-pending-pol-receipts-at-mint-startup.patch',
+  '0005': '0005-add-pol-receipt-retrieval-endpoint.patch',
+  '0006': '0006-wire-pol-receipt-signing-into-nut03-swap.patch',
+  '0007': '0007-sign-pol-receipts-over-the-open-epoch.patch',
+  '0008': '0008-sign-manifest-key-delegation-with-mint-identity.patch',
+  '0009': '0009-sign-pol-receipts-for-melt-change.patch',
+};
+
+/**
+ * The repository path a code span such as `src/verifier/verify.ts` links to,
+ * or null when it must stay plain code: local/secret paths, or anything that
+ * is not a repository path. A patch range (`patches/cdk/0001-0009`) names the
+ * series and links its directory. `npm run verify:links` checks every target
+ * this returns against the tracked files.
+ */
+export function autoLinkTarget(code: string): string | null {
+  if (!REPO_PATH.test(code)) return null;
+  const p = code.replace(/\/$/, '');
+  if (PRIVATE_PATH.test(p)) return null;
+  const patch = /^patches\/cdk\/(\d{4})(-\d{4})?$/.exec(p);
+  if (patch) return patch[2] ? 'patches/cdk' : CDK_PATCHES[patch[1]!] ? `patches/cdk/${CDK_PATCHES[patch[1]!]}` : 'patches/cdk';
+  return p;
+}
 
 function renderInline(text: string): string {
   let out = escapeHtml(text);
   out = out.replace(/`([^`]+)`/g, (_m, code: string) => {
     // An inspectable repo path in code is a link to that file.
-    if (REPO_PATH.test(code)) {
-      const r = resolveDocLink(code, { ...ctx, basePath: '' });
+    const target = autoLinkTarget(code);
+    if (target) {
+      const r = resolveDocLink(target, { ...ctx, basePath: '' });
       return `<a href="${r.href}" ${r.external ? EXTERNAL : ''}><code>${code}</code></a>`;
     }
     return `<code>${code}</code>`;

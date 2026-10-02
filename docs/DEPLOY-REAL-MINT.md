@@ -90,7 +90,7 @@ The `#/mint` page states the mode from the sidecar's `/v1/solvent/status`, for e
 ## Network configuration
 
 - **Mutinynet:** the reserve is queried through `https://mutinynet.com/api` (Esplora). `SOLVENT_RESERVE_OUTPOINT` must be a P2TR output of the reserve-control key.
-- **Nostr:** the defaults are `wss://relay.damus.io`, `wss://nos.lol` and `wss://relay.nostr.band`; `SOLVENT_NOSTR_RELAYS` overrides them. A publication counts only after at least one ACK and an exact fetch-back by id. Otherwise the epoch is recorded as `unpublished`, and wallets correctly refuse with PUBLIC EVIDENCE NOT FOUND.
+- **Nostr:** the defaults (current public demo configuration, `POL_RELAYS`) are `wss://nos.lol`, `wss://relay.primal.net`, `wss://nostr.mom`, `wss://offchain.pub` and `wss://relay.snort.social`; `SOLVENT_NOSTR_RELAYS` overrides them. A publication counts only after at least one ACK and an exact fetch-back by id. Otherwise the epoch is recorded as `unpublished`, and wallets correctly refuse with PUBLIC EVIDENCE NOT FOUND.
 - **CORS:** both the mint (cdk-axum) and the sidecar send `Access-Control-Allow-Origin: *`, so browser wallets can call them.
 
 ## Security limitations

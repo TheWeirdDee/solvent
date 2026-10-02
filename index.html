@@ -65,9 +65,10 @@
               THE MINT<br />MADE A PROMISE.<br /><span class="accent-red">DID IT KEEP IT?</span>
             </h1>
             <p class="hero-sub">
-              When a Cashu mint issues ecash, it can sign a promise to count it. SOLVENT checks that promise &mdash;
-              against the mint&rsquo;s own closed accounting, public Nostr evidence and a Bitcoin reserve it observes
-              itself &mdash; before the ecash is accepted.
+              <strong>Ecash</strong> is digital cash issued by a <strong>mint</strong> that holds bitcoin for it. A mint can
+              sign a promise to count each payment it issues in its books. SOLVENT checks that the promise was kept
+              &mdash; in the mint&rsquo;s signed books, on public records, and against bitcoin it can see on chain
+              &mdash; before you accept the ecash.
             </p>
             <div class="hero-ctas">
               <a href="#/mint" id="hero-mint-cta" class="btn btn-solid btn-lg">Try the live mint</a>
@@ -79,6 +80,7 @@
 
           <div class="hero-panel-wrap" id="hero-proof">
             <div class="terminal">
+              <p class="terminal-scope">REFERENCE EXAMPLE &middot; not the live mint</p>
               <p class="terminal-title">SOLVENT / EPOCH <span id="hero-epoch">12</span></p>
               <dl class="terminal-meta">
                 <dt>Issuance</dt>
@@ -102,7 +104,7 @@
               <p id="hero-result" class="terminal-result">REFUSE</p>
               <p id="hero-result-reason" class="terminal-result-reason">Reason: PROMISED ISSUANCE OMITTED</p>
             </div>
-            <p class="terminal-caption">Example: a reference mint that omitted a promised issuance, decided by the real verifier as this page loads.</p>
+            <p class="terminal-caption" id="hero-caption">Example: SOLVENT&rsquo;s reference mint omitting a promised issuance, decided by the real verifier in your browser as this page loads. The live public mint is a separate system &mdash; <a href="#/mint">try it</a>.</p>
           </div>
         </div>
 
@@ -120,7 +122,7 @@
         <h2 class="section-heading section-heading-center">A valid Cashu token<br />doesn&rsquo;t prove the mint<br />counted what it owes.</h2>
         <p class="section-body section-body-center">
           Cashu can prove that ecash was signed by a mint. That alone does not prove the mint included that issuance in
-          its liabilities &mdash; or that its reserves still cover what it owes. A mint can issue valid ecash while
+          its liabilities &mdash; or that its reserves still cover the liabilities it has committed to. A mint can issue valid ecash while
           omitting that obligation from its accounting.
         </p>
         <div class="gap-diagram">
@@ -155,7 +157,7 @@
         <dl class="primer-grid">
           <div><dt>Cashu proof</dt><dd>The ecash token you received. The mint&rsquo;s signature makes it spendable.</dd></div>
           <div><dt>Receipt</dt><dd>The mint&rsquo;s signed promise to count your issuance in a specific accounting period.</dd></div>
-          <div><dt>Epoch</dt><dd>One accounting period. When it closes, the mint signs a summary of everything it owes.</dd></div>
+          <div><dt>Epoch</dt><dd>One accounting period. When it closes, the mint signs a summary of the liabilities it has recorded.</dd></div>
           <div><dt>Liability commitment</dt><dd>That signed summary: a total plus a structure (a sum-MMR) proving exactly which issuances it includes.</dd></div>
           <div><dt>Reserve</dt><dd>Bitcoin the verifier looks up on chain itself, instead of taking the mint&rsquo;s word for it.</dd></div>
         </dl>
@@ -168,9 +170,9 @@
         <p class="eyebrow eyebrow-center">The solution</p>
         <h2 class="section-heading section-heading-center">SOLVENT makes<br />the mint&rsquo;s promise<br />checkable.</h2>
         <p class="section-body section-body-center">
-          SOLVENT gives each issuance a signed liability receipt, checks that promise against the mint&rsquo;s closed
-          accounting state, verifies the public Nostr record and live Bitcoin reserve, and blocks acceptance when any
-          part is missing, inconsistent, stale or underfunded.
+          Each issuance gets a signed receipt. Before acceptance, SOLVENT checks it against the mint&rsquo;s closed
+          accounting, the public record and the reserve &mdash; and blocks acceptance when any part is missing,
+          inconsistent, stale or underfunded.
         </p>
         <ol class="solution-flow">
           <li>Issuance</li>
@@ -218,9 +220,8 @@
             <p class="eyebrow">What SOLVENT catches</p>
             <h2 class="section-heading">A signed promise<br />should be checkable.</h2>
             <p class="section-body">
-              The mint signs a receipt promising that an issuance will appear in a specific accounting epoch. If the
-              mint later closes that epoch without the issuance, SOLVENT can prove the contradiction &mdash; using
-              only what the mint itself signed.
+              If the epoch a receipt promised closes without that issuance, the contradiction is in the mint&rsquo;s own
+              signatures &mdash; and SOLVENT refuses on it, even when everything else looks healthy.
             </p>
             <ul class="checklist">
               <li>The receipt can be validly signed</li>
@@ -287,7 +288,7 @@
             <h2 class="section-heading">Inclusion alone<br />is not enough.</h2>
             <p class="section-body">
               Even when an issuance really is counted in a closed epoch, that epoch&rsquo;s mint still needs real
-              Bitcoin reserve to cover what it owes. SOLVENT checks both independently &mdash; accounting honesty and
+              Bitcoin reserve to cover the liabilities it committed to. SOLVENT checks both independently &mdash; accounting honesty and
               reserve coverage &mdash; before it will ever accept.
             </p>
             <ul class="checklist">
@@ -319,12 +320,12 @@
           <div class="how-to-try-step">
             <p class="how-to-try-num">3</p>
             <p class="how-to-try-title">Inspect the evidence</p>
-            <p class="how-to-try-desc">Open the exact Nostr event and reserve transaction from the result, on public explorers, or download it.</p>
+            <p class="how-to-try-desc">Open the exact Nostr event and reserve transaction from the result, on public explorers, or download it. Every record is on the <a href="#/publish">Evidence page</a>.</p>
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">4</p>
             <p class="how-to-try-title">See it on real Lightning</p>
-            <p class="how-to-try-desc">The live mint uses a demo Lightning backend. The same pipeline over real LND: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B CI&nbsp;run&nbsp;&#8599;</a>, <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 CI&nbsp;run&nbsp;&#8599;</a>.</p>
+            <p class="how-to-try-desc">The live mint uses a demo Lightning backend. The same pipeline over real LND is committed evidence on the <a href="#/publish">Evidence page</a>: honest ACCEPT, broken-promise REFUSE and a NUT-05 melt.</p>
           </div>
         </div>
         <div class="gate-cta">
@@ -362,7 +363,7 @@
           </article>
         </div>
 
-        <p class="section-body section-body-center gate-bridge">These four questions are what the verifier&rsquo;s nine technical checks answer: receipt (token format, mint origin, receipt signature), closed accounting state (epoch closed, manifest, inclusion), public evidence (Nostr retrieval) and reserve coverage.</p>
+        <p class="section-body section-body-center gate-bridge">These four questions are what the verifier&rsquo;s eight checks answer, before one final decision (ACCEPT or REFUSE): receipt (token format, mint origin, receipt signature), closed accounting state (epoch closed, manifest, inclusion), public evidence (Nostr retrieval) and reserve coverage.</p>
         <div class="gate-cta">
           <a href="#/verify" class="btn btn-solid btn-lg">Open verifier</a>
         </div>
@@ -524,7 +525,7 @@
         <li class="judge-path-title">Judge SOLVENT in 3 minutes</li>
         <li><strong>1. Mint an honest issuance</strong> &rarr; <code>ACCEPT_VERIFIED</code></li>
         <li><strong>2. Break the promise</strong> &rarr; <code>REFUSE_ISSUANCE_OMITTED</code> (every signature valid, the issuance missing)</li>
-        <li><strong>3. Inspect the evidence</strong> &mdash; open the Nostr event and the reserve transaction from the result</li>
+        <li><strong>3. Inspect the evidence</strong> &mdash; open the Nostr event and the reserve transaction from the result; every record is on the <a href="#/publish">Evidence page</a></li>
         <li><strong>4. Real-Lightning proof</strong> &mdash; the same pipeline over real LND in CI: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
       </ol>
 
@@ -564,14 +565,18 @@
           <div id="mint-enforcement" class="enforce-card"></div>
           <div id="mint-evidence-card" class="enforce-card"></div>
           <details class="evidence">
-            <summary>The nine checks</summary>
+            <summary>The eight checks and the decision</summary>
             <div class="decision-chain" id="mint-decision-chain"></div>
           </details>
           <details class="evidence">
             <summary>Technical details</summary>
             <div id="mint-technical" class="evidence-content"></div>
           </details>
-          <button id="mint-again-btn" type="button" class="btn btn-outline btn-block run-again-btn">Start again (new issuance)</button>
+          <div class="mint-result-actions">
+            <button id="mint-result-retry-btn" type="button" class="btn btn-outline" hidden>Retry verification (same issuance)</button>
+            <button id="mint-again-btn" type="button" class="btn btn-outline">Start again (new issuance)</button>
+          </div>
+          <p class="mint-result-actions-note">Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.</p>
         </div>
         <p id="mint-status" class="status" aria-live="polite"></p>
       </div>
@@ -652,6 +657,7 @@
                 <input id="manual-bundle-file" class="visually-hidden" type="file" accept=".json,application/json" />
                 Upload .json
               </label>
+              <span class="bundle-drop-hint">or drop a .json file on this box</span>
               <span id="manual-bundle-summary" class="bundle-summary" aria-live="polite"></span>
             </div>
           </div>
@@ -672,6 +678,7 @@
         </div>
 
         <div id="manual-result" class="result-card" hidden>
+          <p id="manual-stale-note" class="stale-note" role="status" hidden>The evidence has changed since this result. It applies to the previous input only &mdash; <strong>verify again</strong> before accepting.</p>
           <div id="manual-decision-badge" class="decision-badge"></div>
           <p id="manual-decision-headline" class="decision-headline"></p>
           <p id="manual-decision-body" class="decision-body"></p>
@@ -743,7 +750,7 @@
     <main id="panel-publish" class="route route-app panel" hidden>
       <p class="eyebrow">Evidence</p>
       <h1 class="page-heading">Inspect the<br />evidence.</h1>
-      <p class="page-sub">Every claim SOLVENT makes, with the record behind it. The real-LND results are committed to the repository, so they can be read directly and replayed offline. The full index is <a href="https://github.com/TheWeirdDee/solvent/blob/main/evidence/README.md" target="_blank" rel="noopener noreferrer">evidence/README.md&nbsp;&#8599;</a>.</p>
+      <p class="page-sub">Every claim SOLVENT makes, with the record behind it. The real-LND results are committed to the repository, so they can be read directly; the Phase 3B package also replays offline (the others are inspectable records). The full index is <a href="https://github.com/TheWeirdDee/solvent/blob/main/evidence/README.md" target="_blank" rel="noopener noreferrer">evidence/README.md&nbsp;&#8599;</a>.</p>
 
       <section class="evidence-block" aria-labelledby="ev-lnd-title">
         <p class="evidence-kind evidence-kind-lnd">REAL-LND CI EVIDENCE</p>
@@ -831,7 +838,7 @@
         <ul class="protocol-ul">
           <li>Sign a receipt promising to count an issuance, then quietly omit it from the epoch it closes.</li>
           <li>Publish inconsistent state to different relays, or let state go stale without saying so.</li>
-          <li>Claim a reserve it does not control, or one that no longer covers what it owes.</li>
+          <li>Claim a reserve it does not control, or one that no longer covers its committed liabilities.</li>
           <li>Reuse, replay, or subtly alter a proof, receipt, or manifest to pass one check while failing another.</li>
         </ul>
         <p>Every gate below exists to catch one of these specifically.</p>
@@ -863,16 +870,27 @@
         <h2 id="p-manifest">4. Epoch manifest</h2>
         <p>
           Closing an epoch means signing a manifest: the issued/spent roots and sums, the outstanding balance, and a
-          global digest chaining this epoch to the previous one. The mint&rsquo;s master key signs this manifest
-          &mdash; it is the mint&rsquo;s own closed, dated accounting statement.
+          global digest chaining this epoch to the previous one. A <strong>manifest key</strong> signs this manifest
+          &mdash; the mint&rsquo;s own closed, dated accounting statement.
+        </p>
+        <p>
+          On a real mint three keys are kept apart. The mint&rsquo;s <strong>NUT-06 identity</strong> (fetched by the
+          verifier from the mint&rsquo;s own <code>/v1/info</code>) signs only a <strong>delegation</strong>: &ldquo;this
+          manifest key speaks for me at this URL from epoch <em>E</em>&rdquo;. The <strong>manifest key</strong> signs every
+          epoch manifest and the reserve binding. The <strong>reserve key</strong> signs the reserve statement. The verifier
+          checks the delegation against the live identity before it trusts any manifest.
         </p>
 
         <h2 id="p-omission">5. Omission contradiction</h2>
         <p>
-          The receipt promises epoch <em>N</em>. Epoch <em>N</em> closes and its manifest verifies. SOLVENT attempts
-          sum-MMR inclusion for the reconstructed <code>B&prime;</code> at the promised amount. If inclusion fails,
-          that is not ambiguous: the mint signed a promise and then signed accounting that breaks it. Two signed
-          statements from the same mint, mutually contradictory &mdash; SOLVENT refuses.
+          The receipt promises epoch <em>N</em>. Epoch <em>N</em> closes and its manifest verifies. SOLVENT then asks for
+          sum-MMR inclusion of the reconstructed <code>B&prime;</code> at the promised amount. A proof that is supplied but
+          does not verify is refused as an invalid proof (<code>REFUSE_MMR_PROOF_INVALID</code>) &mdash; it says nothing
+          about the mint. The broken promise is different: the mint&rsquo;s own evidence for its signed, closed epoch
+          <em>N</em> carries <em>no</em> inclusion proof for the issuance its receipt promised to that epoch. Because every
+          signed issuance enters the epoch&rsquo;s append-only sum-MMR in the same transaction, an honest mint can always
+          prove inclusion. Two valid signed statements that cannot both be kept &mdash; SOLVENT refuses with
+          <code>REFUSE_ISSUANCE_OMITTED</code>. (This is not a general cryptographic non-membership proof.)
         </p>
 
         <h2 id="p-nostr">6. Nostr publication</h2>
@@ -888,7 +906,7 @@
         <p>
           A real Bitcoin Signet UTXO, controlled by a Taproot key-path address, is declared in a signed statement
           (network, outpoints, values, scripts, timestamp, height). The reserve key signs the statement; the
-          mint&rsquo;s master key separately signs a binding between the reserve key and that statement. SOLVENT
+          mint&rsquo;s manifest key separately signs an epoch-scoped binding between that statement and this mint&rsquo;s identity and epoch. SOLVENT
           independently re-queries a public block explorer for every declared outpoint &mdash; existence, spent
           status, value, and script &mdash; before ever trusting the statement&rsquo;s own claims.
         </p>
@@ -981,7 +999,7 @@
             <p class="footer-col-title">Product</p>
             <a href="#/mint">Live mint</a>
             <a href="#/verify">Verify</a>
-            <a href="#/publish">Evidence pipeline</a>
+            <a href="#/publish">Evidence</a>
             <a href="#/protocol">Protocol</a>
             <a href="#/docs">Docs</a>
           </div>

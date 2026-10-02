@@ -8,6 +8,7 @@
 // version a visitor actually drives.
 import { EPOCH_INDEX, runScenario } from './protocol-demo.js';
 import { formatSats } from './format.js';
+import { formatUtc } from './decision-view.js';
 
 function byId<T extends HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -37,4 +38,7 @@ export async function renderHeroPanel(): Promise<void> {
   resultEl.textContent = isAccept ? 'ACCEPT' : 'REFUSE';
   resultEl.className = `terminal-result ${isAccept ? 'green' : 'red'}`;
   byId('hero-result-reason').textContent = `Reason: ${scenario.verifyResult.reasonCode}`;
+  // When this example was decided — its checkmarks describe the reference example at that moment, nothing current.
+  const caption = byId('hero-caption');
+  caption.insertAdjacentHTML('beforeend', ` <span class="terminal-checked">Example decided ${formatUtc(new Date())}.</span>`);
 }

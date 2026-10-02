@@ -22,11 +22,11 @@ Click **Start again**, then **Break the promise**.
 
 ## 3. Inspect the evidence
 
-On each result, **Open Nostr event** and **Open reserve transaction** show the exact public evidence on independent explorers. **Download public evidence** saves it as JSON. **The nine checks** lists every check under the four questions: receipt, closed accounting state, public evidence, reserve coverage.
+On each result, **Open Nostr event** and **Open reserve transaction** show the exact public evidence on independent explorers. **Download public evidence** saves it as JSON. **The checks** lists the eight verification checks, grouped under four questions (receipt, closed accounting state, public evidence, reserve coverage), and then the decision. Every record SOLVENT relies on is on the [Evidence page](#/publish).
 
 ## 4. See it on real Lightning
 
-The live mint uses demo Lightning. The same pipeline runs over **real LND** in CI:
+The live mint uses demo Lightning. The same pipeline runs over **real LND** in CI, and the results are committed to the repository and shown on the [Evidence page](#/publish):
 
 - [Phase 3A/3B run 36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173): honest `ACCEPT_VERIFIED`, broken promise `REFUSE_ISSUANCE_OMITTED`.
 - [NUT-05 run 36619816959](https://github.com/TheWeirdDee/solvent/actions/runs/36619816959): melt with change accounted for.

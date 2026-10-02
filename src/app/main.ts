@@ -6,10 +6,12 @@ import { initDocsPanel } from './docs-panel.js';
 import { initLabPanel } from './lab-panel.js';
 import { enterRealMintPanel, initRealMintPanel } from './real-mint-panel.js';
 import { renderHeroPanel } from './hero-panel.js';
-import { renderLandingEvidence } from './landing-evidence.js';
+import { refreshLandingLive, renderLandingEvidence } from './landing-evidence.js';
+import { refreshEvidenceLive } from './publisher-panel.js';
+import { startAgeTicker } from './live-status.js';
 import { initLandingMotion, refreshLandingMotion } from './landing-motion.js';
 import { initRouter, navigate, type Route } from './router.js';
-import { initProtocolToc } from './protocol-toc.js';
+import { initProtocolToc, syncProtocolSection } from './protocol-toc.js';
 import { relayAssistFor } from './relay-assist.js';
 import { setDefaultAssistedRelayFetch } from './submission.js';
 
@@ -33,6 +35,10 @@ export const ROUTE_TITLES: Record<Route, string> = {
   docs: 'SOLVENT — Docs',
   lab: 'SOLVENT — Reference Lab',
 };
+
+let currentRoute: Route = 'home';
+let landingReady = false;
+let publishReady = false;
 
 function initRouting(): void {
   const routes: Record<Route, HTMLElement> = {
@@ -68,6 +74,11 @@ function initRouting(): void {
     // see it, so re-sync explicitly on every arrival at /verify.
     if (route === 'verify') syncModeFromHash();
     if (route === 'mint') enterRealMintPanel();
+    if (route === 'protocol') syncProtocolSection();
+    // Live observations are refreshed on every arrival (cached ones are labelled as such).
+    if (route === 'home' && landingReady) void refreshLandingLive();
+    if (route === 'publish' && publishReady) void refreshEvidenceLive();
+    currentRoute = route;
     // Scroll-trigger positions measured while the landing route was hidden
     // are wrong; re-measure once it is visible again.
     if (route === 'home') refreshLandingMotion();
@@ -197,6 +208,15 @@ initRealMintPanel();
 initProtocolToc();
 void renderHeroPanel();
 renderLandingEvidence();
+landingReady = true;
+publishReady = true;
+startAgeTicker();
+// Back to a tab left open: refresh what is on screen rather than show an old observation as current.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (currentRoute === 'home') void refreshLandingLive();
+  if (currentRoute === 'publish') void refreshEvidenceLive();
+});
 // After renderLandingEvidence(): the attack-corpus and FAQ rows it renders
 // are animation targets, and the attack count it sets is the count-up's end
 // value.

@@ -17,8 +17,10 @@
 // Neither mode decides ACCEPT/REFUSE itself or trusts a pre-evaluated claim
 // inside a pasted bundle; both wire the real Gate 4 acceptance boundary to
 // the Accept button.
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { createWalletStore, runAcceptGate } from '../enforcement/accept-gate.js';
-import type { VerifyInput } from '../verifier/verify.js';
+import { verify, type VerifyInput } from '../verifier/verify.js';
 import { SUBMISSION_BUNDLE_REQUIRED_FIELDS, submissionBundleFromJson, submissionBundleToJson } from './bundle-json.js';
 import {
   bindCopyButtons,
@@ -323,6 +325,18 @@ function initLiveMode(): void {
 
 // -------------------- VERIFY EVIDENCE --------------------
 
+/** A stable digest of the input's meaning: JSON is re-serialized, so whitespace-only edits keep the same fingerprint. */
+export function inputFingerprint(text: string): string {
+  const trimmed = text.trim();
+  let normalized = trimmed;
+  try {
+    normalized = JSON.stringify(JSON.parse(trimmed));
+  } catch {
+    /* not JSON: the trimmed text is the input */
+  }
+  return bytesToHex(sha256(new TextEncoder().encode(normalized)));
+}
+
 type ManualErrorKind = 'INVALID_JSON' | 'INCOMPLETE_BUNDLE' | 'INVALID_BUNDLE' | 'UNSUPPORTED_MINT';
 
 interface ManualError {
@@ -400,6 +414,27 @@ function initEvidenceMode(): void {
   let currentBundle: SubmissionBundle | null = null;
   let currentVerifyInput: VerifyInput | null = null;
   let accepted = false;
+  /**
+   * The exact input the shown result belongs to: a digest of the normalized
+   * input, taken when verification STARTED. A result — and its Accept button —
+   * applies only while the input still has this fingerprint; any semantic
+   * change (typing, paste, upload, drop, example, clear) makes it stale.
+   */
+  let verifiedFingerprint: string | null = null;
+  const staleNote = byId<HTMLElement>('manual-stale-note');
+
+  function syncStaleness(): void {
+    const stale = verifiedFingerprint !== null && inputFingerprint(input.value) !== verifiedFingerprint;
+    resultCard.dataset.stale = String(stale);
+    staleNote.hidden = !stale;
+    if (stale) {
+      acceptBtn.disabled = true;
+      statusEl.textContent = 'The evidence changed after the last verification. That result belongs to the previous input — verify again.';
+    } else if (verifiedFingerprint !== null && currentVerifyInput && !accepted) {
+      // Same evidence again (e.g. an edit undone): the result applies to it once more.
+      acceptBtn.disabled = verify(currentVerifyInput).decision !== 'ACCEPT';
+    }
+  }
 
   function setLoaded(text: string, label: string): void {
     input.value = text;
@@ -407,11 +442,14 @@ function initEvidenceMode(): void {
     summary.textContent = label;
     resultCard.hidden = true;
     progressPanel.hidden = true;
+    syncStaleness();
   }
 
   function showError(err: ManualError): void {
     progressPanel.hidden = true;
     resultCard.hidden = false;
+    staleNote.hidden = true;
+    resultCard.dataset.stale = 'false';
     // An input problem says nothing about any mint: never shown as a REFUSE verdict.
     els.badge.textContent = 'INPUT ERROR';
     els.badge.className = 'decision-badge neutral';
@@ -435,6 +473,11 @@ function initEvidenceMode(): void {
     statusEl.textContent = '';
     currentBundle = null;
     currentVerifyInput = null;
+    // Bound to the input as it is NOW, before any await: an edit made while
+    // this runs leaves the result stale rather than attaching it to the edit.
+    verifiedFingerprint = inputFingerprint(input.value);
+    staleNote.hidden = true;
+    resultCard.dataset.stale = 'false';
 
     const parsed = parseManualBundle(input.value);
     if ('error' in parsed) {
@@ -462,6 +505,7 @@ function initEvidenceMode(): void {
     evidenceContent.innerHTML = evidenceDetailHtml(parsed.bundle, verification, { issuer: 'As supplied in this bundle', accepted: false, encodedToken: null });
     bindCopyButtons(evidenceContent);
     statusEl.textContent = `Decision: ${verification.result.decision} (${verification.result.reasonCode}).`;
+    syncStaleness();
   }
 
   acceptBtn.addEventListener('click', () => {
@@ -469,6 +513,11 @@ function initEvidenceMode(): void {
     // boundary directly against the VerifyInput verifySubmission() rebuilt
     // from raw evidence — never against anything the JSON claimed.
     if (!currentVerifyInput || !currentBundle || accepted) return;
+    // Deterministic binding: never accept on a result for different input.
+    if (verifiedFingerprint === null || inputFingerprint(input.value) !== verifiedFingerprint) {
+      syncStaleness();
+      return;
+    }
     const store = createWalletStore();
     const { accepted: didAccept } = runAcceptGate(currentVerifyInput, store);
     accepted = didAccept;
@@ -494,15 +543,21 @@ function initEvidenceMode(): void {
   input.addEventListener('input', () => {
     input.classList.remove('is-loaded');
     summary.textContent = '';
+    syncStaleness();
   });
 
   async function loadFile(file: File): Promise<void> {
     const looksJson = /\.json$/i.test(file.name) || file.type === 'application/json' || file.type === '';
     if (!looksJson) {
+      // The previous result no longer describes what the user is supplying.
+      verifiedFingerprint = verifiedFingerprint === null ? null : '(input replaced)';
+      currentVerifyInput = null;
       showError({ kind: 'INVALID_JSON', message: `"${file.name}" is not a .json file. Upload a SOLVENT verification bundle (JSON).`, technical: `FILE_TYPE: ${file.type || 'unknown'}` });
       return;
     }
     if (file.size === 0) {
+      verifiedFingerprint = verifiedFingerprint === null ? null : '(input replaced)';
+      currentVerifyInput = null;
       showError({ kind: 'INVALID_JSON', message: `"${file.name}" is empty.`, technical: 'EMPTY_FILE' });
       return;
     }

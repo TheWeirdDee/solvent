@@ -11,7 +11,8 @@ import omissionPublication3b from '../../evidence/real-pol/ci-36614823173-lnd/ph
 import reserve3b from '../../evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-reserve.json' with { type: 'json' };
 import nut05 from '../../evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json' with { type: 'json' };
 import liveDemo from '../../evidence/nostr/live-demo.json' with { type: 'json' };
-import { escapeHtml, formatAgo, formatUtc, mutinynetTxUrl, njumpUrl } from './decision-view.js';
+import { escapeHtml, formatUtc, mutinynetTxUrl, njumpUrl, nostrExplorerLinks } from './decision-view.js';
+import { freshnessLabel, observe, timeWithAgo } from './live-status.js';
 import { NOSTR_EVIDENCE, RESERVE_EVIDENCE } from './evidence-data.js';
 import { formatSats, truncateHex } from './format.js';
 import { REPO_URL } from './markdown.js';
@@ -60,7 +61,7 @@ function renderPhase3b(): void {
       [
         ['Lightning', `<code>${escapeHtml(accept3b.lightning_backend)}</code> (real)`],
         ['Checks', checksSummary(accept3b.checks as Record<string, boolean>)],
-        ['Nostr event', ext(njumpUrl(publication3b.event_id), `<code>${truncateHex(publication3b.event_id, 10, 6)}</code>`)],
+        ['Nostr event', `<code>${truncateHex(publication3b.event_id, 10, 6)}</code> · ${nostrExplorerLinks(publication3b.event_id)} · ${ext(FILE(`${P3B}/phase3-nostr-fetchback.json`), 'raw signed event')}`],
         ['Recorded', formatUtc(accept3b.generated_at)],
       ],
       [ext(FILE(`${P3B}/phase3-accept.json`), 'phase3-accept.json'), ext(RUN(36614823173), 'CI run 36614823173')],
@@ -71,7 +72,7 @@ function renderPhase3b(): void {
       [
         ['Lightning', `<code>${escapeHtml(omission3b.lightning_backend)}</code> (real)`],
         ['Checks', checksSummary(omission3b.checks as Record<string, boolean>)],
-        ['Nostr event', ext(njumpUrl(omissionPublication3b.event_id), `<code>${truncateHex(omissionPublication3b.event_id, 10, 6)}</code>`)],
+        ['Nostr event', `<code>${truncateHex(omissionPublication3b.event_id, 10, 6)}</code> · ${nostrExplorerLinks(omissionPublication3b.event_id)} · ${ext(FILE(`${P3B}/phase3-omission-nostr-fetchback.json`), 'raw signed event')}`],
         ['Recorded', formatUtc(omission3b.generated_at)],
       ],
       [ext(FILE(`${P3B}/phase3-omission-refuse.json`), 'phase3-omission-refuse.json'), ext(RUN(36614823173), 'CI run 36614823173')],
@@ -116,7 +117,8 @@ function renderCi(): void {
   byId('ev-ci').innerHTML = rows.map(([href, label]) => `<li>${ext(href, href.includes('/runs/') ? `Run ${href.split('/').pop()}` : 'Workflow')} — ${label}</li>`).join('');
 }
 
-async function renderLive(): Promise<void> {
+/** The live Railway card: refreshed on every arrival at #/publish, labelled LIVE or CACHED SNAPSHOT. */
+export async function refreshEvidenceLive(): Promise<void> {
   const box = byId('ev-live');
   const evidenceUrl = env.VITE_SOLVENT_EVIDENCE_URL?.replace(/\/+$/, '');
   const mintUrl = env.VITE_SOLVENT_MINT_URL?.replace(/\/+$/, '');
@@ -125,23 +127,26 @@ async function renderLive(): Promise<void> {
     return;
   }
   try {
-    const [info, st] = await Promise.all([
-      fetch(`${mintUrl}/v1/info`).then((r) => r.json() as Promise<{ pubkey?: string; version?: string }>),
-      fetch(`${evidenceUrl}/v1/solvent/status`).then((r) => r.json() as Promise<{ open_epoch: number; lightning_backend: string; reserve_outpoint?: string | null; last_publication?: { epoch_index: number; event_id: string | null; published_at: string; status: string } | null }>),
-    ]);
+    const obs = await observe('evidence-page:mint+status', () =>
+      Promise.all([
+        fetch(`${mintUrl}/v1/info`).then((r) => r.json() as Promise<{ pubkey?: string; version?: string }>),
+        fetch(`${evidenceUrl}/v1/solvent/status`).then((r) => r.json() as Promise<{ open_epoch: number; lightning_backend: string; reserve_outpoint?: string | null; last_publication?: { epoch_index: number; event_id: string | null; published_at: string; status: string } | null }>),
+      ]),
+    );
+    const [info, st] = obs.data;
     const p = st.last_publication;
     const outpoint = st.reserve_outpoint ?? RAILWAY_RESERVE;
     const [txid, vout] = outpoint.split(':');
     box.innerHTML = card(
-      `<span class="live-tag">LIVE</span> Railway mint · checked ${formatUtc(new Date())}`,
+      `Railway mint · ${freshnessLabel(obs)}`,
       null,
       [
         ['Mint', `<code>${escapeHtml(mintUrl)}</code> · ${escapeHtml(info.version ?? '')}`],
         ['NUT-06 identity', `<code>${escapeHtml(info.pubkey ?? 'not advertised')}</code>`],
         ['Lightning', `<code>${escapeHtml(st.lightning_backend)}</code> — demo; invoices settle by themselves`],
         ['Latest epoch', p ? `${p.epoch_index} (${escapeHtml(p.status)}) · open epoch ${st.open_epoch}` : `none published yet · open epoch ${st.open_epoch}`],
-        ['Last publication', p ? `${formatUtc(p.published_at)} (${formatAgo(p.published_at)})` : '—'],
-        ['Latest Nostr event', p?.event_id ? ext(njumpUrl(p.event_id), `<code>${truncateHex(p.event_id, 10, 6)}</code>`) : '—'],
+        ['Last publication', p ? timeWithAgo(p.published_at) : '—'],
+        ['Latest Nostr event', p?.event_id ? `<code>${truncateHex(p.event_id, 10, 6)}</code> · ${nostrExplorerLinks(p.event_id)}` : '—'],
         ['Reserve', ext(mutinynetTxUrl(txid!), `<code>${truncateHex(txid!, 10, 6)}:${vout}</code>`)],
       ],
       [`<a href="#/mint">Run it yourself on the live mint</a>`],
@@ -158,8 +163,8 @@ function renderReference(): void {
     `<span class="ref-tag">CAPTURED REFERENCE RUN</span> The case behind “Re-check published evidence”`,
     null,
     [
-      ['Published', `${formatUtc(liveDemo.publishedAt)} (${formatAgo(liveDemo.publishedAt)}) — republished twice a day`],
-      ['Nostr event', ext(njumpUrl(ev.id), `<code>${truncateHex(ev.id, 10, 6)}</code>`)],
+      ['Published', `${timeWithAgo(liveDemo.publishedAt)} — republished twice a day`],
+      ['Nostr event', `<code>${truncateHex(ev.id, 10, 6)}</code> · ${nostrExplorerLinks(ev.id)}`],
       ['Reserve', ext(mutinynetTxUrl(o.txid), `<code>${truncateHex(o.txid, 10, 6)}:${o.vout}</code>`)],
       ['Purpose', 'a stable, published mechanism example — not a fresh issuance'],
     ],
@@ -198,5 +203,5 @@ export function initPublisherPanel(): void {
   renderNut05();
   renderCi();
   renderReference();
-  void renderLive();
+  void refreshEvidenceLive();
 }

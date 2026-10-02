@@ -28,8 +28,8 @@ Every verification queries public relays for the bundle's own `(mint_identity, e
 
 | Reason code | Relay reachable? | Event found? | Meaning | UI badge |
 | --- | --- | --- | --- | --- |
-| `REFUSE_NOSTR_EVENT_NOT_FOUND` | Yes | No | Public relays answered, but none hold this `(mint_identity, epoch)` event. The expected result for locally generated (lab) evidence. | REFUSE — "PUBLIC EVIDENCE NOT FOUND." (valid local cryptography shown only as a secondary fact) |
-| `REFUSE_NOSTR_UNAVAILABLE` | No | — | No configured relay could be reached at all — a network problem, not a claim about publication. | REFUSE — "PUBLIC EVIDENCE UNAVAILABLE." |
+| `REFUSE_NOSTR_EVENT_NOT_FOUND` | Yes | No | Public relays answered, but none returned this event. The expected result for locally generated (lab) evidence; for a fresh publication it can also mean "not retrievable yet". | **Could not complete** (amber): "PUBLIC EVIDENCE NOT FOUND" — nothing accepted, *Retry verification* offered. Not a finding that the mint broke its promise. |
+| `REFUSE_NOSTR_UNAVAILABLE` | No | — | No configured relay could be reached (directly, or through the HTTPS relay fetch) — a network problem, not a claim about publication. | **Could not complete** (amber): "RELAYS UNREACHABLE" — nothing accepted, *Retry verification* offered. |
 
 For a bundle generated locally in the **reference mint lab**, `REFUSE_NOSTR_EVENT_NOT_FOUND` is *expected and correct*: SOLVENT does not publish throwaway events to production relays, so there is nothing for a relay to find. The UI leads with **REFUSE / PUBLIC EVIDENCE NOT FOUND**, with "Local cryptography: VALID" as a secondary fact — a private signed copy, however valid, does not satisfy SOLVENT's actual claim that the accounting record is publicly checkable. **Re-check published evidence** (and "Load live example" here) uses the one identity whose evidence genuinely was published via `npm run live-demo` — its event is found live and, while its reserve attestation is fresh, it reaches a real `ACCEPT_VERIFIED`. A bundle from a real external mint that published its own evidence to Nostr would be found and verified the same way.
 
@@ -41,6 +41,49 @@ The reference case and the lab both call `@cashu/cashu-ts`'s real `getEncodedTok
 
 What it is not: spendable anywhere. Its `mint` field is a SOLVENT-internal label (`solvent-fixture-mint` in the currently published reference case, `solvent-reference-lab` in the lab), not a resolvable HTTP mint URL. There is no live mint server behind it. A real wallet could parse the token and read its amount/secret/signature, but there is nothing to redeem or swap it against. The cryptography is real and the issuance is real, but the mint behind it is SOLVENT's reference implementation, not a production Cashu mint — never "a real Cashu token you can spend.
 
+## Two shapes: captured reference bundle vs real HTTP mint bundle
+
+The same verifier accepts both, but they are not the same structure:
+
+| | **A. Captured reference bundle** | **B. Real HTTP mint bundle** (the public Railway mint, the CI runs) |
+|---|---|---|
+| Where it comes from | `evidence/nostr/live-demo.json`, the lab, the attack corpus | The SOLVENT evidence service: `GET /v1/solvent/issuance/<B_>` plus the holder's own proof |
+| `mint` | a reference label, not a URL | the mint's public `https://` URL |
+| Mint identity | none; the manifest key *is* the identity | the NUT-06 key, fetched by the verifier from `<mint>/v1/info`, **never read from the bundle** |
+| `masterPublicKeyHex` | the reference identity | the **manifest signer**: a separate key, authorized by `delegation` |
+| `delegation` | absent | required (see below) |
+| `reserveBinding` | absent | required: the epoch-scoped reserve binding |
+| `epochKeysetCount` | absent | required (`1`; multi-keyset epochs are refused) |
+
+A real HTTP mint bundle missing `delegation`, `reserveBinding` or `epochKeysetCount` is refused: `REFUSE_DELEGATION_MISSING`, `REFUSE_RESERVE_BINDING_INVALID`, or `REFUSE_UNVERIFIABLE` respectively.
+
+### The extra fields of a real HTTP mint bundle
+
+```ts
+  // --- Phase 3B: who may sign this mint's manifests (required for an https:// mint) ---
+  delegation: {
+    schema: "solvent/manifest-key-delegation/v1";
+    mint_url: string;                  // must equal `mint`
+    mint_identity_pubkey: string;      // the NUT-06 key — must equal what <mint>/v1/info serves now
+    mint_identity_xonly_pubkey: string;
+    manifest_pubkey: string;           // must be the key behind masterPublicKeyHex
+    valid_from_epoch: number;          // must be <= manifest.epoch_index
+    created_at: number;
+    signature: string;                 // BIP-340, by the NUT-06 identity (patches/cdk/0008)
+  };
+  reserveBinding: {
+    schema: "solvent/reserve-binding/v1";
+    mint_url: string; mint_identity_pubkey: string;
+    epoch_index: number; manifest_digest: string; global_digest: string;   // binds THIS epoch's accounting
+    reserve_statement_digest: string; reserve_pubkey: string; reserve_network: string;
+    created_at: number; valid_until: number;
+    signature: string;                 // BIP-340, by the manifest key
+  };
+  epochKeysetCount: number;            // keysets in the closed epoch; 1 is supported
+```
+
+The Nostr event of a real mint also commits to `mint_nut06_pubkey`, `manifest_key_delegation_digest`, `reserve_binding_digest`, `previous_global_digest` and `keyset_count` (`docs/nostr-schema.md`). A real example is `evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-honest-verify-input.json`. It is a real-LND bundle whose proof is recorded as spent; its `_evidence` label is metadata, ignored by the verifier.
+
 ## Where the bundle comes from
 
 Every field is produced by a real gate in the protocol:
@@ -50,7 +93,7 @@ Every field is produced by a real gate in the protocol:
 | `proof` | The mint's real blind-signed Cashu issuance (NUT-12) | Gate 0 | Independently checked — `verify()` recomputes the holder's own `B'`/`C'` and validates the DLEQ; a mint cannot hand you a fake identity. |
 | `mint`, `keysetId`, `amountPublicKeyHex` | The mint's keyset identity | Gate 0 | Checked against `proof`/`receipt`/`manifest` consistency. |
 | `receipt` | The mint's signed Proof-of-Liabilities receipt | Gate 1 | Independently checked — BIP-340 signature verified against `amountPublicKeyHex`. |
-| `manifest`, `manifestSignature`, `masterPublicKeyHex` | The mint's signed, closed epoch | Gate 2 | Independently checked — BIP-340 signature verified against `masterPublicKeyHex`; liability arithmetic recomputed. |
+| `manifest`, `manifestSignature`, `masterPublicKeyHex` | The mint's signed, closed epoch; `masterPublicKeyHex` is the manifest signer | Gate 2 | Independently checked — BIP-340 signature verified against `masterPublicKeyHex`; liability arithmetic recomputed. For a real mint, `masterPublicKeyHex` must also be the key the NUT-06 identity delegated. |
 | `issuedMmrSize`, `inclusionProof` | The epoch's issued sum-MMR | Gate 2 / Gate 3 | Independently checked — inclusion recomputed from the committed tree size, never trusted from a claimed index. |
 | `reserveAttestation` | The mint's signed reserve statement | Gate 6 | Independently re-derived — see "Why this is raw evidence" above. Raw signed evidence, not a trusted claim. |
 | `nostrEvent` | The mint's signed, published Nostr evidence | Gate 5 | Independently re-derived — see "Why this is raw evidence" above. Raw signed evidence, not a trusted claim. |
@@ -94,8 +137,8 @@ Every field is produced by a real gate in the protocol:
     active: boolean;
     deactivation_epoch: number;
   };
-  manifestSignature: string;   // hex, BIP-340, signed by the mint's master key
-  masterPublicKeyHex: string;
+  manifestSignature: string;   // hex, BIP-340, signed by the manifest key
+  masterPublicKeyHex: string;  // the manifest signer (reference bundles: the reference identity; real mints: the delegated manifest key)
 
   // --- Inclusion (Gate 2 / Gate 3) ---
   issuedMmrSize: number;
@@ -103,7 +146,7 @@ Every field is produced by a real gate in the protocol:
     leafIndex: number;
     siblingPath: { hash: string; sum: string; isLeft: boolean }[]; // sum is a decimal string (u64 range)
     peaks: { hash: string; sum: string }[];
-  } | null;                    // null is the hero case: the mint could not/did not produce inclusion
+  } | null;                    // null: no inclusion proof for this issuance — the hero case (REFUSE_ISSUANCE_OMITTED); an invalid one is REFUSE_MMR_PROOF_INVALID
 
   // --- Reserve (Gate 6) — raw signed evidence, or null if the mint supplied none ---
   reserveAttestation: {
@@ -115,7 +158,7 @@ Every field is produced by a real gate in the protocol:
       block_height: number;
     };
     statementSignature: string;      // hex, BIP-340, signed by the reserve key
-    bindingSignature: string;        // hex, BIP-340, signed by the mint's master key
+    bindingSignature: string;        // hex, BIP-340, signed by the manifest signer (masterPublicKeyHex)
     masterPublicKeyHex: string;
   } | null;
 
@@ -140,7 +183,7 @@ Every field is produced by a real gate in the protocol:
 
 `proof.amount` is a plain JSON number (sats). `inclusionProof.{siblingPath,peaks}[].sum` are decimal **strings**, not numbers — the underlying sum-MMR uses 64-bit integers that can exceed `Number.MAX_SAFE_INTEGER` in principle, so the exported bundle encodes them as strings to stay lossless; SOLVENT's own bundle reader converts these back exactly. If you're hand-constructing a bundle, use decimal strings for these two fields.
 
-## Complete real example — the Live Public Demo
+## Complete example — the captured reference case (shape A)
 
 This is `evidence/nostr/live-demo.json`'s actual bundle — generated and published for real by `npm run live-demo` (`src/cli/live-demo.ts`), not a hand-written illustration. Unlike a `createTestEcash()` bundle, this one's Nostr event is genuinely, publicly retrievable, so pasting it into "Verify your evidence" (or clicking "Load example bundle", which loads exactly this) reaches a real `ACCEPT_VERIFIED` — for as long as the evidence stays fresh. **The binding constraint is the reserve attestation's block-height freshness window, not the Nostr event's own (much longer) validity window** — see `docs/trust-boundaries.md`'s "Effective expiry — the real number, not an assumption" section for the exact rule and the current computed value, or run `npm run verify:live-demo` for a live, current PASS/FAIL/expiry readout.
 
@@ -186,7 +229,7 @@ Pasted text goes through the following classification, in order, before any veri
 | **INVALID BUNDLE** | Every required field is present, but one is structurally wrong (e.g. `proof.amount` isn't a number). | A hand-edited bundle with a typo'd field. |
 | **UNSUPPORTED MINT** | Structurally valid, but `verify()` itself reports the keyset/token format isn't one SOLVENT supports. | `REFUSE_UNSUPPORTED_KEYSET` / `REFUSE_MALFORMED_TOKEN`. |
 | **`REFUSE_*`** | Structurally valid and supported, but a real protocol check failed. | `REFUSE_ISSUANCE_OMITTED`, `REFUSE_RESERVE_SHORT`, etc. — see `docs/nostr-schema.md` and the reason-code table in `#/protocol`. |
-| **NETWORK VERIFICATION UNAVAILABLE** | The bundle and its evidence are fine, but the live reserve network couldn't be reached just now. | Offline, Esplora API down, CORS failure. This is never reported as a shortfall. |
+| **COULD NOT COMPLETE** | A dependency (public relays, the reserve API) couldn't be reached or didn't return the evidence yet. Nothing is accepted; *Retry verification* is offered. | Offline, Esplora down, relays unreachable, evidence just published. Never reported as a shortfall or as a broken promise. |
 
 None of these ever calls the acceptance side effect — `accept()` only ever runs after an explicit `ACCEPT_VERIFIED` decision and an explicit click on "Accept ecash."
 

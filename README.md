@@ -17,7 +17,7 @@
 1. **Mint & verify an honest issuance** → `ACCEPT_VERIFIED` (the accept function is called once).
 2. **Break the promise** → `REFUSE_ISSUANCE_OMITTED`: every signature valid, public evidence retrieved, reserve covering — only the promised issuance is missing. The accept function is not called.
 3. **Inspect the evidence**: open the Nostr event and the reserve transaction from the result, or download it.
-4. **Real Lightning**: the live mint uses demo (fakewallet) Lightning; the same pipeline over real LND is in the [Evidence](#evidence) CI runs.
+4. **Real Lightning**: the live mint uses demo (fakewallet) Lightning; the same pipeline over real LND is committed evidence: the app's [Evidence page](https://solvent-ashen.vercel.app/#/publish), or the [Evidence](#evidence) section below.
 
 Video: DEMO_VIDEO_URL_PENDING. Script: [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md). Step-by-step: [`docs/start-here.md`](docs/start-here.md).
 
@@ -88,7 +88,7 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 
 **Public interactive deployment** (https://solvent-ashen.vercel.app/ + Railway): real patched CDK mint, real receipts, accounting, epochs, manifests and delegation, real public Nostr, a real Mutinynet reserve and the real verifier — with CDK **fakewallet** Lightning, where invoices settle by themselves. It is labelled so in the UI and in the evidence, and never called real Lightning.
 
-**CI evidence:** the same mint over **real LND**, the full Phase 3B public evidence, and real NUT-05 (see [Evidence](#evidence)).
+**CI evidence:** the same mint over **real LND**, the full Phase 3B public evidence, and real NUT-05 (see the [Evidence page](https://solvent-ashen.vercel.app/#/publish) and the [Evidence](#evidence) section below).
 
 **Also:** *Re-check published evidence* verifies a captured *reference* case (published earlier, re-checked live); the network is a **test network** (Mutinynet / Bitcoin Signet), not Bitcoin mainnet.
 
@@ -97,7 +97,7 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 - Custodial Cashu trust remains. SOLVENT makes the mint's accounting checkable; it does not remove the custodian.
 - Multi-keyset epochs are refused (`REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE`), not aggregated.
 - A remote (gRPC) signatory cannot sign the mint-identity delegation, so it fails closed.
-- Public relay availability matters. When evidence can't be fetched, SOLVENT refuses (`REFUSE_NOSTR_EVENT_NOT_FOUND` or `…_UNAVAILABLE`).
+- Public relay availability matters. When evidence can't be fetched, nothing is accepted and the result says the check *could not complete* (`REFUSE_NOSTR_EVENT_NOT_FOUND` or `…_UNAVAILABLE`); that is not a finding against the mint, and *Retry verification* re-checks the same issuance.
 - The public mint runs fakewallet Lightning (labelled); real LND is proven in CI. Hosting is reproducible: Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)) or Docker Compose on any Linux host ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)).
 - The HTTPS relay fetch (used only when a browser cannot open relay WebSockets) is run by the mint's own evidence service; its result is still verified in the browser, but "was it published" then rests on that service querying the relays honestly. See [`docs/trust-boundaries.md`](docs/trust-boundaries.md).
 
@@ -194,7 +194,7 @@ Opens on the landing page (`/`): the problem (a valid Cashu token doesn't prove 
   - **Re-check published evidence** — runs SOLVENT against the published reference case (`evidence/nostr/live-demo.json`, published by `npm run live-demo`). Every run re-fetches its Nostr event from real public relays and re-queries its reserve UTXO on Bitcoin Signet (Mutinynet), then runs the real verifier. It shows when the case was published and when its evidence expires, "Last checked", Nostr LIVE / NOT FOUND / UNAVAILABLE, Reserve LIVE / SPENT / UNAVAILABLE, and the exact event id and reserve txid:vout it checked. Nothing is substituted from bundled data when a request fails — the result is a REFUSE naming what couldn't be checked.
   - **Verify evidence** — paste or upload a SOLVENT verification bundle, or click **Load live example** to load the same published reference case. See `docs/verification-bundle.md` for the schema. A plain Cashu token, or a bundle with no liability evidence, is refused as **UNSUPPORTED MINT**.
 
-  Both modes run the same nine checks (token format, mint origin / NUT-12, PoL receipt, promised epoch, signed epoch manifest, liability inclusion, public Nostr retrieval, live reserve, decision). The result always leads with the decision (**ACCEPT** or **REFUSE**) and its reason; partial facts such as "local cryptography: valid" sit beneath it. **Accept ecash** is wired to the real Gate 4 acceptance boundary (enabled only on `ACCEPT_VERIFIED`, called exactly once). Raw JSON lives behind collapsed "View raw bundle" / "View result JSON" toggles.
+  Both modes run the same eight checks (token format, mint origin / NUT-12, PoL receipt, promised epoch, signed epoch manifest, liability inclusion, public Nostr retrieval, live reserve), then one final decision. The result always leads with the decision (**ACCEPT** or **REFUSE**) and its reason; partial facts such as "local cryptography: valid" sit beneath it. **Accept ecash** is wired to the real Gate 4 acceptance boundary (enabled only on `ACCEPT_VERIFIED`, called exactly once). Raw JSON lives behind collapsed "View raw bundle" / "View result JSON" toggles.
 - **Protocol** (`/protocol`), **Docs** (`/docs`), and a read-only **evidence pipeline** view (`/publish`).
 - **Reference mint lab** (`#/lab`, developers only — linked from the footer, not the navigation) — SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated), a new proof, receipt and closed epoch per issuance, and a choice of amounts. Its evidence is never published, so its primary action is **Check local cryptography**; a full verification of lab evidence refuses with PUBLIC EVIDENCE NOT FOUND. It can also break a promise on purpose (BROKEN PROMISE) or issue past the reserve (RESERVE SHORTFALL).
 
@@ -204,9 +204,9 @@ The real CDK mint is the backend behind **Live mint** (`#/mint`): the Railway-ho
 
 SOLVENT's whole premise is that a mint's accounting is *publicly checkable*, not just privately signable — so a bundle's own privately-supplied signed Nostr event, however cryptographically valid, does **not** by itself satisfy the live acceptance gate. `verifySubmission()` (`src/app/submission.ts`) always genuinely attempts to fetch the bundle's evidence from real public relays; only a bundle whose evidence a relay actually returns can reach `ACCEPT_VERIFIED`. That is why locally generated lab evidence (intentionally never published — publishing a throwaway event on every click would spam production relays) cannot reach ACCEPT, while the published reference case can. See `docs/trust-boundaries.md`'s "The two-tier Nostr guarantee".
 
-"Couldn't find it" and "couldn't check" are never collapsed into one reason: a relay that answers but doesn't have the event yields `REFUSE_NOSTR_EVENT_NOT_FOUND` (REFUSE / "PUBLIC EVIDENCE NOT FOUND"), while every relay being unreachable yields `REFUSE_NOSTR_UNAVAILABLE` (REFUSE / "PUBLIC EVIDENCE UNAVAILABLE"). One bounded retry absorbs transient relay misses without ever masking a genuinely unpublished event — see "Bounded relay-fetch retry" in the same doc.
+"Couldn't find it" and "couldn't check" are never collapsed into one reason: a relay that answers but doesn't have the event yields `REFUSE_NOSTR_EVENT_NOT_FOUND`, while no relay being reachable yields `REFUSE_NOSTR_UNAVAILABLE`. Both are shown as *verification could not complete* (amber), with nothing accepted and *Retry verification* offered, never as a broken promise. One bounded retry absorbs transient relay misses without ever masking a genuinely unpublished event; see "Bounded relay-fetch retry" in `docs/trust-boundaries.md`.
 
-The reference case has a real, finite shelf life — its *reserve* attestation (~7 days on Mutinynet), not its Nostr event, is the binding freshness constraint (see `docs/trust-boundaries.md`'s "Effective expiry"). `npm run verify:submission`'s "Canonical Live Public Demo" line is a real, right-now check of it — `SUBMISSION READY` is impossible while it's failing. See "Deployment" below for how it is kept fresh.
+The reference case has a real, finite shelf life — its *reserve* attestation (~7 days on Mutinynet), not its Nostr event, is the binding freshness constraint (see `docs/trust-boundaries.md`'s "Effective expiry"). `npm run verify:submission`'s "Canonical Live Public Demo" line is a real, right-now check of it: `ENGINEERING READY` (and therefore `SUBMISSION READY`) is impossible while it fails. See "Deployment" below for how it is kept fresh.
 
 Honest notes:
 

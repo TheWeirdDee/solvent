@@ -63,7 +63,7 @@ async function inViewport(page: Page, sel: string): Promise<boolean> {
 }
 
 async function main() {
-  const [site, mint, evidence] = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--screenshots', '--browser', '--width'].includes(all[i - 1] ?? ''));
+  const [site, mint, evidence] = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--screenshots', '--browser', '--width', '--height'].includes(all[i - 1] ?? ''));
   const shots = opt('--screenshots');
   const which = opt('--browser') ?? 'chromium';
   const width = Number(opt('--width') ?? '1440');
@@ -76,7 +76,8 @@ async function main() {
 
   const browser = await (which === 'webkit' ? webkit : chromium).launch();
   try {
-    const ctx = await browser.newContext({ viewport: { width, height: width <= 430 ? 844 : 1000 }, acceptDownloads: true, ...(width <= 430 ? { hasTouch: true, isMobile: which !== 'webkit' ? true : undefined } : {}) });
+    const height = Number(opt('--height') ?? (width <= 430 ? '844' : '1000'));
+    const ctx = await browser.newContext({ viewport: { width, height }, acceptDownloads: true, ...(width <= 430 ? { hasTouch: true, isMobile: which !== 'webkit' ? true : undefined } : {}) });
     const page = await ctx.newPage();
     await page.goto(url);
     await page.waitForFunction(() => (document.getElementById('mint-reality')?.textContent ?? '').length > 0, undefined, { timeout: 30_000 });
@@ -101,6 +102,13 @@ async function main() {
     check(`[${tag}] A. Nostr retrieval passed`, /RETRIEVED/.test(a.facts['Public Nostr retrieval'] ?? ''), a.facts['Public Nostr retrieval']);
     check(`[${tag}] A. accept function called once, record stored`, a.enforcement['Accept function calls (this issuance)'] === '1' && a.enforcement['Accepted record stored'] === 'yes', JSON.stringify(a.enforcement));
     check(`[${tag}] A. evidence actions: explorer links + downloads`, (await page.$$('#mint-evidence-card a[target="_blank"][rel~="noopener"]')).length >= 2 && (await page.isVisible('#mint-dl-public')));
+    check(`[${tag}] A. the decision is brought into view when reached`, await inViewport(page, '#mint-decision-badge'));
+    // Same-issuance retry, immediately — no refresh, no new mint, no second acceptance.
+    check(`[${tag}] A. "Retry verification (same issuance)" is offered on the result right away`, await page.isVisible('#mint-result-retry-btn'));
+    await tap(page, '#mint-result-retry-btn');
+    await waitResult(page, interval);
+    const a2 = await outcome(page);
+    check(`[${tag}] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1`, a2.code === 'ACCEPT_VERIFIED' && a2.enforcement['Accept function calls (this issuance)'] === '1' && /already accepted/.test(a2.enforcement['Calls made by this verification'] ?? '') && !a2.steps.some((s) => /issued a \d+-sat invoice/.test(s)), JSON.stringify(a2.enforcement));
     const dl = await Promise.all([page.waitForEvent('download', { timeout: 10_000 }), page.click('#mint-dl-public')]).then(([d]) => d).catch(() => null);
     check(`[${tag}] A. public evidence downloads`, !!dl && /solvent-public-evidence/.test(dl.suggestedFilename()), dl?.suggestedFilename());
     await tap(page, '#mint-dl-replay');
@@ -127,7 +135,7 @@ async function main() {
       c.facts['Receipt signature'] === 'VALID' && /^VALID/.test(c.facts['Epoch manifest'] ?? '') && /^VALID/.test(c.facts['Manifest key delegation'] ?? '') &&
       /RETRIEVED/.test(c.facts['Public Nostr retrieval'] ?? '') && /COVERED/.test(c.facts['Live reserve'] ?? '') && /MISSING/.test(c.facts['Promised issuance'] ?? '');
     check(`[${tag}] C. everything valid except the promised issuance`, onlyInclusion, JSON.stringify(c.facts));
-    check(`[${tag}] C. a proven refusal offers no "retry" (retry is for availability failures)`, !(await page.isVisible('#mint-retry-btn')));
+    check(`[${tag}] C. a proven refusal offers no "retry" (retry is for availability failures)`, !(await page.isVisible('#mint-retry-btn')) && !(await page.isVisible('#mint-result-retry-btn')));
     check(`[${tag}] C. accept function not called, store unchanged`, c.enforcement['Accept function calls'] === '0' && c.enforcement['Store changed'] === 'no', JSON.stringify(c.enforcement));
 
     // ---- D. transient relay outage, then retry of the same issuance
