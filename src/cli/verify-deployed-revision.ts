@@ -17,10 +17,11 @@ async function main(): Promise<void> {
   console.log(`expected:   ${expected}`);
   const ok = served !== null && served === expected;
   console.log(ok ? 'MATCH: the deployment serves exactly this commit.' : 'MISMATCH');
-  process.exit(ok ? 0 : 1);
+  // exitCode, not exit(): exiting with the fetch still tearing down aborts Node on Windows.
+  process.exitCode = ok ? 0 : 1;
 }
 
 main().catch((err) => {
   console.error('verify-deployed-revision failed:', (err as Error).message);
-  process.exit(1);
+  process.exitCode = 1;
 });
