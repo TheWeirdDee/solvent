@@ -27,7 +27,7 @@ Malformed or incomplete input is an **input error**, never a verdict about a min
 git clone https://github.com/TheWeirdDee/solvent && cd solvent
 npm ci
 npm test                 # unit + integration tests
-npm run attacks          # the 25-case attack corpus
+npm run attacks:check    # the 25-case attack corpus, compared with the committed records
 npm run verify:submission
 npm run dev              # the app on http://localhost:5173
 ```

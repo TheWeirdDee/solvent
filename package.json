@@ -21,6 +21,8 @@
     "gate5": "tsx src/cli/gate5.ts",
     "gate6": "tsx src/cli/gate6.ts",
     "attacks": "tsx src/cli/attacks.ts",
+    "attacks:check": "tsx src/cli/attacks.ts --check",
+    "verify:deployed-revision": "tsx src/cli/verify-deployed-revision.ts",
     "live-demo": "tsx src/cli/live-demo.ts",
     "live-demo:release": "npm run live-demo && npm run build",
     "verify:live-demo": "tsx src/cli/verify-live-demo.ts",

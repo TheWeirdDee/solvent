@@ -89,6 +89,9 @@
 html {
   scroll-behavior: smooth;
 }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 
 html,
 body {
@@ -4272,7 +4275,8 @@ body:not([data-route='home']) .nav-landing-anchor { display: none !important; }
 
 /* A result that no longer matches the input is visibly inactive. */
 .stale-note { margin: 0 0 14px; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--amber); background: var(--amber-dim); color: var(--text-on-dark); line-height: 1.5; }
-.result-card[data-stale='true'] > :not(.stale-note) { opacity: 0.45; }
+/* A withdrawn result is not shown as a verdict at all: only the note, which names it as previous. */
+.result-card[data-stale='true'] > :not(.stale-note) { display: none; }
 .mint-result-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
 .mint-result-actions .btn { flex: 1 1 220px; min-height: 44px; white-space: normal; }
 .mint-result-actions-note { margin: 8px 0 0; font-size: 0.86rem; color: var(--text-subtle-on-dark); line-height: 1.5; }

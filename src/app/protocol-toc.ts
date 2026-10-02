@@ -8,14 +8,26 @@
 let headings: HTMLHeadingElement[] = [];
 let links = new Map<string, HTMLAnchorElement>();
 let select: HTMLSelectElement | null = null;
+// A section chosen from the index: it stays marked while the page scrolls to
+// it (no flicker through the sections passed on the way), and afterwards if
+// it sits near the page end, where it cannot scroll up to the header.
+let chosen: string | null = null;
+let scrolling = false;
+let settleTimer: number | undefined;
 
 function headerBottom(): number {
   return document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
 }
 
-/** The section being read: the last heading at or above the header line (+ a small tolerance). */
+/** Where a heading comes to rest: below the header, at its scroll-margin-top. */
+function restingLine(): number {
+  const margin = headings[0] ? parseFloat(getComputedStyle(headings[0]).scrollMarginTop) || 0 : 0;
+  return Math.max(headerBottom(), margin);
+}
+
+/** The section being read: the last heading at or above its resting line (+ a small tolerance). */
 export function activeSectionId(): string | null {
-  const line = headerBottom() + 24;
+  const line = restingLine() + 24;
   let current: string | null = headings[0]?.id ?? null;
   for (const h of headings) {
     if (h.getBoundingClientRect().top <= line) current = h.id;
@@ -24,14 +36,36 @@ export function activeSectionId(): string | null {
   return current;
 }
 
+function chosenStillShown(): boolean {
+  const h = chosen ? document.getElementById(chosen) : null;
+  if (!h) return false;
+  const top = h.getBoundingClientRect().top;
+  const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+  return top >= headerBottom() - 1 && top < window.innerHeight && (atEnd || Math.abs(top - restingLine()) < 24);
+}
+
 function markActive(): void {
-  const id = activeSectionId();
+  const id = scrolling || chosenStillShown() ? chosen : activeSectionId();
   links.forEach((a, key) => a.classList.toggle('active', key === id));
   if (select && id) select.value = id;
 }
 
+/** Unpins the marker once the page has stopped scrolling. */
+function settleSoon(): void {
+  window.clearTimeout(settleTimer);
+  settleTimer = window.setTimeout(() => {
+    scrolling = false;
+    markActive();
+  }, 180);
+}
+
 function scrollToSection(id: string, smooth: boolean): void {
-  document.getElementById(id)?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+  chosen = id;
+  scrolling = true;
+  markActive();
+  // 'instant', not 'auto': the page's CSS smooth scrolling must not animate a jump the reader asked to be immediate.
+  document.getElementById(id)?.scrollIntoView({ behavior: smooth ? 'smooth' : ('instant' as ScrollBehavior), block: 'start' });
+  settleSoon();
 }
 
 function choose(id: string): void {
@@ -70,7 +104,9 @@ export function initProtocolToc(): void {
   window.addEventListener(
     'scroll',
     () => {
-      if (queued || document.getElementById('panel-protocol')?.hidden) return;
+      if (document.getElementById('panel-protocol')?.hidden) return;
+      if (scrolling) return settleSoon();
+      if (queued) return;
       queued = true;
       requestAnimationFrame(() => {
         queued = false;

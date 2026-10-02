@@ -6,6 +6,7 @@
 import { submissionBundleToJson } from './bundle-json.js';
 import {
   chainStates,
+  copyWithFeedback,
   decisionCopy,
   decisionFacts,
   escapeHtml,
@@ -160,7 +161,7 @@ export function initLabPanel(): void {
   checkBtn.addEventListener('click', onCheckLocal);
   fullBtn.addEventListener('click', () => void onFullVerification());
   copyBtn.addEventListener('click', () => {
-    if (latest) void navigator.clipboard?.writeText(submissionBundleToJson(latest.bundle));
+    if (latest) void copyWithFeedback(copyBtn, submissionBundleToJson(latest.bundle));
   });
   rotateBtn.addEventListener('click', () => {
     state = rotateLabKeyset(mint());

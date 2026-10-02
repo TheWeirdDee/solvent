@@ -428,6 +428,7 @@ function initEvidenceMode(): void {
     resultCard.dataset.stale = String(stale);
     staleNote.hidden = !stale;
     if (stale) {
+      byId('manual-stale-prev').textContent = (els.badge.textContent ?? '').trim() || 'a result';
       acceptBtn.disabled = true;
       statusEl.textContent = 'The evidence changed after the last verification. That result belongs to the previous input — verify again.';
     } else if (verifiedFingerprint !== null && currentVerifyInput && !accepted) {

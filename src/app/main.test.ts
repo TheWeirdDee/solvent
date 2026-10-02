@@ -297,8 +297,8 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     expect(section.querySelector('.section-heading')?.textContent).toMatch(/solvent makes\s*the mint.s promise\s*checkable/i);
     const flow = Array.from(section.querySelectorAll('.solution-flow li')).map((li) => li.textContent?.trim());
     expect(flow).toEqual(['Issuance', 'Signed liability receipt', 'Closed accounting state', 'Public Nostr evidence', 'Live Bitcoin reserve', 'Accept / Refuse']);
-    // Precise, not "valid token ≠ solvent mint. SOLVENT checks both."
-    expect(section.textContent).toMatch(/a valid cashu proof does not show that this issuance was counted in the mint.s committed liabilities/i);
+    // The premise is stated once, in "The problem"; the solution says where the checks run and what is trusted.
+    expect(section.textContent).toMatch(/no SOLVENT server is trusted for the verdict/i);
     expect(section.textContent).not.toMatch(/checks both/i);
   });
 
@@ -307,7 +307,7 @@ describe('SOLVENT web client (jsdom) — v2 landing page', () => {
     const section = byId<HTMLElement>('built-for');
     expect(section.textContent).toMatch(/built for/i);
     for (const who of ['Cashu wallets', 'Ecash apps', 'Mint operators', 'Users accepting ecash']) expect(section.textContent).toContain(who);
-    expect(section.textContent).toMatch(/not only that ecash is authentic, but that the mint actually accounted for it/i);
+    expect(section.textContent).toMatch(/decides whether a payment in ecash is good enough to accept/i);
   });
 
   it('the "what SOLVENT catches" section tells the broken-promise story, not the old v1 ratio-only story', async () => {

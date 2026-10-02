@@ -25,19 +25,22 @@ function readJsonIfExists<T>(p: string): T | null {
 }
 
 function gatherAttackCorpusStatus(): ExternalEvidenceStatus['attackCorpus'] {
+  // --check: reproduce every case in a temporary directory and compare it with the
+  // committed evidence/attacks/ — a gate run never rewrites committed evidence, and
+  // a case whose outcome no longer matches its committed record counts as failing.
+  const parse = (output: string): ExternalEvidenceStatus['attackCorpus'] => {
+    const match = output.match(/(\d+)\/(\d+) attacks produced the expected outcome/);
+    if (!match) return null;
+    const differing = Number(output.match(/(\d+) case\(s\) differ from the committed/)?.[1] ?? 0);
+    return { passed: Math.max(0, Number(match[1]) - differing), total: Number(match[2]), expectedTotal: EXPECTED_ATTACK_COUNT };
+  };
   try {
     // shell: true so Windows resolves npx.cmd (execFileSync does not use a
     // shell by default, and a bare 'npx' spawn fails with ENOENT there).
-    const output = execFileSync('npx', ['tsx', 'src/cli/attacks.ts'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: true });
-    const match = output.match(/(\d+)\/(\d+) attacks produced the expected outcome/);
-    if (!match) return null;
-    return { passed: Number(match[1]), total: Number(match[2]), expectedTotal: EXPECTED_ATTACK_COUNT };
+    return parse(execFileSync('npx', ['tsx', 'src/cli/attacks.ts', '--check'], { cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: true }));
   } catch (err) {
-    // attacks.ts exits non-zero when any attack fails — that output is still on stdout.
-    const output = (err as { stdout?: string }).stdout ?? '';
-    const match = output.match(/(\d+)\/(\d+) attacks produced the expected outcome/);
-    if (!match) return null;
-    return { passed: Number(match[1]), total: Number(match[2]), expectedTotal: EXPECTED_ATTACK_COUNT };
+    // attacks.ts exits non-zero when any case fails or differs — that output is still on stdout.
+    return parse((err as { stdout?: string }).stdout ?? '');
   }
 }
 
@@ -72,7 +75,7 @@ async function main() {
 
   console.log('\nEvidence:');
   console.log('  evidence/gate-0/  evidence/gate-1/  evidence/gate-2/  evidence/gate-4/  evidence/nostr/  evidence/reserves/  evidence/hero/  evidence/attacks/');
-  console.log('\nRun `npm run gate0`..`gate6` individually to regenerate evidence files, or `npm run attacks` for the full attack corpus.');
+  console.log('\nRun `npm run gate0`..`gate6` individually to regenerate evidence files, or `npm run attacks` for the full attack corpus (`npm run attacks:check` compares without writing).');
   console.log('The "Canonical Live Public Demo" line is a real, right-now check (see `npm run verify:live-demo` for the same check with full diagnostic detail) — everything else above it reads previously-recorded evidence files.');
   console.log('See docs/draft-alignment.md and docs/trust-boundaries.md for exactly what is real vs. not yet implemented.');
 

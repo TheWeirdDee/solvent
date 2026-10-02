@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--SOLVENT_REVISION_META-->
     <title>SOLVENT</title>
     <meta
       name="description"
@@ -155,7 +156,7 @@
         <p class="eyebrow eyebrow-center">In plain words</p>
         <h2 class="section-heading section-heading-center">Five words you will see.</h2>
         <dl class="primer-grid">
-          <div><dt>Cashu proof</dt><dd>The ecash token you received. The mint&rsquo;s signature makes it spendable.</dd></div>
+          <div><dt>Cashu proof</dt><dd>The ecash token you received. The mint&rsquo;s signature shows it is genuine; whether it is still unspent and redeemable is something only the mint can answer when you spend it.</dd></div>
           <div><dt>Receipt</dt><dd>The mint&rsquo;s signed promise to count your issuance in a specific accounting period.</dd></div>
           <div><dt>Epoch</dt><dd>One accounting period. When it closes, the mint signs a summary of the liabilities it has recorded.</dd></div>
           <div><dt>Liability commitment</dt><dd>That signed summary: a total plus a structure (a sum-MMR) proving exactly which issuances it includes.</dd></div>
@@ -182,7 +183,7 @@
           <li>Live Bitcoin reserve</li>
           <li class="solution-flow-final">Accept / Refuse</li>
         </ol>
-        <p class="solution-punchline">A valid Cashu proof does not show that this issuance was counted in the mint&rsquo;s committed liabilities. SOLVENT checks the mint&rsquo;s signed accounting evidence and observed reserve before acceptance.</p>
+        <p class="solution-punchline">Every check runs in your browser, on data anyone can fetch: the mint&rsquo;s own signatures, public Nostr relays and the Bitcoin chain. No SOLVENT server is trusted for the verdict.</p>
        </div>
       </section>
 
@@ -191,7 +192,7 @@
        <div class="section-inner">
         <p class="eyebrow eyebrow-center">Built for</p>
         <h2 class="section-heading section-heading-center">Anyone who has to decide<br />whether to accept ecash.</h2>
-        <p class="who-for-lede">For anyone who needs to know not only that ecash is authentic, but that the mint actually accounted for it.</p>
+        <p class="who-for-lede">Four places where someone decides whether a payment in ecash is good enough to accept.</p>
         <div class="who-for-grid">
           <div class="who-for-card">
             <p class="who-for-title">Cashu wallets</p>
@@ -229,7 +230,7 @@
               <li>The epoch&rsquo;s own signed manifest can look internally consistent</li>
               <li>The promised issuance can still be missing from it</li>
             </ul>
-            <a href="#/docs?doc=attack-corpus" class="btn btn-outline">See every refusal case &rarr;</a>
+            <a href="#/docs?doc=attack-corpus" class="btn btn-outline">See every attack case &rarr;</a>
           </div>
 
           <div class="promise-chain-card" aria-describedby="promise-illustration-note">
@@ -576,7 +577,7 @@
             <button id="mint-result-retry-btn" type="button" class="btn btn-outline" hidden>Retry verification (same issuance)</button>
             <button id="mint-again-btn" type="button" class="btn btn-outline">Start again (new issuance)</button>
           </div>
-          <p class="mint-result-actions-note">Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.</p>
+          <p id="mint-result-actions-note" class="mint-result-actions-note">Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.</p>
         </div>
         <p id="mint-status" class="status" aria-live="polite"></p>
       </div>
@@ -678,7 +679,7 @@
         </div>
 
         <div id="manual-result" class="result-card" hidden>
-          <p id="manual-stale-note" class="stale-note" role="status" hidden>The evidence has changed since this result. It applies to the previous input only &mdash; <strong>verify again</strong> before accepting.</p>
+          <p id="manual-stale-note" class="stale-note" role="status" hidden><strong>Previous result withdrawn.</strong> It was <code id="manual-stale-prev"></code> for the evidence as it was before your change; it says nothing about what is in the box now. <strong>Verify again</strong> before accepting.</p>
           <div id="manual-decision-badge" class="decision-badge"></div>
           <p id="manual-decision-headline" class="decision-headline"></p>
           <p id="manual-decision-body" class="decision-body"></p>
@@ -1024,7 +1025,7 @@
             <a href="#/docs?doc=faq">FAQ</a>
           </div>
         </div>
-        <p class="footer-bottom">SOLVENT &middot; BOSS Battle 2026 &middot; MIT</p>
+        <p class="footer-bottom">SOLVENT &middot; BOSS Battle 2026 &middot; MIT &middot; <!--SOLVENT_REVISION_LINK--></p>
       </div>
     </footer>
 

@@ -54,10 +54,10 @@ Field notes:
 
 ## Relays used for the demo
 
-SOLVENT publishes to:
+**Historical / captured configuration.** The original demo of this event, and the evidence it captured, published to:
 
 - `wss://relay.damus.io`
 - `wss://nos.lol`
 - `wss://relay.nostr.band`
 
-In testing, `relay.damus.io` and `nos.lol` reliably accepted the event; `relay.nostr.band` occasionally timed out. The publisher CLI (`npm run publish:event`) reports per-relay success/failure on every run — see its output for which relays actually accepted a given publish, per the PRD's "test relays, don't assume" rule.
+In testing at the time, `relay.damus.io` and `nos.lol` reliably accepted the event; `relay.nostr.band` occasionally timed out. **The current public demo** publishes kind 8181 to `POL_RELAYS` (`src/nostr/pol-evidence.ts`): `wss://nos.lol`, `wss://relay.primal.net`, `wss://nostr.mom`, `wss://offchain.pub` and `wss://relay.snort.social`. See [`nostr-schema.md`](nostr-schema.md). The publisher CLI (`npm run publish:event`) reports per-relay success/failure on every run — see its output for which relays actually accepted a given publish, per the PRD's "test relays, don't assume" rule.

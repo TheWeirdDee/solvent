@@ -4,7 +4,13 @@
 // verify-submission.ts, mutating exactly one thing per attack and running
 // it through the real verify()/receipt/manifest/mmr primitives — no
 // attack's outcome is asserted without actually exercising the code.
-import { mkdirSync, writeFileSync } from 'node:fs';
+//
+//   --out <dir>  write the corpus to <dir> instead of evidence/attacks/
+//   --check      reproduce independently: write to a temporary directory and
+//                compare every case's expected/actual outcome with the
+//                committed evidence/attacks/, which is never touched
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { createRandomSecretKey, getPubKeyFromPrivKey, type Proof } from '@cashu/cashu-ts';
 import { generateSecretKey } from 'nostr-tools';
@@ -32,7 +38,33 @@ import { generateSignetReserveKey } from '../reserve/taproot.js';
 import { verify, type VerifyInput, type VerifyResult } from '../verifier/verify.js';
 import { verifySubmission, type ChainStateFetchFn, type RelayFetchFn, type SubmissionBundle } from '../app/submission.js';
 
-const EVIDENCE_ROOT = path.resolve(import.meta.dirname, '..', '..', 'evidence', 'attacks');
+const COMMITTED_ROOT = path.resolve(import.meta.dirname, '..', '..', 'evidence', 'attacks');
+const CHECK = process.argv.includes('--check');
+const outArg = process.argv.indexOf('--out');
+const EVIDENCE_ROOT = CHECK
+  ? mkdtempSync(path.join(os.tmpdir(), 'solvent-attacks-'))
+  : outArg > 0 && process.argv[outArg + 1]
+    ? path.resolve(process.argv[outArg + 1]!)
+    : COMMITTED_ROOT;
+
+/** The expected/actual/verdict lines of a verify.txt (its first line only names the case). */
+function outcomeOf(file: string): string {
+  return existsSync(file) ? readFileSync(file, 'utf8').replace(/\r/g, '').trim().split('\n').slice(1).join(' | ') : '(missing)';
+}
+
+/** Every case reproduced in EVIDENCE_ROOT must match the committed record, and no committed case may be missing. */
+function compareWithCommitted(): string[] {
+  const fresh = new Set(readdirSync(EVIDENCE_ROOT));
+  const committed = readdirSync(COMMITTED_ROOT).filter((d) => /^A\d\d-/.test(d));
+  const diffs: string[] = [];
+  for (const d of committed) {
+    if (!fresh.has(d)) diffs.push(`${d}: not reproduced`);
+    else if (outcomeOf(path.join(EVIDENCE_ROOT, d, 'verify.txt')) !== outcomeOf(path.join(COMMITTED_ROOT, d, 'verify.txt')))
+      diffs.push(`${d}: reproduced "${outcomeOf(path.join(EVIDENCE_ROOT, d, 'verify.txt'))}" vs committed "${outcomeOf(path.join(COMMITTED_ROOT, d, 'verify.txt'))}"`);
+  }
+  for (const d of fresh) if (!committed.includes(d)) diffs.push(`${d}: reproduced but not committed`);
+  return diffs;
+}
 
 interface AttackOutcome {
   id: string;
@@ -527,8 +559,18 @@ async function main() {
   }
   const passCount = outcomes.filter((o) => o.pass).length;
   console.log(`\n${passCount}/${outcomes.length} attacks produced the expected outcome.`);
-  console.log(`Evidence written to evidence/attacks/`);
+  console.log(`Evidence written to ${path.relative(process.cwd(), EVIDENCE_ROOT) || EVIDENCE_ROOT}`);
 
+  if (CHECK) {
+    const diffs = compareWithCommitted();
+    for (const d of diffs) console.log(`  MISMATCH ${d}`);
+    console.log(
+      diffs.length === 0
+        ? `Independent reproduction matches the committed evidence/attacks/ case for case (${outcomes.length}); the committed files were not modified.`
+        : `${diffs.length} case(s) differ from the committed evidence/attacks/.`,
+    );
+    process.exit(passCount === outcomes.length && diffs.length === 0 ? 0 : 1);
+  }
   process.exit(passCount === outcomes.length ? 0 : 1);
 }
 

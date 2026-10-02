@@ -121,10 +121,11 @@ let current: { run: MintRun; evidence: IssuanceResponse | null; verification: Su
 const reducedMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** Brings an element into view only if it is not already visible — never scroll-jacks a reader who looked away. */
-function reveal(target: HTMLElement, block: ScrollLogicalPosition): void {
+function reveal(target: HTMLElement, block: ScrollLogicalPosition, withinTop = 1): void {
   const r = target.getBoundingClientRect();
   const topbar = document.querySelector('.topbar')?.getBoundingClientRect().bottom ?? 0;
-  if (r.top >= topbar && r.bottom <= window.innerHeight) return;
+  // Already on screen (and, when asked, in the top part of it, so what follows it is readable too).
+  if (r.top >= topbar && r.bottom <= window.innerHeight && r.top <= window.innerHeight * withinTop) return;
   target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block });
 }
 
@@ -202,6 +203,7 @@ function renderReality(cfg: RealMintConfig, info: { name?: string; version?: str
       : 'Demo fakewallet — invoices settle automatically; no real Lightning payment';
   const rows: [string, string][] = [
     ['Mint', `${info.name ?? 'Cashu mint'} — ${cfg.mintUrl}`],
+    ['Evidence service', `${cfg.evidenceUrl} (closes and publishes epochs; reports the mint's status)`],
     ['Cashu mint', `Real CDK mint (${info.version ?? 'cdk-mintd'}), patched with SOLVENT's PoL receipts`],
     ['Mint identity (NUT-06)', info.pubkey ?? 'not advertised'],
     ['Liability accounting', `Real epochs, closed about every ${s.epoch_interval_seconds}s when they hold liabilities`],
@@ -572,9 +574,13 @@ function showResult(): void {
   // retry re-checks a finished honest run (or a could-not-complete one) in place.
   el('mint-retry-btn').hidden = cls !== 'availability';
   el('mint-result-retry-btn').hidden = cls === 'refusal';
+  el('mint-result-actions-note').textContent =
+    cls === 'refusal'
+      ? 'This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.'
+      : 'Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.';
   el('mint-result').hidden = false;
   // The decision is the point of the run: bring its headline into view.
-  reveal(el('mint-decision-badge'), 'start');
+  reveal(el('mint-decision-badge'), 'start', 0.4);
 }
 
 export function initRealMintPanel(): void {

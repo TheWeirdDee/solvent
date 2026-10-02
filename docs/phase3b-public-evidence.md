@@ -82,7 +82,7 @@ The existing schema is unchanged. Phase 3B adds optional fields (`docs/nostr-sch
 
 **The locally built event is then discarded.** The bundle given to `verifySubmission` carries the *fetched* event, and `verifySubmission` queries the relays again independently. `REFUSE_NOSTR_EVENT_NOT_FOUND` (relays reachable, event absent) and `REFUSE_NOSTR_UNAVAILABLE` (no relay reachable) stay distinct.
 
-**Relays** are the documented `POL_RELAYS` (damus, nos.lol, nostr.band) unless `SOLVENT_NOSTR_RELAYS` overrides them. Nothing adds relays silently.
+**Relays** are the documented `POL_RELAYS` unless `SOLVENT_NOSTR_RELAYS` overrides them. That set is currently nos.lol, relay.primal.net, nostr.mom, offchain.pub and relay.snort.social. The committed CI run `ci-36614823173-lnd` predates that set and used the historical one: damus, nos.lol and nostr.band. Nothing adds relays silently.
 
 ## Evidence validity is not epoch length
 

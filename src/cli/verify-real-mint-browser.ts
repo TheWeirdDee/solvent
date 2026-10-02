@@ -15,7 +15,9 @@
 // this test browser only (Playwright routing) — nothing on the servers changes.
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
+import { SimplePool, verifyEvent, type NostrEvent } from 'nostr-tools';
 import { chromium, webkit, type Page } from 'playwright';
+import { POL_RELAYS } from '../nostr/pol-evidence.js';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
@@ -47,7 +49,19 @@ async function outcome(page: Page): Promise<Outcome> {
 
 /** Click after an instant scroll: the site's smooth scrolling can otherwise move a target under the click point (seen in WebKit). */
 async function tap(page: Page, sel: string): Promise<void> {
-  await page.$eval(sel, (e) => e.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior }));
+  // Web fonts arriving late reflow the page (seen in WebKit): click only once the target has stopped moving.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  let last = '';
+  for (let i = 0; i < 20; i++) {
+    const now = await page.$eval(sel, (e) => {
+      e.scrollIntoView({ block: 'center', behavior: 'instant' as ScrollBehavior });
+      const r = e.getBoundingClientRect();
+      return `${Math.round(r.top)}:${Math.round(r.left)}`;
+    });
+    if (now === last) break;
+    last = now;
+    await page.waitForTimeout(150);
+  }
   await page.click(sel);
 }
 
@@ -60,6 +74,52 @@ async function inViewport(page: Page, sel: string): Promise<boolean> {
     const r = el.getBoundingClientRect();
     return !(el as HTMLElement).hidden && r.top < window.innerHeight && r.bottom > 0;
   });
+}
+
+/** The evidence card's label/value rows. */
+async function evidenceRows(page: Page): Promise<Record<string, string>> {
+  return Object.fromEntries(await page.$$eval('#mint-evidence-card dt', (dts) => dts.map((dt) => [dt.textContent?.trim() ?? '', (dt.nextElementSibling?.textContent ?? '').trim()])));
+}
+
+/**
+ * Outside the browser and the app: fetch the event the page reported straight from the public relays
+ * and check it with nostr-tools' own verifyEvent (id = hash of the content, valid Schnorr signature),
+ * then compare what it commits to with what the page showed.
+ */
+async function independentEventCheck(rows: Record<string, string>, mintUrl: string): Promise<{ ok: boolean; detail: string }> {
+  const id = rows['Nostr event'] ?? '';
+  if (!/^[0-9a-f]{64}$/.test(id)) return { ok: false, detail: `no event id on the page (${id})` };
+  const pool = new SimplePool();
+  try {
+    const events: NostrEvent[] = await pool.querySync(POL_RELAYS, { ids: [id] }, { maxWait: 8000 });
+    const ev = events.find((e) => e.id === id);
+    if (!ev) return { ok: false, detail: `event ${id.slice(0, 12)}… not served by any of ${POL_RELAYS.length} relays` };
+    const content = JSON.parse(ev.content) as { mint?: string; epoch_index?: number; manifest_digest?: string };
+    const problems = [
+      !verifyEvent(ev) && 'signature/id invalid',
+      ev.kind !== 8181 && `kind ${ev.kind}`,
+      content.manifest_digest !== rows['Manifest digest'] && `manifest digest ${content.manifest_digest} vs page ${rows['Manifest digest']}`,
+      String(content.epoch_index) !== rows['Receipt target epoch'] && `epoch ${content.epoch_index} vs receipt ${rows['Receipt target epoch']}`,
+      mintUrl !== '-' && content.mint?.replace(/\/$/, '') !== mintUrl.replace(/\/$/, '') && `mint ${content.mint}`,
+    ].filter(Boolean);
+    return { ok: problems.length === 0, detail: problems.length ? problems.join('; ') : `event ${id} kind 8181, signature valid, epoch ${content.epoch_index}, manifest digest ${content.manifest_digest} matches the page` };
+  } finally {
+    pool.close(POL_RELAYS);
+  }
+}
+
+/** A copy button must say whether it worked; where the browser lets the test read the clipboard, the copied text must be exact. */
+async function copyCheck(page: Page, label: string, canReadClipboard: boolean): Promise<{ ok: boolean; detail: string }> {
+  // A handle, not a text locator: the label itself changes when the copy is confirmed.
+  const btn = (await page.locator('#mint-evidence-card .copy-evidence-btn', { hasText: label }).first().elementHandle())!;
+  const expected = (await btn.getAttribute('data-copy')) ?? '';
+  await btn.scrollIntoViewIfNeeded();
+  await btn.click();
+  await page.waitForTimeout(300);
+  const feedback = ((await btn.textContent()) ?? '').trim();
+  const copied = canReadClipboard ? await page.evaluate(() => navigator.clipboard.readText()).catch(() => null) : null;
+  const ok = /^Copied ✓$|^Copy failed/.test(feedback) && (!canReadClipboard || (feedback === 'Copied ✓' && copied === expected));
+  return { ok, detail: `"${feedback}"${canReadClipboard ? `, clipboard ${copied === expected ? 'holds exactly the value' : 'differs'}` : ' (clipboard not readable in this engine)'}` };
 }
 
 async function main() {
@@ -78,11 +138,14 @@ async function main() {
   try {
     const height = Number(opt('--height') ?? (width <= 430 ? '844' : '1000'));
     const ctx = await browser.newContext({ viewport: { width, height }, acceptDownloads: true, ...(width <= 430 ? { hasTouch: true, isMobile: which !== 'webkit' ? true : undefined } : {}) });
+    const canReadClipboard = which === 'chromium';
+    if (canReadClipboard) await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(base).origin });
     const page = await ctx.newPage();
     await page.goto(url);
     await page.waitForFunction(() => (document.getElementById('mint-reality')?.textContent ?? '').length > 0, undefined, { timeout: 30_000 });
     const reality = (await page.textContent('#mint-reality')) ?? '';
     check(`[${tag}] the page shows the mint, its NUT-06 identity and an honest Lightning label`, /Real CDK mint/.test(reality) && /NUT-06/.test(reality) && /(Real Lightning|Demo fakewallet)/.test(reality));
+    check(`[${tag}] the page names both backends: the mint and its evidence service`, /Evidence service/.test(reality) && /https?:\/\//.test(reality.split('Evidence service')[1] ?? ''));
     check(`[${tag}] live status is labelled LIVE with a real time`, /LIVE RAILWAY MINT/.test((await page.textContent('#mint-live-status')) ?? '') && /UTC/.test((await page.textContent('#mint-live-status')) ?? ''));
     const interval = 300_000;
 
@@ -91,18 +154,40 @@ async function main() {
     await page.waitForTimeout(800);
     check(`[${tag}] A. progress appears in the viewport immediately`, await inViewport(page, '#mint-op'));
     check(`[${tag}] A. disabled buttons say why`, ((await page.textContent('#mint-busy-reason')) ?? '').length > 0 && (await page.isDisabled('#mint-omit-btn')));
+    if (await page.locator('#mint-op').isHidden()) {
+      const diag = await page.evaluate(() => {
+        const b = document.getElementById('mint-honest-btn') as HTMLButtonElement;
+        const r = b.getBoundingClientRect();
+        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+        return `button top ${Math.round(r.top)} disabled ${b.disabled}; under its centre: ${hit?.id || hit?.className || hit?.tagName}; scrollY ${Math.round(window.scrollY)}; status "${document.getElementById('mint-status')?.textContent ?? ''}"`;
+      });
+      throw new Error(`the honest run did not start: ${diag}`);
+    }
     const details = new Set<string>();
     const sampler = setInterval(() => void page.textContent('#mint-op-detail').then((t) => t && details.add(t)).catch(() => {}), 700);
     await waitResult(page, interval);
     clearInterval(sampler);
     const a = await outcome(page);
-    await shot(page, 'honest');
     check(`[${tag}] A. progress named the epoch wait or publishing stage`, [...details].some((d) => /Waiting for epoch \d+ to close|Publishing epoch|Fetching epoch|Observing the Mutinynet reserve|closed; waiting for its public evidence/.test(d)), [...details].slice(0, 3).join(' | '));
     check(`[${tag}] A. honest -> ACCEPT_VERIFIED`, a.code === 'ACCEPT_VERIFIED', `${a.badge} (${a.code})`);
     check(`[${tag}] A. Nostr retrieval passed`, /RETRIEVED/.test(a.facts['Public Nostr retrieval'] ?? ''), a.facts['Public Nostr retrieval']);
     check(`[${tag}] A. accept function called once, record stored`, a.enforcement['Accept function calls (this issuance)'] === '1' && a.enforcement['Accepted record stored'] === 'yes', JSON.stringify(a.enforcement));
     check(`[${tag}] A. evidence actions: explorer links + downloads`, (await page.$$('#mint-evidence-card a[target="_blank"][rel~="noopener"]')).length >= 2 && (await page.isVisible('#mint-dl-public')));
-    check(`[${tag}] A. the decision is brought into view when reached`, await inViewport(page, '#mint-decision-badge'));
+    // A smooth scroll may still be running when the result appears: allow it to finish.
+    const decisionInView = await page
+      .waitForFunction(() => { const r = document.getElementById('mint-decision-badge')!.getBoundingClientRect(); return r.top >= 0 && r.top <= window.innerHeight * 0.4; }, undefined, { timeout: 2000 })
+      .then(() => true, () => false);
+    const where = await page.$eval('#mint-decision-badge', (b) => `badge top ${Math.round(b.getBoundingClientRect().top)}, scrollY ${Math.round(window.scrollY)}, viewport ${window.innerHeight}`);
+    check(`[${tag}] A. the decision is brought into the top part of the screen when reached`, decisionInView, where);
+    // After the in-view check: a full-page screenshot resizes the page and resets its scroll.
+    await shot(page, 'honest');
+    const aRows = await evidenceRows(page);
+    const aInd = await independentEventCheck(aRows, mint);
+    check(`[${tag}] A. independent check of the fresh event (Node + nostr-tools, outside the app)`, aInd.ok, aInd.detail);
+    for (const label of ['Copy event ID', 'Copy receipt']) {
+      const cc = await copyCheck(page, label, canReadClipboard);
+      check(`[${tag}] A. "${label}" gives visible feedback`, cc.ok, cc.detail);
+    }
     // Same-issuance retry, immediately — no refresh, no new mint, no second acceptance.
     check(`[${tag}] A. "Retry verification (same issuance)" is offered on the result right away`, await page.isVisible('#mint-result-retry-btn'));
     await tap(page, '#mint-result-retry-btn');
@@ -113,6 +198,12 @@ async function main() {
     check(`[${tag}] A. public evidence downloads`, !!dl && /solvent-public-evidence/.test(dl.suggestedFilename()), dl?.suggestedFilename());
     await tap(page, '#mint-dl-replay');
     check(`[${tag}] A. full replay bundle warns before downloading the proof secret`, await page.isVisible('#mint-replay-warning'));
+    // Confirming completes the download (Playwright keeps it in a temporary file, deleted with the browser; it is never saved here).
+    const replay = await Promise.all([page.waitForEvent('download', { timeout: 10_000 }), tap(page, '#mint-dl-replay-confirm')]).then(([d]) => d).catch(() => null);
+    const replayOk = !!replay && /solvent-replay-bundle-epoch-\d+\.json/.test(replay.suggestedFilename()) && (await replay.failure()) === null;
+    check(`[${tag}] A. after the warning, the replay bundle download completes`, replayOk, replay?.suggestedFilename());
+    const publicOk = !!dl && (await dl.failure()) === null;
+    check(`[${tag}] A. the public evidence download completed (not just started)`, publicOk);
 
     // ---- B. reload restores; retry never accepts twice
     await page.reload();
@@ -136,6 +227,9 @@ async function main() {
       /RETRIEVED/.test(c.facts['Public Nostr retrieval'] ?? '') && /COVERED/.test(c.facts['Live reserve'] ?? '') && /MISSING/.test(c.facts['Promised issuance'] ?? '');
     check(`[${tag}] C. everything valid except the promised issuance`, onlyInclusion, JSON.stringify(c.facts));
     check(`[${tag}] C. a proven refusal offers no "retry" (retry is for availability failures)`, !(await page.isVisible('#mint-retry-btn')) && !(await page.isVisible('#mint-result-retry-btn')));
+    check(`[${tag}] C. the note under a refusal does not mention a Retry that is not offered`, !/Retry/.test((await page.textContent('#mint-result-actions-note')) ?? ''), (await page.textContent('#mint-result-actions-note')) ?? '');
+    const cInd = await independentEventCheck(await evidenceRows(page), mint);
+    check(`[${tag}] C. independent check of the broken-promise event (Node + nostr-tools, outside the app)`, cInd.ok, cInd.detail);
     check(`[${tag}] C. accept function not called, store unchanged`, c.enforcement['Accept function calls'] === '0' && c.enforcement['Store changed'] === 'no', JSON.stringify(c.enforcement));
 
     // ---- D. transient relay outage, then retry of the same issuance

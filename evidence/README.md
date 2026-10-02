@@ -64,6 +64,12 @@ The public demo mint is a real patched CDK `cdk-mintd` on Railway with **fakewal
 
 Each issuance on <https://solvent-ashen.vercel.app/#/mint> is verified in the browser, and its evidence can be downloaded from the result.
 
+### Real-browser runs against the live backend
+
+| Folder | What it is | Re-run |
+|---|---|---|
+| [`browser-runs/2026-10-02/`](browser-runs/2026-10-02/) | Logs and screenshots from Chromium (1363×936, 390×844) and WebKit (390×844). Each browser runs the full live-mint flow: honest ACCEPT, same-issuance retry, broken-promise REFUSE, and relay outage then recovery. It also checks phone navigation, upload, drag-and-drop, and a result being withdrawn when its input changes. Every fresh Nostr event was also checked outside the app, with its full id listed | `npm run verify:real-mint:browser`, `npm run verify:ui:browser` (see the folder's README) |
+
 ---
 
 ## 3. Local fakewallet reproductions
@@ -87,7 +93,7 @@ Earlier, deterministic records of the mechanism. These are real cryptography and
 | [`nostr/`](nostr/) (the other files) | Gate 5: a kind 8181 publish and fetch-back | 2026-09-22 |
 | [`reserves/`](reserves/) | Gate 6: a signed reserve attestation. `reserve-key.json` is a **published test key**, used for the reference case only | 2026-09-22 |
 | [`gate-0/`](gate-0/), [`gate-1/`](gate-1/), [`gate-2/`](gate-2/), [`gate-4/`](gate-4/), [`hero/`](hero/) | NUT-12 reconstruction, receipts, sum-MMR and manifest, acceptance enforcement, and the hero omission contradiction | `npm run gate0` … `gate6` |
-| [`attacks/`](attacks/) | 25 adversarial cases with expected outcomes | `npm run attacks` (25/25) |
+| [`attacks/`](attacks/) | 25 adversarial cases with expected outcomes. 23 attacks are refused for the right reason, and the 2 honest controls (A01, A17) are accepted | `npm run attacks:check` reproduces all 25 in a temporary directory and compares each with the committed record, without modifying it. `npm run attacks` regenerates the folder |
 
 ---
 

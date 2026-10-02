@@ -169,7 +169,9 @@ npm run gate2     # signed epoch + hero omission contradiction
 npm run gate4     # real acceptance side effect
 npm run gate5     # real Nostr publish/fetch against public relays
 npm run gate6     # real Signet reserve attestation
-npm run attacks   # the full 25-case attack corpus
+npm run attacks   # the full 25-case attack corpus (regenerates evidence/attacks/)
+npm run attacks:check     # reproduces the 25 cases in a temp dir and compares each with the committed evidence/attacks/
+npm run verify:deployed-revision -- [url]  # which commit a deployment serves (the build stamps it into the page), compared with HEAD
 npm run live-demo         # generates + publishes the reference case used by /verify's Re-check published evidence and "Load live example"
 npm run live-demo:release # live-demo + build in one step — the evidence is bundled at build time, so a rebuild is required for a deployed site to see it
 npm run verify:live-demo  # independently re-verifies the Live Public Demo is still live + fresh right now (real relay fetch, real Esplora query, network-aware exact expiry)

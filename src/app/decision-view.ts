@@ -361,11 +361,32 @@ export function copyLinkRow(label: string, fullValue: string, explorerUrl: strin
   return `<div class="evidence-links"><button type="button" class="btn btn-outline btn-sm copy-evidence-btn" data-copy="${safe}">${label}</button><a href="${explorerUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-sm">${explorerLabel} ↗</a></div>`;
 }
 
+/** Copies `text` and says on the button whether it worked (the label is announced to screen readers). */
+export async function copyWithFeedback(btn: HTMLButtonElement, text: string): Promise<void> {
+  const label = btn.dataset.label ?? (btn.dataset.label = btn.textContent ?? 'Copy');
+  btn.setAttribute('aria-live', 'polite');
+  let ok = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    }
+  } catch {
+    ok = false;
+  }
+  btn.textContent = ok ? 'Copied ✓' : 'Copy failed — select it from the evidence details';
+  btn.dataset.copied = String(ok);
+  window.setTimeout(() => {
+    btn.textContent = label;
+    delete btn.dataset.copied;
+  }, ok ? 2000 : 4000);
+}
+
 export function bindCopyButtons(root: HTMLElement): void {
   root.querySelectorAll<HTMLButtonElement>('.copy-evidence-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
       const val = btn.dataset.copy;
-      if (val) void navigator.clipboard?.writeText(val);
+      if (val) void copyWithFeedback(btn, val);
     });
   });
 }

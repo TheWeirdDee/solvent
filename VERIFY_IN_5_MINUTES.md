@@ -23,7 +23,7 @@ Follow [Start here](#/docs?doc=start-here):
 ```bash
 npm ci
 npm test                    # unit + integration + jsdom UI suites (official NUT-12 and PR #388 vectors included)
-npm run attacks             # the 25-case attack corpus
+npm run attacks:check       # reproduce all 25 attack cases and compare each with evidence/attacks/ (never modifies it)
 npm run verify:submission   # the mechanism gates, the reference case checked live, and the submission materials
 npm run verify:phase3b-evidence -- evidence/real-pol/ci-36614823173-lnd/phase3b   # offline replay of the real-LND Phase 3B record
 ```
@@ -45,6 +45,7 @@ The line **"Canonical Live Public Demo"** in its output is a check performed rig
 - **Real-LND NUT-05:** [`nut05-melt.json`](evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json). An inspectable record.
 - **Phase 3A:** [`phase3a/`](evidence/real-pol/ci-36614823173-lnd/phase3a/). A public audit record, not offline-replay complete (never-spent proof secrets were withheld).
 - **Attacks:** `ATTACKS.md` and `evidence/attacks/`.
+- **Real browsers against the live mint:** [`evidence/browser-runs/2026-10-02/`](evidence/browser-runs/2026-10-02/). These are Chromium and WebKit logs and screenshots, including at phone width, with full ids for every fresh Nostr event.
 
 The full index is [`evidence/README.md`](evidence/README.md).
 
@@ -52,7 +53,7 @@ The full index is [`evidence/README.md`](evidence/README.md).
 
 ```bash
 npm run gate0 … gate6     # the captured reference mechanism evidence (evidence/gate-*, nostr/, reserves/, hero/)
-npm run attacks           # evidence/attacks/
+npm run attacks           # regenerates evidence/attacks/ (use attacks:check to compare without writing)
 npm run live-demo         # republish the reference case (evidence/nostr/live-demo.json)
 npm run verify:live-demo  # re-check the reference case right now
 ```

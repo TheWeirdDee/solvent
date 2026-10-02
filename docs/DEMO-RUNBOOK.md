@@ -10,6 +10,7 @@ Say plainly, once, that the public mint's Lightning is **fakewallet** (a demo ba
 curl -s https://solvent-production-2029.up.railway.app/v1/info | head -c 120   # real CDK mint: cdk-mintd/0.18.1, pubkey 0294d5b0…
 curl -s https://solvent-production-9c92.up.railway.app/healthz                 # evidence service: {"ok":true,…}
 npm run verify:submission    # expect: ENGINEERING READY / SUBMISSION BLOCKED: DEMO VIDEO URL (until this video's URL is added)
+npm run verify:deployed-revision   # the site serves the commit you expect
 ```
 
 Use a fresh browser profile, so no earlier issuance is restored.
@@ -39,7 +40,7 @@ Use a fresh browser profile, so no earlier issuance is restored.
 | 19 | 3:50 | Header → **Evidence** (`#/publish`) | "Every record is here." |
 | 20 | 4:00 | Real-LND Phase 3B card: `ACCEPT_VERIFIED` (13/13), `REFUSE_ISSUANCE_OMITTED` (only inclusion fails), the committed files, CI run 36614823173 | "The same pipeline over real Lightning, in CI. It's committed, and it replays offline." |
 | 21 | 4:20 | Real-LND NUT-05 card | "A real Lightning payment by melting ecash, with the change accounted for." |
-| 22 | 4:35 | Landing → attack corpus, `npm run attacks` | "25 adversarial cases, each refused for the right reason." |
+| 22 | 4:35 | Landing → attack corpus, `npm run attacks:check` | "25 adversarial cases, each with the expected outcome: the attacks are refused for the right reason, and the honest controls (A01, A17) are accepted." |
 | 23 | 4:45 | Landing → "What SOLVENT proves / does not change" | "The mint is still custodial; this is a test network; the PoL semantics follow a draft proposal." |
 
 ## If something goes wrong while recording

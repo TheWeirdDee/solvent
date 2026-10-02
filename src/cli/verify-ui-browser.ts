@@ -150,6 +150,49 @@ async function uploadChecks(page: Page, base: string, validBundle: string, tag: 
   record(`${tag}: drag-and-drop loads a bundle`, /dropped\.json/.test((await page.textContent('#manual-bundle-summary')) ?? '') && (await page.inputValue('#manual-bundle-input')).length > 100);
 }
 
+/** A verified result is withdrawn (not just dimmed) when the input changes by typing, upload or drop; a fresh
+ * verification of the new input gets its own decision, and an accepted result cannot be re-used for other input. */
+async function bindingChecks(page: Page, base: string, tag: string): Promise<void> {
+  const verifyNow = async () => {
+    await tap(page, '#manual-verify-btn');
+    await page.waitForFunction(() => !document.getElementById('manual-result')?.hidden && document.getElementById('manual-result')?.dataset.stale !== 'true' && (document.getElementById('manual-decision-badge')?.textContent ?? '').length > 0, undefined, { timeout: 60000 });
+    return ((await page.textContent('#manual-decision-badge')) ?? '').trim();
+  };
+  const withdrawn = async () =>
+    (await page.getAttribute('#manual-result', 'data-stale')) === 'true' &&
+    (await page.locator('#manual-stale-note').isVisible()) &&
+    (await page.locator('#manual-decision-badge').isHidden()) &&
+    (await page.isDisabled('#manual-accept-btn'));
+  await go(page, base, '#/verify?mode=evidence', 'panel-verify');
+  await tap(page, '#manual-load-example-btn');
+  const example = await page.inputValue('#manual-bundle-input');
+  const first = await verifyNow();
+  await page.locator('#manual-bundle-input').press('End');
+  await page.locator('#manual-bundle-input').type(' 1');
+  record(`${tag}: typing after a result withdraws it: verdict hidden, note names it as the previous result, Accept disabled`, (await withdrawn()) && ((await page.textContent('#manual-stale-prev')) ?? '').includes(first.replace(/^\S+\s/, '').split(' ')[0]!), `${first} -> note "${(await page.textContent('#manual-stale-prev')) ?? ''}"`);
+
+  // accept the example, then drop different evidence: the acceptance does not carry over
+  await page.fill('#manual-bundle-input', example);
+  await page.waitForTimeout(200);
+  const canAccept = !(await page.isDisabled('#manual-accept-btn'));
+  if (canAccept) {
+    await tap(page, '#manual-accept-btn');
+    await page.waitForFunction(() => document.getElementById('manual-accepted-panel')?.hidden === false, undefined, { timeout: 10000 }).catch(() => {});
+  }
+  const acceptedShown = await page.locator('#manual-accepted-panel').isVisible();
+  const other = example.replace('"keysetId": "', '"keysetId": "dd');
+  await page.evaluate((text) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File([text], 'dropped-after-accept.json', { type: 'application/json' }));
+    document.getElementById('bundle-drop')!.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+  }, other);
+  await page.waitForFunction(() => /dropped-after-accept\.json/.test(document.getElementById('manual-bundle-summary')?.textContent ?? ''), undefined, { timeout: 10000 }).catch(() => {});
+  const accepted = (await page.locator('#manual-accepted-panel').isVisible());
+  record(`${tag}: after accepting, dropped different evidence shows no acceptance and no actionable result`, (!canAccept || acceptedShown) && !accepted && ((await page.locator('#manual-result').isHidden()) || (await withdrawn())), `accept available ${canAccept}, accepted panel before ${acceptedShown}, after ${accepted}`);
+  const second = await verifyNow();
+  record(`${tag}: the dropped evidence gets its own decision, never the earlier ACCEPT`, second !== '' && !/^✓ ACCEPT/.test(second), second);
+}
+
 /** Every route at 390px in one browser engine: overflow, JS errors, burger navigation, touch targets, upload. */
 async function phoneSuite(browser: import('playwright').Browser, base: string, name: string, shotsDir: string | undefined): Promise<void> {
   const tag = `${name} 390px`;
@@ -188,6 +231,31 @@ async function phoneSuite(browser: import('playwright').Browser, base: string, n
   // protocol jump menu
   await go(page, base, '#/protocol', 'panel-protocol');
   record(`${tag}: protocol uses a jump menu`, (await page.locator('#protocol-toc-select').isVisible()) && (await page.locator('#protocol-toc-list').isHidden()));
+  const headerBottom = () => page.locator('.topbar').evaluate((el) => el.getBoundingClientRect().bottom);
+  const topOf = (id: string) => page.locator(`#${id}`).evaluate((el) => el.getBoundingClientRect().top);
+  const atEnd = () => page.evaluate(() => window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2);
+  const badJumps: string[] = [];
+  const ids = await page.$$eval('#protocol-toc-select option', (os) => os.map((o) => (o as HTMLOptionElement).value));
+  for (const id of ids) {
+    await page.selectOption('#protocol-toc-select', id);
+    await page.waitForTimeout(500);
+    const top = await topOf(id);
+    const hb = await headerBottom();
+    if (top < hb - 1 || (top > hb + 60 && !(await atEnd())) || !(await page.evaluate(() => window.location.hash)).endsWith(`section=${id}`)) badJumps.push(`${id}: top ${Math.round(top)} vs header ${Math.round(hb)}`);
+  }
+  record(`${tag}: every jump-menu section lands below the sticky header and is recorded in the URL`, ids.length >= 12 && badJumps.length === 0, badJumps.slice(0, 3).join('; ') || `${ids.length} sections`);
+  await page.selectOption('#protocol-toc-select', 'p-reserve');
+  await page.waitForTimeout(400);
+  await page.selectOption('#protocol-toc-select', 'p-omission');
+  await page.waitForTimeout(400);
+  await page.goBack();
+  await page.waitForTimeout(700);
+  record(`${tag}: back returns to the previous protocol section`, (await page.evaluate(() => window.location.hash)) === '#/protocol?section=p-reserve' && (await page.inputValue('#protocol-toc-select')) === 'p-reserve');
+
+  // landing anchor on the phone
+  await page.goto(`${base}/#problem`);
+  await page.waitForTimeout(900);
+  record(`${tag}: a landing anchor loads the landing section below the header`, (await page.locator('#panel-home').isVisible()) && Math.abs((await topOf('problem')) - (await headerBottom())) < 40);
 
   // upload on the phone
   await go(page, base, '#/verify?mode=evidence', 'panel-verify');
@@ -196,6 +264,7 @@ async function phoneSuite(browser: import('playwright').Browser, base: string, n
   await uploadChecks(page, base, bundle, tag);
   const offenders = await overflowOffenders(page);
   record(`${tag}: results and errors fit the screen`, offenders.length === 0, offenders.join('; '));
+  await bindingChecks(page, base, tag);
   await ctx.close();
 }
 
@@ -258,7 +327,7 @@ async function main(): Promise<boolean> {
     const solution = await page.locator('#solution').innerText();
     const builtFor = await page.locator('#built-for').innerText();
     record('landing states THE PROBLEM', /the problem/i.test(problem) && /a valid cashu token/i.test(problem) && /the gap/i.test(problem));
-    record('landing states THE SOLUTION', /the solution/i.test(solution) && /checkable/i.test(solution) && /does not show that this issuance was counted/i.test(solution));
+    record('landing states THE SOLUTION', /the solution/i.test(solution) && /checkable/i.test(solution) && /no SOLVENT server is trusted for the verdict/i.test(solution));
     const heroCtas = (await page.locator('.hero .hero-ctas a').allInnerTexts()).map((t) => t.trim());
     const explain = (await page.textContent('.hero-cta-explain')) ?? '';
     record('landing distinguishes the live mint from the published-evidence re-check', JSON.stringify(heroCtas) === JSON.stringify(['Try the live mint', 'Re-check published evidence']) && /mints fresh ecash/i.test(explain) && /mints nothing/i.test(explain), heroCtas.join(' | '));
@@ -385,6 +454,27 @@ async function main(): Promise<boolean> {
     await page.waitForFunction(() => document.getElementById('panel-protocol')?.hidden === false);
     await page.waitForTimeout(800);
     record('protocol: a direct link to a section loads it below the header', (await topOf('p-nostr')) >= (await headerBottom()) - 1 && (await topOf('p-nostr')) < (await headerBottom()) + 60 && (await activeToc()) === 'p-nostr', `top ${Math.round(await topOf('p-nostr'))}, header ${Math.round(await headerBottom())}`);
+    {
+      // With smooth scrolling (no reduced motion), rapid choices: the marker names only what was chosen, then settles on the last.
+      const sctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+      const sp = await sctx.newPage();
+      await go(sp, base, '#/protocol', 'panel-protocol');
+      const seen = new Set<string>();
+      for (const id of ['p-trust', 'p-cashu', 'p-reason-codes', 'p-mmr']) {
+        await sp.locator(`#protocol-toc-list a[data-target="${id}"]`).click();
+        for (let k = 0; k < 4; k++) {
+          seen.add((await sp.locator('#protocol-toc-list a.active').getAttribute('data-target')) ?? '(none)');
+          await sp.waitForTimeout(40);
+        }
+      }
+      await sp.waitForTimeout(1500);
+      const settled = await sp.locator('#protocol-toc-list a.active').getAttribute('data-target');
+      const mmrTop = await sp.locator('#p-mmr').evaluate((el) => el.getBoundingClientRect().top);
+      const hb = await sp.locator('.topbar').evaluate((el) => el.getBoundingClientRect().bottom);
+      const strays = [...seen].filter((x) => !['p-trust', 'p-cashu', 'p-reason-codes', 'p-mmr'].includes(x));
+      record('protocol: rapid choices with smooth scrolling never mark a section that was not chosen, and settle on the last', strays.length === 0 && settled === 'p-mmr' && mmrTop >= hb - 1 && mmrTop < hb + 60, `strays ${strays.join(',') || 'none'}, settled ${settled}, top ${Math.round(mmrTop)} vs header ${Math.round(hb)}`);
+      await sctx.close();
+    }
 
     // ---- landing anchors: direct load, refresh, back/forward ----
     await page.goto(`${base}/#problem`);
@@ -427,6 +517,47 @@ async function main(): Promise<boolean> {
     await page.waitForFunction(() => /decided .* UTC/.test(document.getElementById('hero-caption')?.textContent ?? ''), undefined, { timeout: 30000 }).catch(() => {});
     record('hero terminal is labelled a reference example with the time it was decided', /REFERENCE EXAMPLE/.test((await page.textContent('.terminal-scope')) ?? '') && /decided .* UTC/.test((await page.textContent('#hero-caption')) ?? ''));
 
+    // ---- returning to a tab refreshes the live status instead of showing an old observation as current ----
+    {
+      const tctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+      const tp = await tctx.newPage();
+      let statusFetches = 0;
+      tp.on('request', (r) => { if (/\/v1\/solvent\/status/.test(r.url())) statusFetches++; });
+      await go(tp, base, '#/', 'panel-home');
+      await tp.waitForFunction(() => /LIVE RAILWAY MINT/.test(document.getElementById('nostr-source')?.textContent ?? ''), undefined, { timeout: 30000 }).catch(() => {});
+      const before = statusFetches;
+      const setVisibility = (state: 'hidden' | 'visible') =>
+        tp.evaluate((st) => {
+          // A value, not a getter: a nested function here would be compiled with a helper the page does not have.
+          Object.defineProperty(document, 'visibilityState', { configurable: true, value: st });
+          document.dispatchEvent(new Event('visibilitychange'));
+        }, state);
+      await setVisibility('hidden');
+      await tp.waitForTimeout(21_000); // longer than the 20 s an observation may be reused
+      await setVisibility('visible');
+      for (let i = 0; i < 50 && statusFetches === before; i++) await tp.waitForTimeout(100);
+      const refetched = statusFetches > before;
+      await tp.waitForTimeout(1500);
+      const label = (await tp.textContent('#nostr-source')) ?? '';
+      record('returning to the tab after the cache window re-fetches the live status and labels it LIVE', refetched && /status LIVE/.test(label), `status fetches ${before} -> ${statusFetches}; "${label.slice(0, 120)}"`);
+      await tctx.close();
+    }
+
+    // ---- footer: every in-app destination opens its page; the build names its commit ----
+    const footerTargets = await page.$$eval('footer.site-footer a[href^="#/"]', (as) => as.map((a) => (a as HTMLAnchorElement).getAttribute('href')!));
+    const footerBad: string[] = [];
+    for (const href of footerTargets) {
+      await go(page, base, '#/', 'panel-home');
+      await page.locator(`footer.site-footer a[href="${href}"]`).first().click();
+      const panel = href.startsWith('#/docs') ? 'panel-docs' : `panel-${href.slice(2).split(/[?/]/)[0] || 'home'}`;
+      const ok = await page.waitForFunction((id) => document.getElementById(id)?.hidden === false, panel, { timeout: 10000 }).then(() => true, () => false);
+      if (!ok || (await page.evaluate(() => window.location.hash)) !== href) footerBad.push(href);
+    }
+    record('footer: every in-app link opens its page', footerTargets.length >= 10 && footerBad.length === 0, footerBad.join(', ') || `${footerTargets.length} links`);
+    const rev = (await page.textContent('#build-revision')) ?? '';
+    const revMeta = await page.getAttribute('meta[name="solvent-revision"]', 'content');
+    record('footer and page metadata name the build commit', /^build [0-9a-f]{7}$/.test(rev.trim()) && /^[0-9a-f]{40}$/.test(revMeta ?? '') && revMeta!.startsWith(rev.trim().slice(6)), `${rev} / ${revMeta}`);
+
     // ---- a verification result is bound to its exact input (typing, upload, drop) ----
     await go(page, base, '#/verify?mode=evidence', 'panel-verify');
     record('Verify evidence says drag-and-drop is supported', /drop a \.json file/i.test((await page.textContent('#bundle-drop')) ?? ''));
@@ -442,7 +573,7 @@ async function main(): Promise<boolean> {
     const firstBadge = ((await page.textContent('#manual-decision-badge')) ?? '').trim();
     await page.locator('#manual-bundle-input').press('End');
     await page.locator('#manual-bundle-input').type(' x');
-    record('after a verification, typing into the evidence makes the old result stale and Accept unusable', !(await actionable()) && (await page.getAttribute('#manual-result', 'data-stale')) === 'true' && (await page.locator('#manual-stale-note').isVisible()), `first result ${firstBadge}`);
+    record('after a verification, typing into the evidence withdraws the old result (verdict hidden) and Accept is unusable', !(await actionable()) && (await page.getAttribute('#manual-result', 'data-stale')) === 'true' && (await page.locator('#manual-stale-note').isVisible()) && (await page.locator('#manual-decision-badge').isHidden()), `first result ${firstBadge}`);
     await verifyExample();
     await page.setInputFiles('#manual-bundle-file', { name: 'other.json', mimeType: 'application/json', buffer: Buffer.from(exampleText.replace('"keysetId": "', '"keysetId": "ff')) });
     await page.waitForTimeout(400);
