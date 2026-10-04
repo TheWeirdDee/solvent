@@ -38,6 +38,7 @@ unquote() {
   printf '%s' "$v"
 }
 CDK_MINTD_MNEMONIC=$(unquote "${CDK_MINTD_MNEMONIC:-}"); export CDK_MINTD_MNEMONIC
+CDK_MINTD_LDK_NODE_MNEMONIC=$(unquote "${CDK_MINTD_LDK_NODE_MNEMONIC:-}"); export CDK_MINTD_LDK_NODE_MNEMONIC
 SOLVENT_RESERVE_KEY_JSON=$(unquote "${SOLVENT_RESERVE_KEY_JSON:-}"); export SOLVENT_RESERVE_KEY_JSON
 
 : "${CDK_MINTD_MNEMONIC:?CDK_MINTD_MNEMONIC is required}"
@@ -52,9 +53,18 @@ if [ -s "$DATA/delegation.json" ]; then
   [ "$BOUND" = "$MINT_URL" ] || fail "the persisted delegation is bound to $BOUND, not SOLVENT_PUBLIC_MINT_URL=$MINT_URL (docs/DEPLOY-RAILWAY.md: changing the mint URL)"
 fi
 
-# Mint config for first boot: the fakewallet demo document with the public URL.
+# The Lightning backend: fakewallet (the labelled demo) or ldk-node (real
+# Mutinynet Lightning inside cdk-mintd). The document is imported on first
+# boot; on an existing volume it only takes effect with SOLVENT_APPLY_MINT_CONFIG=1.
+BACKEND="${SOLVENT_LIGHTNING_BACKEND:-fakewallet}"
+case "$BACKEND" in
+  fakewallet) ;;
+  ldk-node) [ -n "${CDK_MINTD_LDK_NODE_MNEMONIC:-}" ] || fail "SOLVENT_LIGHTNING_BACKEND=ldk-node needs CDK_MINTD_LDK_NODE_MNEMONIC (the Lightning node's own seed)"
+            mkdir -p "$DATA/ldk-node" ;;
+  *) fail "SOLVENT_LIGHTNING_BACKEND must be fakewallet or ldk-node, got '$BACKEND'" ;;
+esac
 mkdir -p /run/solvent && chmod 700 /run/solvent
-sed "s#^url = .*#url = \"$MINT_URL\"#" /opt/solvent/mint.fakewallet.toml > /run/solvent/mint.toml
+sed "s#^url = .*#url = \"$MINT_URL\"#" "/opt/solvent/mint.$BACKEND.toml" > /run/solvent/mint.toml
 
 MANIFEST_PUB=$(cd /app && node -e "const c=require('@cashu/cashu-ts');process.stdout.write(Buffer.from(c.getPubKeyFromPrivKey(Buffer.from(process.env.SOLVENT_MANIFEST_PRIVKEY,'hex'))).toString('hex'))")
 
@@ -66,13 +76,13 @@ env -u SOLVENT_MANIFEST_PRIVKEY -u SOLVENT_RESERVE_KEY_JSON -u SOLVENT_NOSTR_SEC
   solvent-mint-entrypoint &
 MINT_PID=$!
 
-(cd /app && exec env -u CDK_MINTD_MNEMONIC -u SOLVENT_RESERVE_KEY_JSON -u PORT \
+(cd /app && exec env -u CDK_MINTD_MNEMONIC -u CDK_MINTD_LDK_NODE_MNEMONIC -u SOLVENT_RESERVE_KEY_JSON -u PORT \
   SOLVENT_MINT_URL="$MINT_URL" \
   SOLVENT_MINT_DB="$DATA/cdk-mintd.sqlite" \
   SOLVENT_MANIFEST_DELEGATION="$DATA/delegation.json" \
   SOLVENT_PUBLICATION_STORE="$DATA/solvent-publications.json" \
   SOLVENT_RESERVE_KEY_FILE=/run/solvent/reserve-key.json \
-  SOLVENT_LIGHTNING_BACKEND=fakewallet \
+  SOLVENT_LIGHTNING_BACKEND="$BACKEND" \
   SOLVENT_SIDECAR_PORT=8086 \
   npx tsx src/sidecar/service.ts) &
 SIDECAR_PID=$!

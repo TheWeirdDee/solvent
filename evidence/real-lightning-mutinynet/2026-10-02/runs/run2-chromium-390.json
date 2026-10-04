@@ -1,0 +1,180 @@
+{
+  "schema": "solvent/browser-run-evidence/v1",
+  "note": "Public values only. No Cashu proof secret, key or mnemonic is recorded.",
+  "generated_at": "2026-10-02T20:10:14.695Z",
+  "git_commit": "2d1015613a1310da0d5c66d3b4605b1397cd03cf",
+  "working_tree_clean": false,
+  "site": "http://127.0.0.1:4173/",
+  "mint": {
+    "url": "http://127.0.0.1:8095",
+    "name": "SOLVENT isolated real-Lightning test mint (Mutinynet)",
+    "version": "cdk-mintd/0.18.1",
+    "nut06_identity": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed"
+  },
+  "evidence_service": {
+    "url": "http://127.0.0.1:8096",
+    "lightning_backend": "ldk-node",
+    "manifest_pubkey": "020bf2f285d0a9df6a009904b2e16caae0e8aed464c73c06a667d54dfc4a765f13",
+    "reserve_outpoint": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+    "reserve_network": "bitcoin-signet-mutinynet",
+    "relays": [
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "wss://nostr.mom",
+      "wss://offchain.pub",
+      "wss://relay.snort.social"
+    ]
+  },
+  "browser": "chromium-390",
+  "checks_failed": 0,
+  "honest_invoice": {
+    "bolt11": "lntbs640n1p4vqrefdqqnp4qghscp9uqkayfuxamxvcqy26wzupvmtck8qz4cj766vw67qu67vrwpp5hdql9yw49ptk6emp9ruswnp0gktuu0q68tv4sec5uapyxyu9s45ssp56pr8n5xtcuww7srt5zha8tm4uqgvgget0cx5kactmmd2dal5gzjs9qyysgqcqzp2xqrrss4pp34m2zywl6tk2pmxmernllkhfn5kuwp0238ttjmthu3jccjkaxl8ksrve8ev7rjfts7ml5uz5fmgr68gq5fsv0ey2rkxwqkknl35gqctmpex",
+    "payment_hash": "bb41f291d528576d676128f9074c2f4597ce3c1a3ad9586714e7424313858569"
+  },
+  "honest": {
+    "decision": "ACCEPT_VERIFIED",
+    "facts": {
+      "Local cryptography": "VALID",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Reason code": "ACCEPT_VERIFIED"
+    },
+    "enforcement": {
+      "Decision": "ACCEPT_VERIFIED",
+      "Accept function calls (this issuance)": "1",
+      "Calls made by this verification": "1",
+      "Accepted record stored": "yes",
+      "Accepted at": "Oct 2, 2026, 20:08 UTC",
+      "Store records": "0 → 1"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed",
+      "Receipt target epoch": "5",
+      "Manifest digest": "605a1b6f7e992f5dc31150eadc13a63dc9aa6db0dcfdeb5f89a59f23ed15c2ab",
+      "Nostr event": "eefba3d3db52ec5b466363119d3c669a0cb61ce77afad1ad67db702cb3857601",
+      "Published": "Oct 2, 2026, 20:08 UTC — ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 2, 2026, 20:08 UTC",
+      "Final reason": "ACCEPT_VERIFIED"
+    },
+    "steps": [
+      "Invoice for 64 sats paid.",
+      "1. The mint gave you 64 sats of ecash (keyset 011c202eef30c937…).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 5.",
+      "3. Epoch 5 closed and published Oct 2, 2026, 20:08 UTC — ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: ACCEPT_VERIFIED."
+    ]
+  },
+  "swap": {
+    "verdict": "SWAP VERIFIED — old proof SPENT, replacements UNSPENT, accounting updated, outstanding liability conserved.",
+    "original": {
+      "y": "029d4355cc28aeb363517eade5f343d1b7c6a65e32675bbcf3507332037153cc77",
+      "amount": 64,
+      "nut07_state": "SPENT"
+    },
+    "replacements": [
+      {
+        "y": "02170b16b2a4095ce9f3934790b685dbd302e606c64f10b0ef906e4e4b7bca4229",
+        "amount": 32,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "027ed866bd6ca9c65e0c45fd418c4330c7dfe466baf04f4a9595b79369ba09ba6f",
+        "amount": 16,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "027ed76102ee64b90219ca2c286fe146f5813ecc2b9f5e4db13ea35247e40d83ab",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "0283c71af351327eca59a89747ee34cc2eca2dbee4dfba8d45b070249030e0f4e4",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      }
+    ],
+    "epoch": 6,
+    "operation": {
+      "kind": "swap",
+      "consumed": [
+        {
+          "proof_y": "029d4355cc28aeb363517eade5f343d1b7c6a65e32675bbcf3507332037153cc77",
+          "amount": 64,
+          "target_epoch": 6
+        }
+      ],
+      "issued": [
+        {
+          "blinded_message": "02597eac500bcbda39fafa057458ea7d5522e4ee0ca3f5eb49fbf6797d921a85eb",
+          "amount": 32,
+          "target_epoch": 6
+        },
+        {
+          "blinded_message": "02ddad7e082178be5834295a3012ffdbf9509198a6ec2dafe1303287310b1bd04e",
+          "amount": 16,
+          "target_epoch": 6
+        },
+        {
+          "blinded_message": "0304d4693c5234360e325f53f3fdc467dc00dff1909fcb1277d3f28a62c76ebb86",
+          "amount": 8,
+          "target_epoch": 6
+        },
+        {
+          "blinded_message": "037a8de8f71ae9ae04d813cf9b39d591592ccaa9fcd666035934b661916bb3290e",
+          "amount": 8,
+          "target_epoch": 6
+        }
+      ],
+      "consumed_sum": 64,
+      "issued_sum": 64
+    },
+    "liability_before": 192,
+    "liability_after": 192
+  },
+  "broken_promise_invoice": {
+    "bolt11": "lntbs640n1p4vqrm5dqqnp4qghscp9uqkayfuxamxvcqy26wzupvmtck8qz4cj766vw67qu67vrwpp5gau3xg2g4srtxelwtaxsfx5gujfrt9vyv7tklv7tpj4x75x9z90qsp529lglnjjlkedwygadhv0c54qkzuw6uj8xdld6vjv77axawjyxr5q9qyysgqcqzp2xqrrsszx3qssjfsfrcgya53d9zccx74eqz83v0xgfpd7hg9uk04yjskgj4ggsfzwwnupcxvgt2f7utkls3j7mmhq6n9eqvmp6vr3qz048kjjcp38jeu6",
+    "payment_hash": "4779132148ac06b367ee5f4d049a88e49235958467976fb3cb0caa6f50c5115e"
+  },
+  "broken_promise": {
+    "decision": "REFUSE_ISSUANCE_OMITTED",
+    "facts": {
+      "Receipt signature": "VALID",
+      "Epoch manifest": "VALID (signed by the mint)",
+      "Manifest key delegation": "VALID (NUT-06 identity)",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Promised issuance": "MISSING from the closed epoch",
+      "Reason code": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "enforcement": {
+      "Decision": "REFUSE_ISSUANCE_OMITTED",
+      "Accept function calls": "0",
+      "Accepted record stored": "no",
+      "Store changed": "no"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed",
+      "Receipt target epoch": "7",
+      "Manifest digest": "acd9f6a8a104055df189852b2caad83671c2e63c3546b5506d370482546ab353",
+      "Nostr event": "5d5257d387db8846820ee483ffbfaf5e4b9c1aef187c6b45d24928c67b8bf531",
+      "Published": "Oct 2, 2026, 20:09 UTC — ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 2, 2026, 20:09 UTC",
+      "Final reason": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "steps": [
+      "Broken-promise request registered for issuance 021e76287e54… — before minting, so the epoch cannot close without it.",
+      "Invoice for 64 sats paid.",
+      "1. The mint gave you 64 sats of ecash (keyset 011c202eef30c937…).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 7.",
+      "Demo: the mint's real epoch closer will leave this issuance out of epoch 7.",
+      "3. Epoch 7 closed and published Oct 2, 2026, 20:09 UTC — ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: REFUSE_ISSUANCE_OMITTED."
+    ]
+  }
+}

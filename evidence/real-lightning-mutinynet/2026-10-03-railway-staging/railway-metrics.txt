@@ -1,0 +1,9 @@
+MEMORY_USAGE_GB  samples  181  median 0.3263 GB  peak 0.3787 GB
+CPU_USAGE        samples  181  median 0.0027 vCPU  peak 0.0360 vCPU
+DISK_USAGE_GB    samples  181  median 0.0518 GB  peak 0.0571 GB
+MEMORY_USAGE_GB  samples   23  median 0.3684 GB  peak 0.3708 GB
+CPU_USAGE        samples   23  median 0.0071 vCPU  peak 0.0142 vCPU
+DISK_USAGE_GB    samples   23  median 0.0550 GB  peak 0.0558 GB
+MEMORY_USAGE_GB  samples   17  median 0.1881 GB  peak 0.3787 GB
+CPU_USAGE        samples   17  median 0.0049 vCPU  peak 0.0335 vCPU
+DISK_USAGE_GB    samples   17  median 0.0561 GB  peak 0.0571 GB

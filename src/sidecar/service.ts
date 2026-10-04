@@ -151,8 +151,8 @@ async function main() {
   const [txid, vout] = required('SOLVENT_RESERVE_OUTPOINT').split(':');
   const interval = Number(process.env.SOLVENT_EPOCH_INTERVAL_SECONDS ?? '30');
   const port = Number(process.env.SOLVENT_SIDECAR_PORT ?? '8086');
-  const backend = (process.env.SOLVENT_LIGHTNING_BACKEND ?? 'fakewallet') as 'lnd' | 'fakewallet';
-  if (backend !== 'lnd' && backend !== 'fakewallet') throw new Error('SOLVENT_LIGHTNING_BACKEND must be lnd or fakewallet');
+  const backend = (process.env.SOLVENT_LIGHTNING_BACKEND ?? 'fakewallet') as 'lnd' | 'ldk-node' | 'fakewallet';
+  if (backend !== 'lnd' && backend !== 'ldk-node' && backend !== 'fakewallet') throw new Error('SOLVENT_LIGHTNING_BACKEND must be lnd, ldk-node or fakewallet');
   if (delegation.mint_url !== mintUrl) throw new Error(`delegation is for ${delegation.mint_url}, not ${mintUrl}`);
 
   const db = new DatabaseSync(dbPath, { timeout: 10_000 });
@@ -166,6 +166,7 @@ async function main() {
     lightningBackend: backend,
     epochIntervalSeconds: interval,
     demoOmissionEnabled: process.env.SOLVENT_DEMO_ALLOW_OMISSION === '1',
+    demoFaucetInvoices: process.env.SOLVENT_DEMO_FAUCET_INVOICES === '1' && backend !== 'fakewallet',
     omissions: new OmissionQueue(process.env.SOLVENT_OMISSION_STORE ?? `${dbPath}.solvent-omissions.json`),
     relays,
     publishing: null,

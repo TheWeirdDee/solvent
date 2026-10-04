@@ -1,4 +1,8 @@
 // npm run verify:railway -- <public mint URL> <public evidence URL> [--site <url>] [--no-browser] [--allow-http]
+//                            [--pay-faucet <token file> | --pay-ldk <dashboard>] [--swap] [--melt]
+//
+// On a real-Lightning mint the browser flows need real payments: pass a payer
+// (verify-real-mint-browser.ts), or pay each invoice the page shows by hand.
 //
 // --allow-http is for CI, which runs the same Railway image on 127.0.0.1.
 //
@@ -18,6 +22,17 @@
 //      evidence, the live Mutinynet reserve and the Nostr fetch-back.
 import { spawnSync } from 'node:child_process';
 import { fetchPolEventById } from '../nostr/pol-evidence.js';
+
+/** Options passed through to the browser harness: who pays a real-Lightning invoice, and whether to also swap and pay. */
+function harnessOptions(): string[] {
+  const out: string[] = [];
+  for (const flag of ['--pay-faucet', '--pay-ldk']) {
+    const i = process.argv.indexOf(flag);
+    if (i >= 0 && process.argv[i + 1]) out.push(flag, process.argv[i + 1]!);
+  }
+  for (const flag of ['--swap', '--melt']) if (process.argv.includes(flag)) out.push(flag);
+  return out;
+}
 
 const APP_ORIGIN = 'https://solvent-ashen.vercel.app';
 let failures = 0;
@@ -46,7 +61,7 @@ async function getJson(url: string): Promise<{ status: number; acao: string | nu
 const corsOk = (acao: string | null) => acao === '*' || acao === APP_ORIGIN;
 
 async function main() {
-  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--site', '--expect-identity'].includes(all[i - 1] ?? ''));
+  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--site', '--expect-identity', '--pay-faucet', '--pay-ldk'].includes(all[i - 1] ?? ''));
   const [mintArg, evidenceArg] = positional;
   const siteIdx = process.argv.indexOf('--site');
   const site = (siteIdx >= 0 ? process.argv[siteIdx + 1] : undefined) ?? `${APP_ORIGIN}/`;
@@ -74,7 +89,7 @@ async function main() {
   const s = st.body ?? {};
   check('C. evidence service is bound to the public mint URL', s.mint_url === mint, `status.mint_url = ${String(s.mint_url)}`);
   check('B. the delegation names the mint\'s NUT-06 identity', !!identity && s.mint_identity_pubkey === identity, `${String(s.mint_identity_pubkey)}`);
-  check('C. the Lightning backend is labelled', s.lightning_backend === 'fakewallet' || s.lightning_backend === 'lnd', `lightning_backend = ${String(s.lightning_backend)}`);
+  check('C. the Lightning backend is labelled', s.lightning_backend === 'fakewallet' || s.lightning_backend === 'lnd' || s.lightning_backend === 'ldk-node', `lightning_backend = ${String(s.lightning_backend)}`);
   check('C. the broken-promise demo is enabled', s.demo_omission_enabled === true);
   check('D. mint CORS allows the public app', corsOk(info.acao), `access-control-allow-origin: ${info.acao}`);
   check('D. evidence CORS allows the public app', corsOk(st.acao), `access-control-allow-origin: ${st.acao}`);
@@ -94,7 +109,7 @@ async function main() {
       console.log('SKIP  F. browser flows (fix the failures above first)');
     } else {
       console.log(`\nF. real browser on ${site}\n`);
-      const r = spawnSync('npx', ['tsx', 'src/cli/verify-real-mint-browser.ts', site, mint, evidence, '--screenshots', 'evidence/railway-shots'], { stdio: 'inherit', shell: process.platform === 'win32' });
+      const r = spawnSync('npx', ['tsx', 'src/cli/verify-real-mint-browser.ts', site, mint, evidence, '--screenshots', 'evidence/railway-shots', ...harnessOptions()], { stdio: 'inherit', shell: process.platform === 'win32' });
       check('F. honest ACCEPT_VERIFIED and broken-promise REFUSE_ISSUANCE_OMITTED in the browser', r.status === 0);
     }
   }

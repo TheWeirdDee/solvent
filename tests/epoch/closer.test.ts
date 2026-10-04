@@ -24,6 +24,7 @@ import {
   loadClosedEpoch,
   manifestPubkeyHex,
   openEpoch,
+  spendEvidence,
 } from '../../src/epoch/closer.js';
 import { verifyManifest, ZERO_DIGEST_HEX } from '../../src/pol/manifest.js';
 import { append, bytesToHex, emptyMmr, issuedLeaf, root, spentLeaf, verifyInclusionProof, hexToBytes } from '../../src/pol/mmr.js';
@@ -362,6 +363,53 @@ describe('Phase 3A epoch lifecycle — commitments derive from real rows', () =>
     expect(m.spent_mmr_root_sum).toBe(768);
     expect(m.outstanding_balance).toBe(1000); // a conserving swap leaves the liability unchanged
     expect(auditClosedEpoch(db, 1)).toEqual({ epochIndex: 1, ok: true, failures: [] });
+  });
+
+  it('spend evidence: a swap input proves into the spent sum-MMR, and its operation conserves value', () => {
+    const db = createMintDb();
+    const cdk = new CdkSim(db);
+    const key = newKey();
+    const [first] = cdk.mint([64]);
+    closeEpoch(db, { manifestPrivateKeyHex: key }); // epoch 1: the 64-sat issuance
+    const { outputs, inputYs } = cdk.swap([first!], [32, 16, 8, 8]);
+    const y = inputYs[0]!;
+
+    const open = spendEvidence(db, y);
+    expect(open.state).toBe('EPOCH_OPEN');
+    expect(open.targetEpoch).toBe(2);
+    expect(open.operation.consumedSum).toBe(64);
+    expect(open.operation.issuedSum).toBe(64);
+    expect(open.operation.issued.map((i) => i.blindedMessageHex).sort()).toEqual(outputs.map((o) => o.blindedMessageHex).sort());
+
+    closeEpoch(db, { manifestPrivateKeyHex: key });
+    const ev = spendEvidence(db, y);
+    if (ev.state !== 'EPOCH_CLOSED') throw new Error('epoch 2 not closed');
+    expect(verifyManifest(ev.manifest, ev.manifestSignature, ev.masterPublicKeyHex)).toBe(true);
+    expect(ev.inclusionProof).not.toBeNull();
+    expect(
+      verifyInclusionProof(spentLeaf(y, 64), ev.inclusionProof!, ev.spentMmrSize, hexToBytes(ev.manifest.spent_mmr_root_hash), BigInt(ev.manifest.spent_mmr_root_sum)),
+    ).toBe(true);
+    // A different spend amount, or another Y, does not prove.
+    expect(
+      verifyInclusionProof(spentLeaf(y, 63), ev.inclusionProof!, ev.spentMmrSize, hexToBytes(ev.manifest.spent_mmr_root_hash), BigInt(ev.manifest.spent_mmr_root_sum)),
+    ).toBe(false);
+    // Liability before (epoch 1) and after (epoch 2) are both signed; the swap conserved it.
+    expect(ev.previous?.epochIndex).toBe(1);
+    expect(verifyManifest(ev.previous!.manifest, ev.previous!.manifestSignature, ev.masterPublicKeyHex)).toBe(true);
+    expect(ev.previous!.manifest.outstanding_balance).toBe(64);
+    expect(ev.manifest.outstanding_balance).toBe(64);
+    // Every replacement output is in the same epoch's issued commitment.
+    for (const o of outputs) {
+      const oe = issuanceEvidence(db, o.blindedMessageHex);
+      expect(oe.state === 'EPOCH_CLOSED' && oe.inclusionProof !== null && oe.manifestDigest === ev.manifestDigest).toBe(true);
+    }
+  });
+
+  it('spend evidence refuses a proof that was never spent through a swap or melt', () => {
+    const db = createMintDb();
+    const cdk = new CdkSim(db);
+    const [p] = cdk.mint([8]);
+    expect(() => spendEvidence(db, spentY(p!.proof.secret))).toThrow(/no SOLVENT consumed liability/);
   });
 
   it('10. every keyset manifest is signed by the manifest key, and the key cannot silently change', () => {

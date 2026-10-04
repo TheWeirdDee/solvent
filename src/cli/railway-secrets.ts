@@ -2,11 +2,11 @@
 // (docs/DEPLOY-RAILWAY.md) in deploy/secrets/railway.env — git-ignored —
 // ready to paste into Railway's Variables → Raw Editor.
 //
-//   npm run railway:secrets -- [--mint-url https://<mint domain>]
+//   npm run railway:secrets -- [--mint-url https://<mint domain>] [--backend ldk-node|fakewallet]
 //
 // Idempotent: values already in the file are kept, so re-running never
-// rotates the mint seed (the NUT-06 identity), the manifest key or the
-// reserve key. Missing values are generated locally. The reserve outpoint is
+// rotates the mint seed (the NUT-06 identity), the Lightning node's seed, the
+// manifest key or the reserve key. Missing values are generated locally. The reserve outpoint is
 // filled in from Mutinynet once the reserve address has a confirmed UTXO.
 // Prints variable NAMES and the (public) reserve address only — never a
 // secret value.
@@ -52,6 +52,16 @@ async function main() {
   };
 
   setIfMissing('CDK_MINTD_MNEMONIC', () => generateMnemonic(wordlist));
+  // The Lightning backend: ldk-node (real Mutinynet Lightning inside cdk-mintd)
+  // unless fakewallet is asked for. The LDK node has its own seed, separate
+  // from the mint's: it holds the channel funds.
+  const backend = arg('--backend') ?? env.get('SOLVENT_LIGHTNING_BACKEND') ?? 'ldk-node';
+  if (backend !== 'ldk-node' && backend !== 'fakewallet') throw new Error('--backend must be ldk-node or fakewallet');
+  env.set('SOLVENT_LIGHTNING_BACKEND', backend);
+  if (backend === 'ldk-node') {
+    setIfMissing('CDK_MINTD_LDK_NODE_MNEMONIC', () => generateMnemonic(wordlist));
+    if (!env.has('SOLVENT_DEMO_FAUCET_INVOICES')) env.set('SOLVENT_DEMO_FAUCET_INVOICES', '1');
+  }
   setIfMissing('SOLVENT_MANIFEST_PRIVKEY', () => hex.encode(btcUtils.randomPrivateKeyBytes()));
   setIfMissing('SOLVENT_NOSTR_SECRET_HEX', () => hex.encode(btcUtils.randomPrivateKeyBytes()));
 
@@ -104,8 +114,9 @@ async function main() {
   if (!env.has('SOLVENT_PUBLIC_MINT_URL')) env.set('SOLVENT_PUBLIC_MINT_URL', '');
 
   const order = [
-    'SOLVENT_PUBLIC_MINT_URL', 'PORT', 'CDK_MINTD_MNEMONIC', 'SOLVENT_MANIFEST_PRIVKEY', 'SOLVENT_RESERVE_KEY_JSON',
-    'SOLVENT_RESERVE_OUTPOINT', 'SOLVENT_NOSTR_SECRET_HEX', 'SOLVENT_DEMO_ALLOW_OMISSION',
+    'SOLVENT_PUBLIC_MINT_URL', 'PORT', 'CDK_MINTD_MNEMONIC', 'SOLVENT_LIGHTNING_BACKEND', 'CDK_MINTD_LDK_NODE_MNEMONIC',
+    'SOLVENT_MANIFEST_PRIVKEY', 'SOLVENT_RESERVE_KEY_JSON',
+    'SOLVENT_RESERVE_OUTPOINT', 'SOLVENT_NOSTR_SECRET_HEX', 'SOLVENT_DEMO_ALLOW_OMISSION', 'SOLVENT_DEMO_FAUCET_INVOICES',
     'SOLVENT_EPOCH_INTERVAL_SECONDS', 'SOLVENT_EVIDENCE_VALIDITY_SECONDS',
   ];
   const keys = [...order.filter((k) => env.has(k)), ...[...env.keys()].filter((k) => !order.includes(k))];
@@ -113,7 +124,7 @@ async function main() {
   // in Railway's Raw Editor, and quotes would risk ending up inside the value.
   const body = [
     '# SOLVENT Railway variables — SECRET. Paste into Railway: service → Variables → Raw Editor.',
-    '# Never commit this file (deploy/secrets/ is git-ignored). Keep a backup: the mint seed IS the mint.',
+    '# Never commit this file (deploy/secrets/ is git-ignored). Keep a backup: the mint seed IS the mint, and the LDK seed holds its channel funds.',
     ...keys.map((k) => `${k}=${env.get(k)!}`),
     '',
   ].join('\n');

@@ -16,9 +16,9 @@ npm run verify:real-mint:browser -- <site> - - --browser webkit --width 390 --he
 
 | Run | Checks | Log |
 |---|---|---|
-| Chromium 1363×936 | 33/33 | [real-mint-chromium-1363x936.log](real-mint-chromium-1363x936.log) |
-| Chromium 390×844 (touch) | 33/33 | [real-mint-chromium-390x844.log](real-mint-chromium-390x844.log) |
-| WebKit 390×844 (touch) | 33/33 | [real-mint-webkit-390x844.log](real-mint-webkit-390x844.log) |
+| Chromium 1363×936 | 33/33 | [real-mint-chromium-1363x936.txt](real-mint-chromium-1363x936.txt) |
+| Chromium 390×844 (touch) | 33/33 | [real-mint-chromium-390x844.txt](real-mint-chromium-390x844.txt) |
+| WebKit 390×844 (touch) | 33/33 | [real-mint-webkit-390x844.txt](real-mint-webkit-390x844.txt) |
 
 Each run makes three small fakewallet issuances on the public demo mint:
 
@@ -52,7 +52,7 @@ Screenshots of each result are in [`real-mint/`](real-mint/).
 
 ## Site UI, Chromium + WebKit
 
-`npm run verify:ui:browser -- <site> --screenshots ui` passed **152/152**: [ui-chromium-webkit.log](ui-chromium-webkit.log). At 390×844, in both Chromium and WebKit, it covers:
+`npm run verify:ui:browser -- <site> --screenshots ui` passed **152/152**: [ui-chromium-webkit.txt](ui-chromium-webkit.txt). At 390×844, in both Chromium and WebKit, it covers:
 
 - every route with no horizontal overflow;
 - burger navigation and touch-target sizes;

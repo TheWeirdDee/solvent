@@ -1,0 +1,9 @@
+nut06_identity 03c05624a37fe2c17b7ec6fe07e5ea90ba86ec81209499d45fb3d97cf871dff510
+keysets 01da790698baeea80b7c5d1b391d5394ff03c4d0777395d3e67bd0a6142922052a:True
+epochs open=16 last_published=15 event=c0e0fad08fc443d4618aefb1e38f2eba3000ffd827ed05cf076baaf3f9271e21 backend=ldk-node
+earlier_swap_spend EPOCH_CLOSED epoch 2 consumed 64 issued 64
+channels 1 Active Channels;Channel ID 582c746a1da82f58835952db4e6a358534dfa177289c58cd44744eff2648cd25;
+ldk_node_id 02ba162d958e96c514bfecae0605f25466a934fd31482576ea8778f1a1acfdf76c
+audit {"open_epoch":16,"closed_epochs_audited":15,"failures":[],"rows":{"issued":27,"consumed":15,"spent":15}}
+publication_history 15
+volume_bytes 4998153 ldk_bytes 734395

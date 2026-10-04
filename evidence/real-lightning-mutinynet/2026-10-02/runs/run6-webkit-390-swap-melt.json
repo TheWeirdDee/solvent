@@ -1,0 +1,227 @@
+{
+  "schema": "solvent/browser-run-evidence/v1",
+  "note": "Public values only. No Cashu proof secret, key or mnemonic is recorded.",
+  "generated_at": "2026-10-02T20:32:22.982Z",
+  "git_commit": "2d1015613a1310da0d5c66d3b4605b1397cd03cf",
+  "working_tree_clean": false,
+  "site": "http://127.0.0.1:4173/",
+  "mint": {
+    "url": "http://127.0.0.1:8095",
+    "name": "SOLVENT isolated real-Lightning test mint (Mutinynet)",
+    "version": "cdk-mintd/0.18.1",
+    "nut06_identity": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed"
+  },
+  "evidence_service": {
+    "url": "http://127.0.0.1:8096",
+    "lightning_backend": "ldk-node",
+    "manifest_pubkey": "020bf2f285d0a9df6a009904b2e16caae0e8aed464c73c06a667d54dfc4a765f13",
+    "reserve_outpoint": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+    "reserve_network": "bitcoin-signet-mutinynet",
+    "relays": [
+      "wss://nos.lol",
+      "wss://relay.primal.net",
+      "wss://nostr.mom",
+      "wss://offchain.pub",
+      "wss://relay.snort.social"
+    ]
+  },
+  "browser": "webkit-390",
+  "checks_failed": 0,
+  "honest_invoice": {
+    "bolt11": "lntbs640n1p4vq9pkdqqnp4qghscp9uqkayfuxamxvcqy26wzupvmtck8qz4cj766vw67qu67vrwpp50p54e5tsddgv93rqy4yzc3avz67pe6k4shzvytsh9reaajuk9ljqsp5ne9pr0ghewn8yvq79pv84jkjuflk4902cz3mpp8x4fjckcfwa5gs9qyysgqcqzp2xqrrssemkj8sf3wvqjtdefvegy2r8huqjfn3lrztjljxh3v9zjgzdwr0p99jr6lq5q6ve8929nu59txa3axcnrdek62x7shyaxd7wrdwtqtsqpdg9at0",
+    "payment_hash": "78695cd1706b50c2c46025482c47ac16bc1cead585c4c22e1728f3decb962fe4"
+  },
+  "honest": {
+    "decision": "ACCEPT_VERIFIED",
+    "facts": {
+      "Local cryptography": "VALID",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Reason code": "ACCEPT_VERIFIED"
+    },
+    "enforcement": {
+      "Decision": "ACCEPT_VERIFIED",
+      "Accept function calls (this issuance)": "1",
+      "Calls made by this verification": "1",
+      "Accepted record stored": "yes",
+      "Accepted at": "Oct 2, 2026, 20:30 UTC",
+      "Store records": "0 → 1"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed",
+      "Receipt target epoch": "22",
+      "Manifest digest": "15394eb13ff605ef88477d640322c5556c9940cc2ad98bb829e84da32041736f",
+      "Nostr event": "f9adc4f89a9757cd105e098e4ff426f804b57591433fe0f8d3031f5167117ef6",
+      "Published": "Oct 2, 2026, 20:30 UTC — ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 2, 2026, 20:30 UTC",
+      "Final reason": "ACCEPT_VERIFIED"
+    },
+    "steps": [
+      "Invoice for 64 sats paid.",
+      "1. The mint gave you 64 sats of ecash (keyset 011c202eef30c937…).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 22.",
+      "3. Epoch 22 closed and published Oct 2, 2026, 20:30 UTC — ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: ACCEPT_VERIFIED."
+    ]
+  },
+  "swap": {
+    "verdict": "SWAP VERIFIED — old proof SPENT, replacements UNSPENT, accounting updated, outstanding liability conserved.",
+    "original": {
+      "y": "022ade997268c787b431315b6d0e5774473494fbdc621e7e07e87063419f7a3ac1",
+      "amount": 64,
+      "nut07_state": "SPENT"
+    },
+    "replacements": [
+      {
+        "y": "02a84c1dae0e649dffbff48c8d38bc809b6fbb77cacabb163c0b76f48aa47b4418",
+        "amount": 32,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "029dfeb80ce2c9f85636020f45333452243607c0947efa61202b5484cd3ce04519",
+        "amount": 16,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "025c293bfcc2aa336f39083343bf18b9aa6a7485e3c328831c2b1f40bee3a0aee4",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "02f79f1f880cc2febd2e499c28ccea2d369b0adcbbffe6913eb65867263f66b6a3",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      }
+    ],
+    "epoch": 23,
+    "operation": {
+      "kind": "swap",
+      "consumed": [
+        {
+          "proof_y": "022ade997268c787b431315b6d0e5774473494fbdc621e7e07e87063419f7a3ac1",
+          "amount": 64,
+          "target_epoch": 23
+        }
+      ],
+      "issued": [
+        {
+          "blinded_message": "0211289a1b587ebf7b29b3e2a12e0f174295a890cccd18e4dc8379d26c0c04d6d9",
+          "amount": 8,
+          "target_epoch": 23
+        },
+        {
+          "blinded_message": "02a54f6ec88927528936443357928670fecfa613ccf48443642281ef42c7590c18",
+          "amount": 32,
+          "target_epoch": 23
+        },
+        {
+          "blinded_message": "03202024329cf7e69e8c283622bcc1106413dcd3c48674ff86661ae24037a3633d",
+          "amount": 16,
+          "target_epoch": 23
+        },
+        {
+          "blinded_message": "03989bb8b333f63a315dc38995e5672e3312cc8b1479bbb0df2f742cb00d620545",
+          "amount": 8,
+          "target_epoch": 23
+        }
+      ],
+      "consumed_sum": 64,
+      "issued_sum": 64
+    },
+    "liability_before": 664,
+    "liability_after": 664
+  },
+  "melt": {
+    "verdict": "PAYMENT VERIFIED — the invoice was paid over Mutinynet Lightning (preimage matches), inputs SPENT, change UNSPENT and committed, liability reduced by exactly what was paid.",
+    "invoice": {
+      "bolt11": "lntbs400n1p4vq9repp5jnryugcpx52hsahxp90t0j85wzly8ht5xarz4kurzk7d2vn7f0zqdqqcqzzsxqyz5vqsp5gnlhp86fc5cwrhwl6qkkp6q93xezfekn244pk5ggh9r02nmzzt9q9qxpqysgqlkuh3pvqprcfxhg34wacwqf57tww5tumfmq5h5vv4teg3cwke2753fpuhjymy49rn7hsusx54jcy454rn47x7t7e43l9gjjzf0yzqsgqh32k8x",
+      "payment_hash": "94c64e230135157876e6095eb7c8f470be43dd7437462adb8315bcd5327e4bc4",
+      "payee": "Mutinynet faucet (faucet.mutinynet.com)"
+    },
+    "payment_preimage": "519346b6dcb7e71bc8161240894793b29fe96cc709ebcbf48096e50a76f574ca",
+    "inputs": [
+      {
+        "y": "02a84c1dae0e649dffbff48c8d38bc809b6fbb77cacabb163c0b76f48aa47b4418",
+        "amount": 32,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "029dfeb80ce2c9f85636020f45333452243607c0947efa61202b5484cd3ce04519",
+        "amount": 16,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "025c293bfcc2aa336f39083343bf18b9aa6a7485e3c328831c2b1f40bee3a0aee4",
+        "amount": 8,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "02f79f1f880cc2febd2e499c28ccea2d369b0adcbbffe6913eb65867263f66b6a3",
+        "amount": 8,
+        "nut07_state": "SPENT"
+      }
+    ],
+    "change": [
+      {
+        "y": "02d55556e57d5e76024cdd65e8431bd636ca96fc7197b9b0ba61e19424c588209c",
+        "amount": 16,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "0264374a43fb967ee150298ac67f0b50e766800c6c3ba6c5edd8448098f8041263",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      }
+    ],
+    "lightning_fee_paid": 0,
+    "epoch": 24,
+    "liability_before": 664,
+    "liability_after": 624
+  },
+  "broken_promise_invoice": {
+    "bolt11": "lntbs640n1p4vq9yndqqnp4qghscp9uqkayfuxamxvcqy26wzupvmtck8qz4cj766vw67qu67vrwpp5w8f3w94p6a80l5lff9mcx9x0k69uhdwnpwmt0kwm5d6r85h7sukssp599jntja55j2aahfdefnsrqcgegvz4mcdsmqzwm05u3d8kh6alecs9qyysgqcqzp2xqrrss7xghtxllhp8vsu02h0kr0ydyujdxrg48z48l0tn977fz56u59dus5cgadr8azn0sle8kgrqct4dk6hv2p2aw2x7qjtnrm5744998hpqp4tzues",
+    "payment_hash": "71d31716a1d74effd3e949778314cfb68bcbb5d30bb6b7d9dba37433d2fe872d"
+  },
+  "broken_promise": {
+    "decision": "REFUSE_ISSUANCE_OMITTED",
+    "facts": {
+      "Receipt signature": "VALID",
+      "Epoch manifest": "VALID (signed by the mint)",
+      "Manifest key delegation": "VALID (NUT-06 identity)",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Promised issuance": "MISSING from the closed epoch",
+      "Reason code": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "enforcement": {
+      "Decision": "REFUSE_ISSUANCE_OMITTED",
+      "Accept function calls": "0",
+      "Accepted record stored": "no",
+      "Store changed": "no"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed",
+      "Receipt target epoch": "25",
+      "Manifest digest": "fb61e4356dba7f588fc9d07d01e3f4279b3fd412187dff586dcb94868f78ea47",
+      "Nostr event": "b284e33d640a19ad4d6c7529d744c08f68be9ca4635e69e325bc8e95c799f924",
+      "Published": "Oct 2, 2026, 20:31 UTC — ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "598bfed24044ea8b37bf79d0719afcebb87a8767f91c73dc37a36f17214c58fb:0",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 2, 2026, 20:31 UTC",
+      "Final reason": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "steps": [
+      "Broken-promise request registered for issuance 02911e84fdd6… — before minting, so the epoch cannot close without it.",
+      "Invoice for 64 sats paid.",
+      "1. The mint gave you 64 sats of ecash (keyset 011c202eef30c937…).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 25.",
+      "Demo: the mint's real epoch closer will leave this issuance out of epoch 25.",
+      "3. Epoch 25 closed and published Oct 2, 2026, 20:31 UTC — ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: REFUSE_ISSUANCE_OMITTED."
+    ]
+  }
+}

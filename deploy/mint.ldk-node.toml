@@ -1,0 +1,48 @@
+# cdk-mintd configuration — REAL LIGHTNING on Mutinynet (LDK node inside
+# cdk-mintd). Invoices must actually be paid over Mutinynet Lightning; the
+# evidence and UI are labelled lightning_backend = ldk-node. Test-network
+# sats only (Mutinynet is a signet): no monetary value.
+#
+# The node's seed is CDK_MINTD_LDK_NODE_MNEMONIC (a SECRET, separate from the
+# mint's own CDK_MINTD_MNEMONIC). Its channel state lives in /data/ldk-node and
+# must never be restored from an older copy: an old channel state broadcast
+# to the network can lose the channel's funds.
+[info]
+# MUST be the public URL wallets use — the NUT-06 delegation is bound to it.
+url = "https://mint.example.com"
+listen_host = "0.0.0.0"
+listen_port = 8085
+mnemonic = "env:CDK_MINTD_MNEMONIC"
+
+[database]
+engine = "sqlite"
+
+[payment_backend]
+backend = "ldk-node"
+unit = "sat"
+
+# No on-chain issuance: Lightning only.
+[onchain]
+onchain_backend = "none"
+
+[ldk_node]
+fee_percent = 0.02
+reserve_fee_min = 2
+bitcoin_network = "signet"
+# Electrum keeps one connection open; Mutinynet's Esplora API proved too
+# unreliable for wallet scans (evidence/real-lightning-mutinynet/).
+chain_source_type = "electrum"
+electrum_url = "tcp://electrum.mutinynet.com:50001"
+# Gossip comes peer-to-peer from the channel peer. At the pinned CDK commit
+# an rgs_url line, if present, switches to Rapid Gossip Sync regardless of
+# gossip_source_type — so there is deliberately none here.
+gossip_source_type = "p2p"
+storage_dir_path = "/data/ldk-node"
+log_dir_path = "/data/ldk-node/ldk-node.log"
+ldk_node_host = "0.0.0.0"
+ldk_node_port = 9735
+ldk_node_mnemonic = "env:CDK_MINTD_LDK_NODE_MNEMONIC"
+# The node's management dashboard can move funds: loopback only, never a
+# public port.
+webserver_host = "127.0.0.1"
+webserver_port = 8087

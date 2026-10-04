@@ -41,6 +41,14 @@ if [ ! -f "$WORK/.solvent-initialized" ]; then
   touch "$WORK/.solvent-initialized"
 fi
 
+# A deliberate configuration change on an existing volume (switching the
+# Lightning backend, or rolling it back): stage the given document, and the
+# cdk-mintd started below applies it. Off unless explicitly requested.
+if [ -f "$WORK/.solvent-initialized" ] && [ "${SOLVENT_APPLY_MINT_CONFIG:-}" = 1 ]; then
+  echo "solvent-mint: SOLVENT_APPLY_MINT_CONFIG=1 — staging $CONFIG"
+  cdk-mintd --work-dir "$WORK" config apply --file "$CONFIG"
+fi
+
 if [ ! -s "$WORK/delegation.json" ]; then
   echo "solvent-mint: delegating manifest key $SOLVENT_MANIFEST_PUBKEY from epoch 1"
   cdk-mintd --work-dir "$WORK" solvent delegate-manifest-key \

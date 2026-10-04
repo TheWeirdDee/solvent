@@ -1,0 +1,6 @@
+phase            samples  mem med MiB  mem peak MiB  cpu med %  cpu peak %
+startup              299        193.3         237.6        0.8        84.4
+restart-stop          20        143.3         147.8        0.9       134.4
+idle                 493        149.7         233.0        0.6        73.3
+restart-kill          16        142.6         142.9        3.5        18.8
+overall peak memory: 237.6 MiB over 828 samples

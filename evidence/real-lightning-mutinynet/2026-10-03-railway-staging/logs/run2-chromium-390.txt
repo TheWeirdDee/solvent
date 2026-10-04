@@ -1,0 +1,46 @@
+PASS  [chromium-390] the page shows the mint, its NUT-06 identity and an honest Lightning label
+PASS  [chromium-390] the page names both backends: the mint and its evidence service
+PASS  [chromium-390] live status is labelled LIVE with a real time
+PASS  [chromium-390] A. the honest run's real Lightning invoice was paid by a separate node — payment hash f4f127c26e04273ffeb2e39d608cda45b43bd4ee1dc591b914ea0ce756947e08
+PASS  [chromium-390] A. progress appears in the viewport immediately
+PASS  [chromium-390] A. disabled buttons say why
+PASS  [chromium-390] A. progress named the epoch wait or publishing stage — Waiting for you to pay the invoice… | Waiting for epoch 6 to close — expected in about 15s (epochs close about every 30s). | Waiting for epoch 6 to close — expected in about 13s (epochs close about every 30s).
+PASS  [chromium-390] A. honest -> ACCEPT_VERIFIED — ✓ ACCEPT (ACCEPT_VERIFIED)
+PASS  [chromium-390] A. Nostr retrieval passed — RETRIEVED AND VERIFIED
+PASS  [chromium-390] A. accept function called once, record stored — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"1","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 18:58 UTC","Store records":"0 → 1"}
+PASS  [chromium-390] A. evidence actions: explorer links + downloads
+PASS  [chromium-390] A. the decision is brought into the top part of the screen when reached — badge top 272, scrollY 3447, viewport 844
+PASS  [chromium-390] A. independent check of the fresh event (Node + nostr-tools, outside the app) — event 0e1fe1477e8b532879c823da430c84f77e3ca30487bc6bb512c87f44cf984991 kind 8181, signature valid, epoch 6, manifest digest e42348b3ad9de5f4131c6cd91013384137807c7ff0e00d9800590edb9ae1a7f3 matches the page
+PASS  [chromium-390] A. "Copy event ID" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-390] A. "Copy receipt" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-390] A. "Retry verification (same issuance)" is offered on the result right away
+PASS  [chromium-390] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 18:58 UTC","Store records":"1 → 1"}
+PASS  [chromium-390] A. public evidence downloads — solvent-public-evidence-epoch-6.json
+PASS  [chromium-390] A. full replay bundle warns before downloading the proof secret
+PASS  [chromium-390] A. after the warning, the replay bundle download completes — solvent-replay-bundle-epoch-6.json
+PASS  [chromium-390] A. the public evidence download completed (not just started)
+PASS  [chromium-390] A2. "Swap accepted ecash" is offered under the accepted result
+PASS  [chromium-390] A2. swap verdict — SWAP VERIFIED — old proof SPENT, replacements UNSPENT, accounting updated, outstanding liability conserved.
+PASS  [chromium-390] A2. independent NUT-07: original SPENT, every replacement UNSPENT — original SPENT; replacements 32:UNSPENT, 16:UNSPENT, 8:UNSPENT, 8:UNSPENT
+PASS  [chromium-390] A2. independent spent-side check: in the signed spent sum-MMR, operation conserves value — epoch 7; consumed 64, issued 64 in 4 outputs; outstanding 152 -> 152
+PASS  [chromium-390] A3. "Pay with accepted ecash" is offered after the verified swap
+PASS  [chromium-390] A3. payment verdict — PAYMENT VERIFIED — the invoice was paid over Mutinynet Lightning (preimage matches), inputs SPENT, change UNSPENT and committed, liability reduced by exactly what was paid.
+PASS  [chromium-390] A3. independent proof of payment: sha256(preimage) = invoice payment hash — payment hash d316fc0e7c83c11cca1bf3fb56c3718dc9c265a6dac47c157be7796f40b8db83
+PASS  [chromium-390] A3. independent NUT-07: every input SPENT, every change proof UNSPENT — inputs 32:SPENT, 16:SPENT, 8:SPENT, 8:SPENT; change 16:UNSPENT, 8:UNSPENT
+PASS  [chromium-390] B. reload restores the issuance and its accepted state — Accepted Oct 3, 2026, 18:58 UTC — accept function calls recorded: 1.
+PASS  [chromium-390] B. retry of the accepted issuance: still ACCEPT, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 18:58 UTC","Store records":"1 → 1"}
+PASS  [chromium-390] C. the broken-promise run's real Lightning invoice was paid by a separate node — payment hash b084aa7c7611ccc3c1d642b1f79df29029afc3a91e9b5429fd3fe7979a592ccf
+PASS  [chromium-390] C. the omission was registered before minting
+PASS  [chromium-390] C. broken promise -> REFUSE_ISSUANCE_OMITTED — ✕ REFUSE (REFUSE_ISSUANCE_OMITTED)
+PASS  [chromium-390] C. everything valid except the promised issuance — {"Receipt signature":"VALID","Epoch manifest":"VALID (signed by the mint)","Manifest key delegation":"VALID (NUT-06 identity)","Public Nostr retrieval":"RETRIEVED AND VERIFIED","Live reserve":"COVERED (1,000,000 sats)","Promised issuance":"MISSING from the closed epoch","Reason code":"REFUSE_ISSUANCE_OMITTED"}
+PASS  [chromium-390] C. a proven refusal offers no "retry" (retry is for availability failures)
+PASS  [chromium-390] C. the note under a refusal does not mention a Retry that is not offered — This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.
+PASS  [chromium-390] C. independent check of the broken-promise event (Node + nostr-tools, outside the app) — event b3bb6df3cc23b369e13a6e284386e1020b512a5cae92f193b36133e6e184340a kind 8181, signature valid, epoch 9, manifest digest 54502054a790f5e81b5efa4513926d526866d47a668232153d8af68863696d3c matches the page
+PASS  [chromium-390] C. accept function not called, store unchanged — {"Decision":"REFUSE_ISSUANCE_OMITTED","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-390] D. relay outage -> "could not complete", not a mint refusal — ⟳ NOT ACCEPTED — COULD NOT COMPLETE (REFUSE_NOSTR_UNAVAILABLE)
+PASS  [chromium-390] D. Retry verification is offered; nothing accepted — {"Decision":"REFUSE_NOSTR_UNAVAILABLE","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-390] D. retry of the SAME issuance after the outage -> ACCEPT_VERIFIED, accepted once, nothing minted — ACCEPT_VERIFIED, epoch 10 -> 10
+PASS  [chromium-390] 390px: no horizontal overflow after the runs — 0px
+evidence written to C:/Users/DELL/AppData/Local/Temp/claude/c--Users-DELL-Desktop-solvent/ba24f53e-d814-418e-a6d1-826aece8e2eb/scratchpad/staging/run2-chromium-390.json
+
+REAL MINT BROWSER FLOW VERIFIED

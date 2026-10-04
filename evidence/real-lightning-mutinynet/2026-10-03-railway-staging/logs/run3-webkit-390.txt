@@ -1,0 +1,46 @@
+PASS  [webkit-390] the page shows the mint, its NUT-06 identity and an honest Lightning label
+PASS  [webkit-390] the page names both backends: the mint and its evidence service
+PASS  [webkit-390] live status is labelled LIVE with a real time
+PASS  [webkit-390] A. the honest run's real Lightning invoice was paid by a separate node — payment hash d3f19a9c356e2074d7ed2f43586021ed4a5c72fdcae797cbd8f1e5cb6e942873
+PASS  [webkit-390] A. progress appears in the viewport immediately
+PASS  [webkit-390] A. disabled buttons say why
+PASS  [webkit-390] A. progress named the epoch wait or publishing stage — Waiting for you to pay the invoice… | Waiting for epoch 11 to close — expected in about 29s (epochs close about every 30s). | Waiting for epoch 11 to close — expected in about 26s (epochs close about every 30s).
+PASS  [webkit-390] A. honest -> ACCEPT_VERIFIED — ✓ ACCEPT (ACCEPT_VERIFIED)
+PASS  [webkit-390] A. Nostr retrieval passed — RETRIEVED AND VERIFIED
+PASS  [webkit-390] A. accept function called once, record stored — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"1","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 19:01 UTC","Store records":"0 → 1"}
+PASS  [webkit-390] A. evidence actions: explorer links + downloads
+PASS  [webkit-390] A. the decision is brought into the top part of the screen when reached — badge top 206, scrollY 3512, viewport 844
+PASS  [webkit-390] A. independent check of the fresh event (Node + nostr-tools, outside the app) — event d3ba2a2566851b5e744fa121e58af5a9d4ed086723ac97a17a6d8424276886f2 kind 8181, signature valid, epoch 11, manifest digest 0807cd8d97dcc5b3134bc196c4aac16253e4ad8ad62e16880b6415d1c7f04bef matches the page
+PASS  [webkit-390] A. "Copy event ID" gives visible feedback — "Copied ✓" (clipboard not readable in this engine)
+PASS  [webkit-390] A. "Copy receipt" gives visible feedback — "Copied ✓" (clipboard not readable in this engine)
+PASS  [webkit-390] A. "Retry verification (same issuance)" is offered on the result right away
+PASS  [webkit-390] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 19:01 UTC","Store records":"1 → 1"}
+PASS  [webkit-390] A. public evidence downloads — solvent-public-evidence-epoch-11.json
+PASS  [webkit-390] A. full replay bundle warns before downloading the proof secret
+PASS  [webkit-390] A. after the warning, the replay bundle download completes — solvent-replay-bundle-epoch-11.json
+PASS  [webkit-390] A. the public evidence download completed (not just started)
+PASS  [webkit-390] A2. "Swap accepted ecash" is offered under the accepted result
+PASS  [webkit-390] A2. swap verdict — SWAP VERIFIED — old proof SPENT, replacements UNSPENT, accounting updated, outstanding liability conserved.
+PASS  [webkit-390] A2. independent NUT-07: original SPENT, every replacement UNSPENT — original SPENT; replacements 32:UNSPENT, 16:UNSPENT, 8:UNSPENT, 8:UNSPENT
+PASS  [webkit-390] A2. independent spent-side check: in the signed spent sum-MMR, operation conserves value — epoch 12; consumed 64, issued 64 in 4 outputs; outstanding 240 -> 240
+PASS  [webkit-390] A3. "Pay with accepted ecash" is offered after the verified swap
+PASS  [webkit-390] A3. payment verdict — PAYMENT VERIFIED — the invoice was paid over Mutinynet Lightning (preimage matches), inputs SPENT, change UNSPENT and committed, liability reduced by exactly what was paid.
+PASS  [webkit-390] A3. independent proof of payment: sha256(preimage) = invoice payment hash — payment hash 7a3516e1437e72da591ac5e8412f2f30c80b3fb84568e4a719271b9181f01596
+PASS  [webkit-390] A3. independent NUT-07: every input SPENT, every change proof UNSPENT — inputs 32:SPENT, 16:SPENT, 8:SPENT, 8:SPENT; change 16:UNSPENT, 8:UNSPENT
+PASS  [webkit-390] B. reload restores the issuance and its accepted state — Accepted Oct 3, 2026, 19:01 UTC — accept function calls recorded: 1.
+PASS  [webkit-390] B. retry of the accepted issuance: still ACCEPT, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 19:01 UTC","Store records":"1 → 1"}
+PASS  [webkit-390] C. the broken-promise run's real Lightning invoice was paid by a separate node — payment hash 3592453a3387892aea2226eab7fd00d7e9ec5469f3cc20c43acfb7bfcc66c0c0
+PASS  [webkit-390] C. the omission was registered before minting
+PASS  [webkit-390] C. broken promise -> REFUSE_ISSUANCE_OMITTED — ✕ REFUSE (REFUSE_ISSUANCE_OMITTED)
+PASS  [webkit-390] C. everything valid except the promised issuance — {"Receipt signature":"VALID","Epoch manifest":"VALID (signed by the mint)","Manifest key delegation":"VALID (NUT-06 identity)","Public Nostr retrieval":"RETRIEVED AND VERIFIED","Live reserve":"COVERED (1,000,000 sats)","Promised issuance":"MISSING from the closed epoch","Reason code":"REFUSE_ISSUANCE_OMITTED"}
+PASS  [webkit-390] C. a proven refusal offers no "retry" (retry is for availability failures)
+PASS  [webkit-390] C. the note under a refusal does not mention a Retry that is not offered — This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.
+PASS  [webkit-390] C. independent check of the broken-promise event (Node + nostr-tools, outside the app) — event 2d76006530b671d224f9ee8303c0ec1a4c4d61032551a07a8af3f190990d986d kind 8181, signature valid, epoch 14, manifest digest 3e861b5f5cd78e3fd25c18e3d3a98a1fadd8c3502257e0f6a30dd15dc616e227 matches the page
+PASS  [webkit-390] C. accept function not called, store unchanged — {"Decision":"REFUSE_ISSUANCE_OMITTED","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [webkit-390] D. relay outage -> "could not complete", not a mint refusal — ⟳ NOT ACCEPTED — COULD NOT COMPLETE (REFUSE_NOSTR_UNAVAILABLE)
+PASS  [webkit-390] D. Retry verification is offered; nothing accepted — {"Decision":"REFUSE_NOSTR_UNAVAILABLE","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [webkit-390] D. retry of the SAME issuance after the outage -> ACCEPT_VERIFIED, accepted once, nothing minted — ACCEPT_VERIFIED, epoch 15 -> 15
+PASS  [webkit-390] 390px: no horizontal overflow after the runs — 0px
+evidence written to C:/Users/DELL/AppData/Local/Temp/claude/c--Users-DELL-Desktop-solvent/ba24f53e-d814-418e-a6d1-826aece8e2eb/scratchpad/staging/run3-webkit-390.json
+
+REAL MINT BROWSER FLOW VERIFIED

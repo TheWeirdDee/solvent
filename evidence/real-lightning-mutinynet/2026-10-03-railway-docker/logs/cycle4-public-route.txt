@@ -1,0 +1,46 @@
+PASS  [chromium-1363] the page shows the mint, its NUT-06 identity and an honest Lightning label
+PASS  [chromium-1363] the page names both backends: the mint and its evidence service
+PASS  [chromium-1363] live status is labelled LIVE with a real time
+PASS  [chromium-1363] A. the honest run's real Lightning invoice was paid by a separate node — payment hash 8fbf41d0ccec4312dc8256ff321afd048fcf896a727d777eca6de3f942f7a939
+PASS  [chromium-1363] A. progress appears in the viewport immediately
+PASS  [chromium-1363] A. disabled buttons say why
+PASS  [chromium-1363] A. progress named the epoch wait or publishing stage — Waiting for epoch 58 to close — expected in about 2s (epochs close about every 30s). | Waiting for epoch 58 to close — due now. | Publishing epoch 58's evidence to 5 public relays (attempt 1): 0/5 acknowledged.
+PASS  [chromium-1363] A. honest -> ACCEPT_VERIFIED — ✓ ACCEPT (ACCEPT_VERIFIED)
+PASS  [chromium-1363] A. Nostr retrieval passed — RETRIEVED AND VERIFIED
+PASS  [chromium-1363] A. accept function called once, record stored — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"1","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 06:56 UTC","Store records":"0 → 1"}
+PASS  [chromium-1363] A. evidence actions: explorer links + downloads
+PASS  [chromium-1363] A. the decision is brought into the top part of the screen when reached — badge top 340, scrollY 1720, viewport 936
+PASS  [chromium-1363] A. independent check of the fresh event (Node + nostr-tools, outside the app) — event e118b1006d316e906578eb6a5b77de9585d46b1761f6ab5f0c71d6e34c58ca8e kind 8181, signature valid, epoch 58, manifest digest 54b09e099d428fdbfcd4d5724edc83d8e26a66d59290edd7a4914b1aac224d0d matches the page
+PASS  [chromium-1363] A. "Copy event ID" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-1363] A. "Copy receipt" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-1363] A. "Retry verification (same issuance)" is offered on the result right away
+PASS  [chromium-1363] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 06:56 UTC","Store records":"1 → 1"}
+PASS  [chromium-1363] A. public evidence downloads — solvent-public-evidence-epoch-58.json
+PASS  [chromium-1363] A. full replay bundle warns before downloading the proof secret
+PASS  [chromium-1363] A. after the warning, the replay bundle download completes — solvent-replay-bundle-epoch-58.json
+PASS  [chromium-1363] A. the public evidence download completed (not just started)
+PASS  [chromium-1363] A2. "Swap accepted ecash" is offered under the accepted result
+PASS  [chromium-1363] A2. swap verdict — SWAP VERIFIED — old proof SPENT, replacements UNSPENT, accounting updated, outstanding liability conserved.
+PASS  [chromium-1363] A2. independent NUT-07: original SPENT, every replacement UNSPENT — original SPENT; replacements 32:UNSPENT, 16:UNSPENT, 8:UNSPENT, 8:UNSPENT
+PASS  [chromium-1363] A2. independent spent-side check: in the signed spent sum-MMR, operation conserves value — epoch 59; consumed 64, issued 64 in 4 outputs; outstanding 1176 -> 1176
+PASS  [chromium-1363] A3. "Pay with accepted ecash" is offered after the verified swap
+PASS  [chromium-1363] A3. payment verdict — PAYMENT VERIFIED — the invoice was paid over Mutinynet Lightning (preimage matches), inputs SPENT, change UNSPENT and committed, liability reduced by exactly what was paid.
+PASS  [chromium-1363] A3. independent proof of payment: sha256(preimage) = invoice payment hash — payment hash 3678ef28a571fffd0d00df1a3cf9f7a7bee14b6fa0878083f5ad1777783e64f9
+PASS  [chromium-1363] A3. independent NUT-07: every input SPENT, every change proof UNSPENT — inputs 32:SPENT, 16:SPENT, 8:SPENT, 8:SPENT; change 16:UNSPENT, 8:UNSPENT
+PASS  [chromium-1363] B. reload restores the issuance and its accepted state — Accepted Oct 3, 2026, 06:56 UTC — accept function calls recorded: 1.
+PASS  [chromium-1363] B. retry of the accepted issuance: still ACCEPT, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 3, 2026, 06:56 UTC","Store records":"1 → 1"}
+PASS  [chromium-1363] C. the broken-promise run's real Lightning invoice was paid by a separate node — payment hash ad7278805abfebbb4e49ef058324ecdbd423a1de131a85342621fec1f87c9c8f
+PASS  [chromium-1363] C. the omission was registered before minting
+PASS  [chromium-1363] C. broken promise -> REFUSE_ISSUANCE_OMITTED — ✕ REFUSE (REFUSE_ISSUANCE_OMITTED)
+PASS  [chromium-1363] C. everything valid except the promised issuance — {"Receipt signature":"VALID","Epoch manifest":"VALID (signed by the mint)","Manifest key delegation":"VALID (NUT-06 identity)","Public Nostr retrieval":"RETRIEVED AND VERIFIED","Live reserve":"COVERED (1,000,000 sats)","Promised issuance":"MISSING from the closed epoch","Reason code":"REFUSE_ISSUANCE_OMITTED"}
+PASS  [chromium-1363] C. a proven refusal offers no "retry" (retry is for availability failures)
+PASS  [chromium-1363] C. the note under a refusal does not mention a Retry that is not offered — This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.
+PASS  [chromium-1363] C. independent check of the broken-promise event (Node + nostr-tools, outside the app) — event c717a4b130c24f803a1909329bcf0c5a152a8116e5fcb8bfcc7278b92e844290 kind 8181, signature valid, epoch 61, manifest digest 20f1489ec99674e6e48574503314b9b1e22ee08630a7d0d1b4fc847709395724 matches the page
+PASS  [chromium-1363] C. accept function not called, store unchanged — {"Decision":"REFUSE_ISSUANCE_OMITTED","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-1363] D. relay outage -> "could not complete", not a mint refusal — ⟳ NOT ACCEPTED — COULD NOT COMPLETE (REFUSE_NOSTR_UNAVAILABLE)
+PASS  [chromium-1363] D. Retry verification is offered; nothing accepted — {"Decision":"REFUSE_NOSTR_UNAVAILABLE","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-1363] D. retry of the SAME issuance after the outage -> ACCEPT_VERIFIED, accepted once, nothing minted — ACCEPT_VERIFIED, epoch 62 -> 62
+PASS  [chromium-1363] 390px: the real-mint page has no horizontal overflow — 0px
+evidence written to C:/Users/DELL/AppData/Local/Temp/claude/c--Users-DELL-Desktop-solvent/ba24f53e-d814-418e-a6d1-826aece8e2eb/scratchpad/docker-gate/cycle4-public-route.json
+
+REAL MINT BROWSER FLOW VERIFIED

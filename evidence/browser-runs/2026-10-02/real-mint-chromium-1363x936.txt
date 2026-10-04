@@ -1,0 +1,35 @@
+PASS  [chromium-1363] the page shows the mint, its NUT-06 identity and an honest Lightning label
+PASS  [chromium-1363] the page names both backends: the mint and its evidence service
+PASS  [chromium-1363] live status is labelled LIVE with a real time
+PASS  [chromium-1363] A. progress appears in the viewport immediately
+PASS  [chromium-1363] A. disabled buttons say why
+PASS  [chromium-1363] A. progress named the epoch wait or publishing stage — Waiting for the invoice to be paid… | Waiting for epoch 74 to close — expected in about 17s (epochs close about every 30s). | Waiting for epoch 74 to close — expected in about 14s (epochs close about every 30s).
+PASS  [chromium-1363] A. honest -> ACCEPT_VERIFIED — ✓ ACCEPT (ACCEPT_VERIFIED)
+PASS  [chromium-1363] A. Nostr retrieval passed — RETRIEVED AND VERIFIED
+PASS  [chromium-1363] A. accept function called once, record stored — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"1","Accepted record stored":"yes","Accepted at":"Oct 2, 2026, 12:36 UTC","Store records":"0 → 1"}
+PASS  [chromium-1363] A. evidence actions: explorer links + downloads
+PASS  [chromium-1363] A. the decision is brought into the top part of the screen when reached — badge top 340, scrollY 1429, viewport 936
+PASS  [chromium-1363] A. independent check of the fresh event (Node + nostr-tools, outside the app) — event e6d085a701b3bf8bef6366f4768c9fe6998059bfbdbe01784f58d2b853af3016 kind 8181, signature valid, epoch 74, manifest digest b810c003fc86dd3a59f2f62e3f9c38267144584a7d5272de98adaac4d57a2c7b matches the page
+PASS  [chromium-1363] A. "Copy event ID" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-1363] A. "Copy receipt" gives visible feedback — "Copied ✓", clipboard holds exactly the value
+PASS  [chromium-1363] A. "Retry verification (same issuance)" is offered on the result right away
+PASS  [chromium-1363] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 2, 2026, 12:36 UTC","Store records":"1 → 1"}
+PASS  [chromium-1363] A. public evidence downloads — solvent-public-evidence-epoch-74.json
+PASS  [chromium-1363] A. full replay bundle warns before downloading the proof secret
+PASS  [chromium-1363] A. after the warning, the replay bundle download completes — solvent-replay-bundle-epoch-74.json
+PASS  [chromium-1363] A. the public evidence download completed (not just started)
+PASS  [chromium-1363] B. reload restores the issuance and its accepted state — Accepted Oct 2, 2026, 12:36 UTC — accept function calls recorded: 1.
+PASS  [chromium-1363] B. retry of the accepted issuance: still ACCEPT, accept calls still 1 — {"Decision":"ACCEPT_VERIFIED","Accept function calls (this issuance)":"1","Calls made by this verification":"0 — already accepted earlier; not accepted twice","Accepted record stored":"yes","Accepted at":"Oct 2, 2026, 12:36 UTC","Store records":"1 → 1"}
+PASS  [chromium-1363] C. the omission was registered before minting
+PASS  [chromium-1363] C. broken promise -> REFUSE_ISSUANCE_OMITTED — ✕ REFUSE (REFUSE_ISSUANCE_OMITTED)
+PASS  [chromium-1363] C. everything valid except the promised issuance — {"Receipt signature":"VALID","Epoch manifest":"VALID (signed by the mint)","Manifest key delegation":"VALID (NUT-06 identity)","Public Nostr retrieval":"RETRIEVED AND VERIFIED","Live reserve":"COVERED (1,000,000 sats)","Promised issuance":"MISSING from the closed epoch","Reason code":"REFUSE_ISSUANCE_OMITTED"}
+PASS  [chromium-1363] C. a proven refusal offers no "retry" (retry is for availability failures)
+PASS  [chromium-1363] C. the note under a refusal does not mention a Retry that is not offered — This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.
+PASS  [chromium-1363] C. independent check of the broken-promise event (Node + nostr-tools, outside the app) — event f6eb44467c482125ab663da731f15d672ed35d1953920d5dab3f0f5f8fca624f kind 8181, signature valid, epoch 75, manifest digest ff1f1103316db6e1c1f3c5d11ef916c96a51bbef45118dc2533872e8335177ab matches the page
+PASS  [chromium-1363] C. accept function not called, store unchanged — {"Decision":"REFUSE_ISSUANCE_OMITTED","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-1363] D. relay outage -> "could not complete", not a mint refusal — ⟳ NOT ACCEPTED — COULD NOT COMPLETE (REFUSE_NOSTR_UNAVAILABLE)
+PASS  [chromium-1363] D. Retry verification is offered; nothing accepted — {"Decision":"REFUSE_NOSTR_UNAVAILABLE","Accept function calls":"0","Accepted record stored":"no","Store changed":"no"}
+PASS  [chromium-1363] D. retry of the SAME issuance after the outage -> ACCEPT_VERIFIED, accepted once, nothing minted — ACCEPT_VERIFIED, epoch 76 -> 76
+PASS  [chromium-1363] 390px: the real-mint page has no horizontal overflow — 0px
+
+REAL MINT BROWSER FLOW VERIFIED

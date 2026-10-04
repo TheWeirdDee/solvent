@@ -1,0 +1,156 @@
+SOLVENT — browser UI check against http://127.0.0.1:4173
+
+PASS  1440px #/ has no horizontal overflow
+PASS  #/ shows no reference-lab/test wording
+PASS  #/ sets its page title — SOLVENT — Auditable Ecash
+PASS  #/: landing-section anchors shown
+PASS  #/: external links open in a new tab with noopener
+PASS  1440px #/mint has no horizontal overflow
+PASS  #/mint shows no reference-lab/test wording
+PASS  #/mint sets its page title — SOLVENT — Live Mint
+PASS  #/mint: landing-section anchors hidden
+PASS  #/mint: external links open in a new tab with noopener
+PASS  1440px #/verify has no horizontal overflow
+PASS  #/verify shows no reference-lab/test wording
+PASS  #/verify sets its page title — SOLVENT — Verify
+PASS  #/verify: landing-section anchors hidden
+PASS  #/verify: external links open in a new tab with noopener
+PASS  1440px #/docs has no horizontal overflow
+PASS  #/docs sets its page title — SOLVENT — Docs
+PASS  #/docs: landing-section anchors hidden
+PASS  #/docs: external links open in a new tab with noopener
+PASS  1440px #/protocol has no horizontal overflow
+PASS  #/protocol shows no reference-lab/test wording
+PASS  #/protocol sets its page title — SOLVENT — Protocol
+PASS  #/protocol: landing-section anchors hidden
+PASS  #/protocol: external links open in a new tab with noopener
+PASS  1440px #/publish has no horizontal overflow
+PASS  #/publish shows no reference-lab/test wording
+PASS  #/publish sets its page title — SOLVENT — Evidence
+PASS  #/publish: landing-section anchors hidden
+PASS  #/publish: external links open in a new tab with noopener
+PASS  1440px #/lab has no horizontal overflow
+PASS  #/lab sets its page title — SOLVENT — Reference Lab
+PASS  #/lab: landing-section anchors hidden
+PASS  #/lab: external links open in a new tab with noopener
+PASS  1440px: no JS errors across all routes
+PASS  1024px #/ has no horizontal overflow
+PASS  1024px #/mint has no horizontal overflow
+PASS  1024px #/verify has no horizontal overflow
+PASS  1024px #/docs has no horizontal overflow
+PASS  1024px #/protocol has no horizontal overflow
+PASS  1024px #/publish has no horizontal overflow
+PASS  1024px #/lab has no horizontal overflow
+PASS  1024px: no JS errors across all routes
+PASS  768px #/ has no horizontal overflow
+PASS  768px #/mint has no horizontal overflow
+PASS  768px #/verify has no horizontal overflow
+PASS  768px #/docs has no horizontal overflow
+PASS  768px #/protocol has no horizontal overflow
+PASS  768px #/publish has no horizontal overflow
+PASS  768px #/lab has no horizontal overflow
+PASS  768px: no JS errors across all routes
+PASS  390px #/ has no horizontal overflow
+PASS  390px #/mint has no horizontal overflow
+PASS  390px #/verify has no horizontal overflow
+PASS  390px #/docs has no horizontal overflow
+PASS  390px #/protocol has no horizontal overflow
+PASS  390px #/publish has no horizontal overflow
+PASS  390px #/lab has no horizontal overflow
+PASS  390px: no JS errors across all routes
+PASS  landing states THE PROBLEM
+PASS  landing states THE SOLUTION
+PASS  landing distinguishes the live mint from the published-evidence re-check — Try the live mint | Re-check published evidence
+PASS  landing evidence is labelled live or captured, with times — LIVE RAILWAY MINT Reserve observed on chain by this page | LIVE RAILWAY MINT Epoch 73 · published Oct 2, 2026, 12:19 UT
+PASS  global navigation reaches Live mint, Verify, Protocol, Evidence and Docs — SOLVENT Why How it works Reserve Nostr Evidence Docs Protocol Live mint Verify
+PASS  landing says who it is BUILT FOR
+PASS  /verify offers exactly Re-check published evidence + Verify evidence — Re-check published evidence | Verify evidence
+PASS  live check reaches a real decision — ✓ ACCEPT — ACCEPT VERIFIED.
+PASS  live check: one compact progress line, one list (8 checks + decision) — 9 checks in the result, 1 progress row(s)
+PASS  live check shows the exact Nostr event id and reserve txid:vout
+PASS  live status reports Nostr + reserve state and a timestamp — Nostr LIVE, Reserve LIVE
+PASS  the decision is the largest text on the result — {"badge":46.4,"headline":30.4,"fact":13.12}
+PASS  re-running the live check updates "Last checked"
+PASS  "Load live example" loads the published reference case — 38913647281d1382
+PASS  a plain Cashu token is an INPUT ERROR (unsupported mint), not a verdict — INPUT ERROR — Could not verify this input — unsupported mint.
+PASS  1440px: a valid uploaded bundle is verified — ✓ ACCEPT
+PASS  1440px: a malformed file is an INPUT ERROR — INPUT ERROR
+PASS  1440px: a non-JSON file type is an INPUT ERROR — "notes.txt" is not a .json file. Upload a SOLVENT verification bundle (JSON).
+PASS  1440px: an empty file is an INPUT ERROR
+PASS  1440px: drag-and-drop loads a bundle
+PASS  docs sidebar lists every section — Start here | Getting started | Protocol & architecture | Verification bundle schema | Nostr schema | Reserve attestation | Evidence index | Attack corpus | Trust boundaries | Reality map | Draft alignment | Verify in 5 minutes | Deploy a real mint | Deploy on Railway | Demo runbook | Project README | FAQ
+PASS  docs sidebar highlights the active section — Trust boundaries
+PASS  docs sidebar stays in view while reading (sticky) — top 119 -> 100 after scrolling; topbar bottom 75
+PASS  every in-app link in every rendered doc resolves — 457 links; 
+PASS  protocol: every TOC entry lands its heading just below the sticky header, with the matching marker — 14 entries
+PASS  protocol: choosing a section records #/protocol?section=…
+PASS  protocol: back returns to the previous section
+PASS  protocol: a direct link to a section loads it below the header — top 96, header 75
+PASS  protocol: rapid choices with smooth scrolling never mark a section that was not chosen, and settle on the last — strays none, settled p-mmr, top 96 vs header 75
+PASS  landing anchor #problem loaded directly: landing page, its title, its anchors, the section in view — title SOLVENT — Auditable Ecash
+PASS  landing anchor survives a refresh
+PASS  back to a landing anchor from another route renders the landing section — #problem
+PASS  the README rendered in-app links the Evidence page in-app (#/publish)
+PASS  Evidence link: lands on #/publish, survives refresh, back/forward work
+PASS  an in-page doc anchor (#evidence) scrolls within the doc without leaving the route
+PASS  hero terminal is labelled a reference example with the time it was decided
+PASS  returning to the tab after the cache window re-fetches the live status and labels it LIVE — status fetches 2 -> 3; "LIVE RAILWAY MINT Epoch 73 · published Oct 2, 2026, 12:19 UTC (15 minutes ago) · status LIVE checked Oct 2, 2026, 12:34 "
+PASS  footer: every in-app link opens its page — 12 links
+PASS  footer and page metadata name the build commit — build d8f0aea / d8f0aeab24132f65d91f9c1a5d0bffc713a3dad3
+PASS  Verify evidence says drag-and-drop is supported
+PASS  after a verification, typing into the evidence withdraws the old result (verdict hidden) and Accept is unusable — first result ✓ ACCEPT
+PASS  after a verification, uploading a different file invalidates the old result
+PASS  after a verification, dropping a different file invalidates the old result
+PASS  live mint shows the judge path in order — JUDGE SOLVENT IN 3 MINUTES 1. Mint an honest issuance → ACCEPT_VERIFIED 2. Break the promise → REFUSE_ISSUANCE_OMITTED (
+PASS  lab: "Check local cryptography" passes on a fresh issuance — LOCAL CRYPTOGRAPHY VALID.
+PASS  lab: the mint identity persists across issuances, epochs advance — 0275ba63da…edb04e, epochs 0 -> 2
+PASS  390px: docs use a menu, not a sticky side rail, and it navigates
+PASS  390px: live result is readable with no overflow — {"badge":30.4,"headline":20.8}
+PASS  chromium 390px #/: no horizontal overflow
+PASS  chromium 390px #/mint: no horizontal overflow
+PASS  chromium 390px #/verify: no horizontal overflow
+PASS  chromium 390px #/docs: no horizontal overflow
+PASS  chromium 390px #/protocol: no horizontal overflow
+PASS  chromium 390px #/publish: no horizontal overflow
+PASS  chromium 390px #/lab: no horizontal overflow
+PASS  chromium 390px: no JS errors across all routes
+PASS  chromium 390px: the burger menu reaches every section and closes after navigating — Home | Live mint | Verify | Protocol | Evidence | Docs | Why | How it works | Reserve | Nostr | Try the live mint
+PASS  chromium 390px: primary controls are at least 40px tall — []
+PASS  chromium 390px: protocol uses a jump menu
+PASS  chromium 390px: every jump-menu section lands below the sticky header and is recorded in the URL — 14 sections
+PASS  chromium 390px: back returns to the previous protocol section
+PASS  chromium 390px: a landing anchor loads the landing section below the header
+PASS  chromium 390px: a valid uploaded bundle is verified — ✓ ACCEPT
+PASS  chromium 390px: a malformed file is an INPUT ERROR — INPUT ERROR
+PASS  chromium 390px: a non-JSON file type is an INPUT ERROR — "notes.txt" is not a .json file. Upload a SOLVENT verification bundle (JSON).
+PASS  chromium 390px: an empty file is an INPUT ERROR
+PASS  chromium 390px: drag-and-drop loads a bundle
+PASS  chromium 390px: results and errors fit the screen
+PASS  chromium 390px: typing after a result withdraws it: verdict hidden, note names it as the previous result, Accept disabled — ✓ ACCEPT -> note "✓ ACCEPT"
+PASS  chromium 390px: after accepting, dropped different evidence shows no acceptance and no actionable result — accept available true, accepted panel before true, after false
+PASS  chromium 390px: the dropped evidence gets its own decision, never the earlier ACCEPT — ✕ REFUSE
+PASS  webkit 390px #/: no horizontal overflow
+PASS  webkit 390px #/mint: no horizontal overflow
+PASS  webkit 390px #/verify: no horizontal overflow
+PASS  webkit 390px #/docs: no horizontal overflow
+PASS  webkit 390px #/protocol: no horizontal overflow
+PASS  webkit 390px #/publish: no horizontal overflow
+PASS  webkit 390px #/lab: no horizontal overflow
+PASS  webkit 390px: no JS errors across all routes
+PASS  webkit 390px: the burger menu reaches every section and closes after navigating — Home | Live mint | Verify | Protocol | Evidence | Docs | Why | How it works | Reserve | Nostr | Try the live mint
+PASS  webkit 390px: primary controls are at least 40px tall — []
+PASS  webkit 390px: protocol uses a jump menu
+PASS  webkit 390px: every jump-menu section lands below the sticky header and is recorded in the URL — 14 sections
+PASS  webkit 390px: back returns to the previous protocol section
+PASS  webkit 390px: a landing anchor loads the landing section below the header
+PASS  webkit 390px: a valid uploaded bundle is verified — ✓ ACCEPT
+PASS  webkit 390px: a malformed file is an INPUT ERROR — INPUT ERROR
+PASS  webkit 390px: a non-JSON file type is an INPUT ERROR — "notes.txt" is not a .json file. Upload a SOLVENT verification bundle (JSON).
+PASS  webkit 390px: an empty file is an INPUT ERROR
+PASS  webkit 390px: drag-and-drop loads a bundle
+PASS  webkit 390px: results and errors fit the screen
+PASS  webkit 390px: typing after a result withdraws it: verdict hidden, note names it as the previous result, Accept disabled — ✓ ACCEPT -> note "✓ ACCEPT"
+PASS  webkit 390px: after accepting, dropped different evidence shows no acceptance and no actionable result — accept available true, accepted panel before true, after false
+PASS  webkit 390px: the dropped evidence gets its own decision, never the earlier ACCEPT — ✕ REFUSE
+
+152/152 checks passed.

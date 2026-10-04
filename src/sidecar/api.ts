@@ -4,12 +4,24 @@
 //   GET  /healthz
 //   GET  /v1/solvent/status
 //   GET  /v1/solvent/issuance/<blinded message hex>
+//   GET  /v1/solvent/spend/<proof Y hex>
+//        The spent side: for a proof the mint consumed (NUT-03 swap or NUT-05
+//        melt input), its consumed liability row, every row of the same
+//        operation, and once closed the epoch's signed manifest plus an
+//        inclusion proof in the spent sum-MMR (src/epoch/closer.ts spendEvidence).
 //   GET  /v1/solvent/nostr/event/<event id hex>
 //        Read-only relay fetch: queries this service's FIXED public relay list
 //        for that exact event id, right now, and returns the raw signed events
 //        with per-relay results. Never answers from its own records. Browsers
 //        that cannot open relay WebSockets use it as transport; they verify
 //        the event themselves (docs/trust-boundaries.md).
+//   POST /v1/solvent/demo/invoice   { "amount_sats": 1..100 }
+//        Only when SOLVENT_DEMO_FAUCET_INVOICES=1 AND the mint's Lightning is
+//        real (never on fakewallet). Fetches a real BOLT11 invoice from the
+//        public Mutinynet faucet (https://faucet.mutinynet.com/api/bolt11, no
+//        account) for a visitor to pay with their accepted ecash (NUT-05). The
+//        faucet's own CORS headers are contradictory, so browsers cannot ask it
+//        directly. The invoice is the faucet's; this service never pays it.
 //   POST /v1/solvent/demo/omit   { "blinded_message": "<hex>" }
 //        Only when SOLVENT_DEMO_ALLOW_OMISSION=1. Registers a request that the
 //        REAL epoch closer break the mint's signed promise for exactly that
@@ -24,7 +36,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DatabaseSync } from 'node:sqlite';
 import { inclusionProofToJson } from '../app/bundle-json.js';
-import { issuanceEvidence, loadClosedEpoch, openEpoch } from '../epoch/closer.js';
+import { issuanceEvidence, loadClosedEpoch, openEpoch, spendEvidence } from '../epoch/closer.js';
 import type { ManifestKeyDelegation } from '../epoch/delegation.js';
 import { fetchPolEventById } from '../nostr/pol-evidence.js';
 import type { OmissionQueue } from './omissions.js';
@@ -45,7 +57,7 @@ export interface SidecarState {
   store: PublicationStore;
   mintUrl: string;
   delegation: ManifestKeyDelegation;
-  lightningBackend: 'lnd' | 'fakewallet';
+  lightningBackend: 'lnd' | 'ldk-node' | 'fakewallet';
   epochIntervalSeconds: number;
   demoOmissionEnabled: boolean;
   /** Broken-promise requests, one per exact issuance (src/sidecar/omissions.ts). */
@@ -60,6 +72,31 @@ export interface SidecarState {
   nextCloseAt: () => number;
   /** Injectable for tests; defaults to the real relay fetch. */
   fetchEventById?: typeof fetchPolEventById;
+  /** Real-Lightning deployments only: serve faucet invoices for the NUT-05 demo. */
+  demoFaucetInvoices?: boolean;
+  /** Injectable for tests; defaults to the public Mutinynet faucet. */
+  fetchFaucetInvoice?: (amountSats: number) => Promise<string>;
+}
+
+export const FAUCET_BOLT11_URL = 'https://faucet.mutinynet.com/api/bolt11';
+
+async function faucetInvoice(amountSats: number): Promise<string> {
+  const res = await fetch(FAUCET_BOLT11_URL, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_sats: amountSats }), signal: AbortSignal.timeout(15_000) });
+  const body = (await res.json()) as { bolt11?: string };
+  if (!res.ok || !body.bolt11) throw new Error(`the faucet did not return an invoice (HTTP ${res.status})`);
+  return body.bolt11;
+}
+
+/** A real invoice from the Mutinynet faucet, for the NUT-05 demo (see the header). */
+export async function demoInvoice(s: SidecarState, amountSats: number): Promise<{ status: number; body: unknown }> {
+  if (!s.demoFaucetInvoices || s.lightningBackend === 'fakewallet') return { status: 403, body: { error: 'faucet invoices are only served by a mint with real Lightning' } };
+  if (!Number.isInteger(amountSats) || amountSats < 1 || amountSats > 100) return { status: 400, body: { error: 'amount_sats must be an integer from 1 to 100' } };
+  try {
+    const bolt11 = await (s.fetchFaucetInvoice ?? faucetInvoice)(amountSats);
+    return { status: 200, body: { bolt11, amount_sats: amountSats, payee: 'Mutinynet faucet (faucet.mutinynet.com)', source: FAUCET_BOLT11_URL } };
+  } catch (err) {
+    return { status: 502, body: { error: (err as Error).message } };
+  }
 }
 
 const EVENT_ID = /^[0-9a-f]{64}$/;
@@ -96,6 +133,9 @@ export function status(s: SidecarState) {
     mint_identity_pubkey: s.delegation.mint_identity_pubkey,
     manifest_pubkey: s.delegation.manifest_pubkey,
     lightning_backend: s.lightningBackend,
+    demo_faucet_invoices: !!s.demoFaucetInvoices && s.lightningBackend !== 'fakewallet',
+    // This service serves spent-side evidence (GET /v1/solvent/spend/<Y>); a wallet offers a checkable swap only when it does.
+    spend_evidence: true,
     open_epoch: open.epochIndex,
     open_epoch_opened_at: open.openedAt,
     epoch_interval_seconds: s.epochIntervalSeconds,
@@ -152,6 +192,42 @@ export function issuance(s: SidecarState, blindedMessageHex: string) {
   };
 }
 
+/** The spent-side evidence for one consumed proof (see the header). */
+export function spend(s: SidecarState, proofYHex: string) {
+  const ev = spendEvidence(s.db, proofYHex);
+  const operation = {
+    kind: ev.operationKind,
+    consumed: ev.operation.consumed.map((c) => ({ proof_y: c.proofYHex, amount: c.amount, target_epoch: c.targetEpoch })),
+    issued: ev.operation.issued.map((i) => ({ blinded_message: i.blindedMessageHex, amount: i.amount, target_epoch: i.targetEpoch })),
+    consumed_sum: ev.operation.consumedSum,
+    issued_sum: ev.operation.issuedSum,
+  };
+  if (ev.state === 'EPOCH_OPEN') {
+    return { state: 'EPOCH_OPEN', proof_y: ev.proofYHex, keyset_id: ev.keysetId, amount: ev.amount, target_epoch: ev.targetEpoch, operation, next_close_at: s.nextCloseAt() };
+  }
+  const pub = s.store.get(ev.targetEpoch);
+  return {
+    state: 'EPOCH_CLOSED',
+    proof_y: ev.proofYHex,
+    keyset_id: ev.keysetId,
+    amount: ev.amount,
+    target_epoch: ev.targetEpoch,
+    operation,
+    publication_status: pub?.status ?? 'pending',
+    nostr_event_id: pub?.event_id ?? null,
+    evidence: {
+      manifest: ev.manifest,
+      manifestSignature: ev.manifestSignature,
+      masterPublicKeyHex: ev.masterPublicKeyHex,
+      spentMmrSize: ev.spentMmrSize,
+      inclusionProof: inclusionProofToJson(ev.inclusionProof),
+      leafIndex: ev.leafIndex,
+      previous: ev.previous,
+      delegation: s.delegation,
+    },
+  };
+}
+
 export function scheduleOmission(s: SidecarState, blindedMessageHex: string, nowSeconds = Math.floor(Date.now() / 1000)): { status: number; body: unknown } {
   if (!s.demoOmissionEnabled) return { status: 403, body: { error: 'demo omission is disabled on this mint' } };
   if (!HEX.test(blindedMessageHex)) return { status: 400, body: { error: 'blinded_message must be 33-byte compressed hex' } };
@@ -204,7 +280,7 @@ export function createHandler(s: SidecarState) {
         return send(res, 200, {
           service: 'SOLVENT evidence service',
           mint: s.mintUrl,
-          endpoints: ['/healthz', '/v1/solvent/status', '/v1/solvent/issuance/<blinded message hex>', '/v1/solvent/nostr/event/<event id hex>', 'POST /v1/solvent/demo/omit'],
+          endpoints: ['/healthz', '/v1/solvent/status', '/v1/solvent/issuance/<blinded message hex>', '/v1/solvent/spend/<proof Y hex>', '/v1/solvent/nostr/event/<event id hex>', 'POST /v1/solvent/demo/omit', 'POST /v1/solvent/demo/invoice'],
           app: 'https://solvent-ashen.vercel.app/#/mint',
           source: 'https://github.com/TheWeirdDee/solvent/tree/main/src/sidecar',
         });
@@ -222,9 +298,22 @@ export function createHandler(s: SidecarState) {
           return send(res, 404, { error: (err as Error).message });
         }
       }
+      const sp = url.pathname.match(/^\/v1\/solvent\/spend\/([0-9a-f]{66})$/);
+      if (req.method === 'GET' && sp) {
+        try {
+          return send(res, 200, spend(s, sp[1]!));
+        } catch (err) {
+          return send(res, 404, { error: (err as Error).message });
+        }
+      }
       const ne = url.pathname.match(/^\/v1\/solvent\/nostr\/event\/([^/]+)$/);
       if (req.method === 'GET' && ne) {
         const r = await relayFetch(s, ne[1]!);
+        return send(res, r.status, r.body);
+      }
+      if (req.method === 'POST' && url.pathname === '/v1/solvent/demo/invoice') {
+        const body = await readJson(req);
+        const r = await demoInvoice(s, Number(body.amount_sats));
         return send(res, r.status, r.body);
       }
       if (req.method === 'POST' && url.pathname === '/v1/solvent/demo/omit') {

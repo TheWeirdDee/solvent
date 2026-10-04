@@ -25,6 +25,14 @@ import { closeAndPublish, type CycleDeps } from '../../src/sidecar/service.js';
 import { PublicationStore } from '../../src/sidecar/store.js';
 import type { PublicationResult } from '../../src/sidecar/publisher.js';
 import { CdkSim, createMintDb, type Issued } from '../epoch/cdk-sim.js';
+import { spentY } from '../../src/cashu/reconstruct.js';
+import { checkMeltAccounting, checkSwapAccounting, type MeltExecution, type OutputIssuance, type SpendResponse, type SwapExecution } from '../../src/app/live-swap.js';
+
+// A real 40-sat Mutinynet faucet invoice, paid by the isolated real-Lightning
+// test mint during a browser run; the mint returned this preimage.
+const MELT_INVOICE =
+  'lntbs400n1p4vqy65pp55f5ln77lqv3nhaw8ygps69xx3cg2z2p5vucmecdyr32lzkcury0qdqqcqzzsxqyz5vqsp5qft7dhrtragg6t0uylmk4fvxuytfxp4uesc26zgv8ac0srp30lhs9qxpqysgq09c4xvxskmuwlzgfwp2g3hms8s4y20da85jv8vlse55773tuw78zunzxhma2cjf5xttcf76f53rzmk6zt3vv7yx7ygrcd7566wqfl5qpjmpwek';
+const MELT_PREIMAGE = '8bef10f6ccee811f52356acdf034f9e0232bbc7583b84291765f2cd9496e8c99';
 
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const MINT_URL = 'http://127.0.0.1:8085';
@@ -93,6 +101,110 @@ async function browserVerify(base: string, env: ReturnType<typeof setup>, i: Iss
     { mintInfoFetchFn: async () => ({ ok: true, pubkey: ID.pub }) },
   );
 }
+
+describe('SOLVENT sidecar — spent-side evidence for a live NUT-03 swap', () => {
+  it('serves /v1/solvent/spend/<Y>; the browser-side check passes for the real swap and fails closed on tampering', async () => {
+    const env = setup();
+    const base = await serve(env.state);
+    const [first] = env.cdk.mint([64]);
+    await closeAndPublish(env.state, env.deps); // epoch 1
+    const { outputs, inputYs } = env.cdk.swap([first!], [32, 16, 8, 8]);
+    const y = inputYs[0]!;
+
+    const open = await (await fetch(`${base}/v1/solvent/spend/${y}`)).json();
+    expect(open.state).toBe('EPOCH_OPEN');
+    expect(open.operation.consumed_sum).toBe(64);
+    expect(open.operation.issued_sum).toBe(64);
+
+    await closeAndPublish(env.state, env.deps); // epoch 2
+    const spend = (await (await fetch(`${base}/v1/solvent/spend/${y}`)).json()) as SpendResponse;
+    expect(spend.state).toBe('EPOCH_CLOSED');
+    const issuances: Record<string, OutputIssuance> = {};
+    for (const o of outputs) issuances[o.blindedMessageHex] = await (await fetch(`${base}/v1/solvent/issuance/${o.blindedMessageHex}`)).json();
+    const exec: SwapExecution = {
+      mintUrl: MINT_URL, inputY: y, inputAmount: 64, fee: 0, swappedAt: new Date().toISOString(),
+      outputs: outputs.map((o) => ({ blindedMessage: o.blindedMessageHex, amount: o.amount, proof: o.proof, y: spentY(o.proof.secret) })),
+    };
+    const pubs = Object.fromEntries(Object.entries(env.cdk.keyset.amounts).map(([a, k]) => [a, k!.publicKeyHex]));
+    const ok = checkSwapAccounting(exec, spend, issuances, env.state.delegation.manifest_pubkey, pubs);
+    expect(ok.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(ok.liabilityBefore).toBe(64);
+    expect(ok.liabilityAfter).toBe(64);
+    expect(ok.operationNetLiability).toBe(0);
+
+    // Fail closed: a manifest key the NUT-06 identity did not delegate.
+    expect(checkSwapAccounting(exec, spend, issuances, '02' + '11'.repeat(32), pubs).ok).toBe(false);
+    // Fail closed: the mint claims a different spent amount for this proof.
+    expect(checkSwapAccounting({ ...exec, inputAmount: 63 }, spend, issuances, env.state.delegation.manifest_pubkey, pubs).ok).toBe(false);
+    // Fail closed: one replacement output is not what this wallet built.
+    const other = { ...exec, outputs: exec.outputs.map((o, i) => (i === 0 ? { ...o, blindedMessage: '02' + 'ab'.repeat(32) } : o)) };
+    expect(checkSwapAccounting(other, spend, issuances, env.state.delegation.manifest_pubkey, pubs).ok).toBe(false);
+    // Fail closed: the operation's rows say value was created.
+    const inflated = { ...spend, operation: { ...spend.operation, issued_sum: 65 } };
+    expect(checkSwapAccounting(exec, inflated, issuances, env.state.delegation.manifest_pubkey, pubs).ok).toBe(false);
+  });
+
+  it('NUT-05: the melt checker accepts a real paid invoice with committed change, and fails closed on tampering', async () => {
+    const env = setup();
+    env.state.lightningBackend = 'ldk-node';
+    const base = await serve(env.state);
+    const inputs = env.cdk.mint([32, 16, 8, 8]);
+    await closeAndPublish(env.state, env.deps); // epoch 1: 64 sats outstanding
+    const { outputs: change } = env.cdk.melt(inputs, [16, 8]); // pays 40, fee 0, 24 back
+    await closeAndPublish(env.state, env.deps); // epoch 2
+    const spends: SpendResponse[] = [];
+    for (const i of inputs) spends.push(await (await fetch(`${base}/v1/solvent/spend/${spentY(i.proof.secret)}`)).json());
+    const issuances: Record<string, OutputIssuance> = {};
+    for (const row of spends[0]!.operation.issued) issuances[row.blinded_message] = await (await fetch(`${base}/v1/solvent/issuance/${row.blinded_message}`)).json();
+    const exec: MeltExecution = {
+      mintUrl: MINT_URL, invoice: MELT_INVOICE, invoiceAmount: 40, feeReserve: 2, paymentPreimage: MELT_PREIMAGE, meltedAt: new Date().toISOString(),
+      inputs: inputs.map((i) => ({ y: spentY(i.proof.secret), amount: i.amount })),
+      change: change.map((c) => ({ y: spentY(c.proof.secret), amount: c.amount, proof: c.proof })),
+    };
+    const pubs = Object.fromEntries(Object.entries(env.cdk.keyset.amounts).map(([a, k]) => [a, k!.publicKeyHex]));
+    const key = env.state.delegation.manifest_pubkey;
+    const ok = checkMeltAccounting(exec, spends, issuances, key, pubs);
+    expect(ok.checks.filter((c) => !c.ok)).toEqual([]);
+    expect(ok.feePaid).toBe(0);
+    expect(ok.liabilityBefore).toBe(64);
+    expect(ok.liabilityAfter).toBe(24);
+    expect(ok.operationNetLiability).toBe(-40);
+
+    // Fail closed: a preimage that does not hash to the invoice's payment hash.
+    expect(checkMeltAccounting({ ...exec, paymentPreimage: '00'.repeat(32) }, spends, issuances, key, pubs).ok).toBe(false);
+    // Fail closed: change the wallet received does not match the committed rows.
+    expect(checkMeltAccounting({ ...exec, change: exec.change.slice(1) }, spends, issuances, key, pubs).ok).toBe(false);
+    // Fail closed: more value left the books than the invoice plus the quoted fee reserve.
+    expect(checkMeltAccounting({ ...exec, invoiceAmount: 30 }, spends, issuances, key, pubs).ok).toBe(false);
+    // Fail closed: a manifest key the NUT-06 identity did not delegate.
+    expect(checkMeltAccounting(exec, spends, issuances, '02' + '22'.repeat(32), pubs).ok).toBe(false);
+  });
+
+  it('serves faucet invoices only for a real-Lightning mint that opted in', async () => {
+    const env = setup();
+    env.state.fetchFaucetInvoice = async (n) => `lntbs-test-${n}`;
+    env.state.demoFaucetInvoices = true;
+    const base = await serve(env.state);
+    const ask = async (body: unknown) => fetch(`${base}/v1/solvent/demo/invoice`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await ask({ amount_sats: 40 })).status).toBe(403); // fakewallet: never
+    env.state.lightningBackend = 'ldk-node';
+    const r = await ask({ amount_sats: 40 });
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { bolt11: string }).bolt11).toBe('lntbs-test-40');
+    expect((await ask({ amount_sats: 101 })).status).toBe(400);
+    env.state.demoFaucetInvoices = false;
+    expect((await ask({ amount_sats: 40 })).status).toBe(403);
+  });
+
+  it('answers 404 for a proof that was never spent through a swap or melt', async () => {
+    const env = setup();
+    const base = await serve(env.state);
+    const [p] = env.cdk.mint([8]);
+    const r = await fetch(`${base}/v1/solvent/spend/${spentY(p!.proof.secret)}`);
+    expect(r.status).toBe(404);
+    expect(((await r.json()) as { error: string }).error).toMatch(/no SOLVENT consumed liability/);
+  });
+});
 
 describe('SOLVENT sidecar', () => {
   it('does not close an empty epoch', async () => {

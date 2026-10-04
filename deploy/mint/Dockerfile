@@ -13,8 +13,9 @@ RUN git clone https://github.com/cashubtc/cdk.git cdk \
  && cd cdk && git -c advice.detachedHead=false checkout "$CDK_COMMIT"
 COPY patches/cdk/ /patches/
 RUN cd cdk && for p in /patches/*.patch; do echo "applying $p"; git apply "$p"; done
-# lnd for real Lightning, fakewallet for a clearly-labelled demo deployment.
-RUN cd cdk && cargo build --release -p cdk-mintd --no-default-features --features sqlite,lnd,fakewallet
+# Real Lightning: lnd, or ldk-node (a Lightning node inside cdk-mintd, used on
+# Mutinynet). fakewallet for a clearly-labelled demo deployment.
+RUN cd cdk && cargo build --release -p cdk-mintd --no-default-features --features sqlite,lnd,ldk-node,fakewallet
 
 FROM debian:bookworm-slim
 RUN apt-get update \

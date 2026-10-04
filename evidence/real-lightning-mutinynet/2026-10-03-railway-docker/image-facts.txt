@@ -1,0 +1,8 @@
+image=sha256:d900bfb49b2e98b64aa867a12f94b22e0c2ee41d142af4ba5f5b66394951b014 arch=amd64 os=linux
+size=789MB
+docker.io/library/node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+docker.io/library/rust:1-bookworm@sha256:59037199c44290f2befcdd58dcc540164763fc296950255aaefeef096a1866b0
+info: latest update on 2026-07-16 for version 1.97.1
+Finished `release` profile [optimized] target(s) in 32m 59s
+build exit 0 after 3555s
+cdk-mintd 0.18.1

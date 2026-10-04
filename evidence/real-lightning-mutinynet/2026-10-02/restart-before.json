@@ -1,0 +1,18 @@
+{
+  "nut06_identity": "021a2bacc78528fce971957e37bcd3f16a9d4f032fe4d315290a7bddc51e73e5ed",
+  "ldk_node_id": "022f0c04bc05ba44f0ddd99980115a70b8166d78b1c02ae25ed698ed781cd79837",
+  "channels": "2 Active Channels",
+  "lightning_backend": "ldk-node",
+  "manifest_pubkey": "020bf2f285d0a9df6a009904b2e16caae0e8aed464c73c06a667d54dfc4a765f13",
+  "open_epoch": 13,
+  "last_publication": {
+    "epoch": 12,
+    "event_id": "90817764f91221ae749f5de79884d5c07c1839b19d08a9e424ed5f722cd8bfd9"
+  },
+  "run1_swap_spend": {
+    "state": "EPOCH_CLOSED",
+    "epoch": 2,
+    "consumed": 64,
+    "issued": 64
+  }
+}

@@ -66,7 +66,10 @@ async function main() {
   const privatePaths = new Map<string, Set<string>>();
   let generated = 0;
 
-  for (const src of [...APP_SOURCES, ...DOC_SOURCES]) {
+  // Evidence folders explain themselves in README.md files: their links must reach files Git will
+  // actually keep (an ignored file exists locally but never reaches the repository).
+  const EVIDENCE_SOURCES = tracked.filter((t) => /^evidence\/.+\/README\.md$|^evidence\/README\.md$/.test(t));
+  for (const src of [...APP_SOURCES, ...DOC_SOURCES, ...EVIDENCE_SOURCES.filter((e) => !DOC_SOURCES.includes(e))]) {
     const text = readFileSync(path.join(ROOT, src), 'utf8');
     for (const m of text.matchAll(/https?:\/\/[^\s"'`)<>\]]+/g)) {
       const url = m[0].replace(/[.,;:]+$/, '');

@@ -518,3 +518,118 @@ export function issuanceEvidence(db: DatabaseSync, blindedMessageHex: string): I
     leafIndex: leafIndex >= 0 ? leafIndex : null,
   };
 }
+
+/** Every accounting row of one operation (one NUT-03 swap or NUT-05 melt), read from the liability tables. */
+export interface SpendOperation {
+  consumed: { proofYHex: string; amount: number; targetEpoch: number }[];
+  issued: { blindedMessageHex: string; amount: number; targetEpoch: number }[];
+  consumedSum: number;
+  issuedSum: number;
+}
+
+export type SpendEvidence =
+  | {
+      state: 'EPOCH_OPEN';
+      proofYHex: string;
+      keysetId: string;
+      amount: number;
+      operationKind: string;
+      operationId: string | null;
+      targetEpoch: number;
+      operation: SpendOperation;
+    }
+  | {
+      state: 'EPOCH_CLOSED';
+      proofYHex: string;
+      keysetId: string;
+      amount: number;
+      operationKind: string;
+      operationId: string | null;
+      targetEpoch: number;
+      operation: SpendOperation;
+      manifest: ManifestFields;
+      manifestSignature: string;
+      manifestDigest: string;
+      masterPublicKeyHex: string;
+      globalDigest: string;
+      spentMmrSize: number;
+      /** null exactly when the closed epoch's spent commitment does not contain this spend. */
+      inclusionProof: InclusionProof | null;
+      leafIndex: number | null;
+      /** The same keyset's manifest in the epoch before, when there is one: the committed liability before this operation's epoch. */
+      previous: { epochIndex: number; manifest: ManifestFields; manifestSignature: string } | null;
+    };
+
+/**
+ * The spent-side counterpart of issuanceEvidence: for one proof the mint
+ * consumed (NUT-03 swap input or NUT-05 melt input), the consumed liability
+ * row and, once its epoch is closed, that epoch's signed manifest plus an
+ * inclusion proof in the spent sum-MMR built from the same rows the closer
+ * committed to (asserted, not assumed). Only proofs CDK actually marked
+ * SPENT are in the spent commitment (deriveKeysetCommitment).
+ */
+export function spendEvidence(db: DatabaseSync, proofYHex: string): SpendEvidence {
+  const y = proofYHex.toLowerCase();
+  const row = db
+    .prepare(
+      `SELECT cl.keyset_id, cl.amount, cl.operation_kind, cl.operation_id, cl.target_epoch
+       FROM solvent_consumed_liability cl
+       JOIN proof p ON p.y = unhex(cl.proof_y_hex) AND p.state = 'SPENT'
+       WHERE cl.proof_y_hex = ?`,
+    )
+    .get(y) as { keyset_id: string; amount: number; operation_kind: string; operation_id: string | null; target_epoch: number } | undefined;
+  if (!row) throw new EpochError(`no SOLVENT consumed liability for spent proof ${y}`);
+  const consumed = row.operation_id
+    ? (db
+        .prepare(
+          `SELECT cl.proof_y_hex AS proofYHex, cl.amount, cl.target_epoch AS targetEpoch FROM solvent_consumed_liability cl
+           JOIN proof p ON p.y = unhex(cl.proof_y_hex) AND p.state = 'SPENT'
+           WHERE cl.operation_id = ? ORDER BY cl.seq`,
+        )
+        .all(row.operation_id) as unknown as SpendOperation['consumed'])
+    : [{ proofYHex: y, amount: row.amount, targetEpoch: row.target_epoch }];
+  // Only outputs the mint really signed (blind_signature.c set) count, as in the issued commitment.
+  const issued = row.operation_id
+    ? (db
+        .prepare(
+          `SELECT il.blinded_message_hex AS blindedMessageHex, il.amount, il.target_epoch AS targetEpoch FROM solvent_issued_liability il
+           JOIN blind_signature bs ON bs.blinded_message = unhex(il.blinded_message_hex) AND bs.c IS NOT NULL
+           WHERE il.operation_id = ? ORDER BY il.seq`,
+        )
+        .all(row.operation_id) as unknown as SpendOperation['issued'])
+    : [];
+  const operation: SpendOperation = {
+    consumed,
+    issued,
+    consumedSum: consumed.reduce((a, c) => a + c.amount, 0),
+    issuedSum: issued.reduce((a, c) => a + c.amount, 0),
+  };
+  const base = { proofYHex: y, keysetId: row.keyset_id, amount: row.amount, operationKind: row.operation_kind, operationId: row.operation_id, targetEpoch: row.target_epoch, operation };
+
+  const closed = loadClosedEpoch(db, row.target_epoch);
+  if (!closed) return { state: 'EPOCH_OPEN', ...base };
+  const k = closed.keysets.find((x) => x.manifest.keyset_id === row.keyset_id);
+  if (!k) throw new EpochError(`epoch ${row.target_epoch} has no manifest for keyset ${row.keyset_id}`);
+
+  const c = deriveKeysetCommitment(db, row.keyset_id, row.target_epoch);
+  const r = root(c.spent);
+  if (bytesToHex(r.hash) !== k.manifest.spent_mmr_root_hash || Number(r.sum) !== k.manifest.spent_mmr_root_sum) {
+    throw new EpochError(`epoch ${row.target_epoch} keyset ${row.keyset_id}: stored spent root no longer re-derives from the liability rows`);
+  }
+  const leafIndex = c.spentRows.findIndex((x) => x.proof_y_hex === y);
+  const prevEpoch = loadClosedEpoch(db, row.target_epoch - 1);
+  const prev = prevEpoch?.keysets.find((x) => x.manifest.keyset_id === row.keyset_id);
+  return {
+    state: 'EPOCH_CLOSED',
+    ...base,
+    manifest: k.manifest,
+    manifestSignature: k.manifestSignature,
+    manifestDigest: k.manifestDigest,
+    masterPublicKeyHex: closed.manifestPubkey,
+    globalDigest: closed.globalDigest,
+    spentMmrSize: c.spent.leaves.length,
+    inclusionProof: leafIndex >= 0 ? getInclusionProof(c.spent, leafIndex) : null,
+    leafIndex: leafIndex >= 0 ? leafIndex : null,
+    previous: prev ? { epochIndex: row.target_epoch - 1, manifest: prev.manifest, manifestSignature: prev.manifestSignature } : null,
+  };
+}

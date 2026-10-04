@@ -1,0 +1,2 @@
+[INFO]     Finished `release` profile [optimized] target(s) in 2m 16s
+[INFO] [build 7/7] RUN cd cdk && cargo build --release -p cdk-mintd --no-default-features --features sqlite,lnd,ldk-node,fakewallet

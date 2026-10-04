@@ -15,6 +15,7 @@ watchPatterns = [
   "deploy/railway/**",
   "deploy/mint/**",
   "deploy/mint.fakewallet.toml",
+  "deploy/mint.ldk-node.toml",
   "patches/cdk/**",
   "migrations/**",
   "src/**",
