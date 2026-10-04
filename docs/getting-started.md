@@ -2,14 +2,16 @@
 
 Five ways in, from quickest to deepest. The public app is <https://solvent-ashen.vercel.app/>.
 
-## 1. Try the live mint
+## 1. Mint & verify ecash
 
-**[Live mint](#/mint)** creates a fresh issuance on SOLVENT's public mint and verifies it. That mint is a real patched CDK `cdk-mintd`, hosted on Railway with fakewallet (demo) Lightning. One run takes about 30–90 seconds, because the mint's accounting epoch has to close and be published first.
+**[Mint ecash](#/mint)** runs the whole lifecycle on SOLVENT's public mint: a real patched CDK `cdk-mintd` on Railway with its own Lightning node (LDK) on Mutinynet, a Bitcoin test network. You pay a real 64-sat Mutinynet invoice (the [Mutinynet faucet](https://faucet.mutinynet.com/) provides test sats), then:
 
-- **Mint & verify an honest issuance** → `ACCEPT_VERIFIED`
-- **Break the promise** → `REFUSE_ISSUANCE_OMITTED`
+- **Mint → Verify → Accept** → `ACCEPT_VERIFIED`, accept called exactly once
+- **Swap** (NUT-03) → original spent, replacements unspent, liability conserved
+- **Pay** (NUT-05) → a real Lightning payment, change returned, liability reduced by what was paid
+- **Break the promise** (a deliberate demo fault, another payment) → `REFUSE_ISSUANCE_OMITTED`
 
-A step-by-step judge walkthrough is in [Start here](#/docs?doc=start-here). Every record behind SOLVENT's claims (including the real-Lightning CI results) is on the [Evidence page](#/publish).
+A step-by-step judge walkthrough is in [Start here](#/docs?doc=start-here). Every record behind SOLVENT's claims is on the [Evidence page](#/publish).
 
 ## 2. Re-check published evidence
 
@@ -17,7 +19,7 @@ A step-by-step judge walkthrough is in [Start here](#/docs?doc=start-here). Ever
 
 ## 3. Verify a bundle
 
-**[Verify → Verify evidence](#/verify?mode=evidence)** checks a SOLVENT verification bundle you paste, upload or drop, with the same pipeline. The structure is in the [verification bundle schema](#/docs?doc=verification-bundle). A **Download full replay bundle** from a live-mint result is such a bundle.
+**[Verify → Verify evidence](#/verify?mode=evidence)** checks a SOLVENT verification bundle you paste, upload or drop, with the same pipeline. The structure is in the [verification bundle schema](#/docs?doc=verification-bundle). A **Download full replay bundle** from a Mint ecash result is such a bundle.
 
 Malformed or incomplete input is an **input error**, never a verdict about a mint.
 
@@ -40,6 +42,6 @@ SOLVENT makes a mint's accounting **checkable**. It does not make a custodial mi
 
 - The mint is still custodial, and the network is a test network (Mutinynet / Bitcoin Signet).
 - An observed reserve covering the committed liabilities does not prove exclusive backing, the absence of liabilities outside the commitment, or future solvency.
-- The public mint's Lightning is fakewallet; real LND is proven in CI.
+- The Lightning payments are real, but on a test network: the sats have no monetary value.
 
 The full list is in [Trust boundaries](#/docs?doc=trust-boundaries) and [Draft alignment](#/docs?doc=draft-alignment). The project README is [here](#/docs?doc=readme).

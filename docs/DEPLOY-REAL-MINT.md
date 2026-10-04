@@ -39,7 +39,8 @@ The web app (GitHub Pages or any static host) talks to both public URLs from the
 | Manifest public key `SOLVENT_MANIFEST_PUBKEY` | `mint.env` | the mint identity delegates it (patch 0008) at first boot, written to `/data/delegation.json` |
 | Reserve-control key | `deploy/secrets/reserve-key.json`, mounted read-only into the sidecar | signs the reserve statement for the Mutinynet UTXO it controls |
 | Nostr key `SOLVENT_NOSTR_SECRET_HEX` (optional) | `sidecar.env` | transport signature only; carries no authority |
-| LND `tls.cert` and `admin.macaroon` (proof mode) | `deploy/secrets/lnd/`, mounted into the mint | real Lightning settlement |
+| LND `tls.cert` and `admin.macaroon` (LND backend) | `deploy/secrets/lnd/`, mounted into the mint | real Lightning settlement |
+| LDK node seed `CDK_MINTD_LDK_NODE_MNEMONIC` (LDK backend) | `mint.env` | the Lightning node's on-chain wallet and channels; back it up with the volume |
 
 `deploy/mint.env`, `deploy/sidecar.env`, `deploy/mint.toml` and `deploy/secrets/` are git-ignored. No process gets a key it doesn't use: the mint never sees the manifest private key, and the sidecar never sees the seed.
 
@@ -49,7 +50,7 @@ The web app (GitHub Pages or any static host) talks to both public URLs from the
 cd deploy
 cp mint.env.example mint.env         # CDK_MINTD_MNEMONIC, SOLVENT_MANIFEST_PUBKEY
 cp sidecar.env.example sidecar.env   # SOLVENT_MINT_URL, SOLVENT_MANIFEST_PRIVKEY, hosts, backend label
-cp mint.fakewallet.toml mint.toml    # or mint.lnd.toml; set [info].url to the public mint URL
+cp mint.ldk-node.toml mint.toml      # or mint.lnd.toml / mint.fakewallet.toml; set [info].url to the public mint URL
 mkdir -p secrets && cp <reserve key>.json secrets/reserve-key.json
 docker compose up -d --build                  # mint + sidecar
 docker compose --profile https up -d          # add Caddy once DNS points here
@@ -76,16 +77,18 @@ After that it runs `cdk-mintd`. The sidecar waits until the SOLVENT schema and t
 
 **Rotating the manifest key.** Generate a new key, then issue a new delegation with `--valid-from-epoch <the current open epoch>` (`cdk-mintd solvent delegate-manifest-key`). Only after that, switch the sidecar to the new key. The closer refuses a silent key change between epochs.
 
-## Two modes: always labelled
+## Lightning backends: always labelled
 
-| | Proof mode | Public interactive demo |
-| --- | --- | --- |
-| Lightning | real LND (`mint.lnd.toml`, `SOLVENT_LIGHTNING_BACKEND=lnd`) | CDK fakewallet (`mint.fakewallet.toml`, `SOLVENT_LIGHTNING_BACKEND=fakewallet`); invoices settle by themselves |
-| Mint, receipts, epochs, MMRs, manifests, delegation | real | real |
-| Nostr publication and fetch-back | real public relays | real public relays |
-| Bitcoin reserve | real Mutinynet UTXO | real Mutinynet UTXO |
+| | LDK node (the public mint) | LND | fakewallet |
+| --- | --- | --- | --- |
+| Lightning | real, inside `cdk-mintd` on Mutinynet (`mint.ldk-node.toml`, `SOLVENT_LIGHTNING_BACKEND=ldk-node`, the node's own seed `CDK_MINTD_LDK_NODE_MNEMONIC` in `mint.env`) | real, an external LND (`mint.lnd.toml`, `SOLVENT_LIGHTNING_BACKEND=lnd`) | CDK's demo backend (`mint.fakewallet.toml`, `SOLVENT_LIGHTNING_BACKEND=fakewallet`); invoices settle by themselves |
+| Mint, receipts, epochs, MMRs, manifests, delegation | real | real | real |
+| Nostr publication and fetch-back | real public relays | real public relays | real public relays |
+| Bitcoin reserve | real Mutinynet UTXO | real Mutinynet UTXO | real Mutinynet UTXO |
 
-The `#/mint` page states the mode from the sidecar's `/v1/solvent/status`, for example "Demo fakewallet — invoices settle automatically; no real Lightning payment". A fakewallet deployment is **never** described as real Lightning. The strongest evidence, with real LND, comes from the Real Cashu + SOLVENT Integration CI run.
+An LDK node needs on-chain funds and a channel before it can receive: fund its address on Mutinynet, then open a channel to a well-connected node (the public mint uses the Mutinynet faucet's node, with part of the capacity pushed to the peer so the mint can receive). Its channel state lives in `/data/ldk-node`: never restore it from an older copy, and never run two containers with the same LDK seed. Its management dashboard (`127.0.0.1:8087`) can move funds and is never exposed.
+
+The `#/mint` page states the mode from the sidecar's `/v1/solvent/status`, for example "Real Lightning (LDK node) on Mutinynet" or "Demo fakewallet — invoices settle automatically; no real Lightning payment". A fakewallet deployment is **never** described as real Lightning. Set `SOLVENT_DEMO_FAUCET_INVOICES=1` on a real-Lightning mint to offer the pay step (the sidecar fetches 40-sat invoices from the public Mutinynet faucet).
 
 ## Network configuration
 

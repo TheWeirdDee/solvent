@@ -54,9 +54,9 @@ NUT-03 swap accounting is recorded in run [36150315347](https://github.com/TheWe
 
 ---
 
-## 2. Public Railway evidence (live)
+## 2. Public Railway evidence (live) and real Mutinynet Lightning
 
-The public demo mint is a real patched CDK `cdk-mintd` on Railway with **fakewallet Lightning**, which is labelled as such everywhere. It produces this evidence live, outside this directory:
+The public mint is a real patched CDK `cdk-mintd` on Railway with **real Mutinynet Lightning**: an LDK node inside the mint, with a public channel to the Mutinynet faucet's Lightning node (since 2026-10-04; before that it ran CDK's fakewallet, labelled as such). It produces this evidence live, outside this directory:
 
 - mint: `https://solvent-production-2029.up.railway.app/v1/info`
 - evidence service: `https://solvent-production-9c92.up.railway.app/v1/solvent/status`, which gives the latest epoch, its Nostr event and its publication time
@@ -64,7 +64,16 @@ The public demo mint is a real patched CDK `cdk-mintd` on Railway with **fakewal
 
 Each issuance on <https://solvent-ashen.vercel.app/#/mint> is verified in the browser, and its evidence can be downloaded from the result.
 
-### Real-browser runs against the live backend
+### Real Mutinynet Lightning: production, staging and the container gate
+
+| Folder | What it is |
+|---|---|
+| [`real-lightning-mutinynet/2026-10-04-production/`](real-lightning-mutinynet/2026-10-04-production/) | **The public production mint after its cutover to LDK:** the full lifecycle on the public app (real NUT-04, `ACCEPT_VERIFIED`, NUT-03 swap, NUT-05 pay, broken-promise `REFUSE_ISSUANCE_OMITTED`) in Chromium desktop, Chromium 390 and WebKit 390, and a restart |
+| [`real-lightning-mutinynet/2026-10-03-railway-staging/`](real-lightning-mutinynet/2026-10-03-railway-staging/) | The same candidate on an isolated Railway environment before the production cutover, with a redeploy and Railway's resource metrics |
+| [`real-lightning-mutinynet/2026-10-03-railway-docker/`](real-lightning-mutinynet/2026-10-03-railway-docker/) | The exact Railway image in a Linux container: restart, SIGKILL crash, and payments routed through the public node |
+| [`real-lightning-mutinynet/2026-10-02/`](real-lightning-mutinynet/2026-10-02/) | The first isolated Mutinynet stack |
+
+### Real-browser runs against the earlier fakewallet deployment
 
 | Folder | What it is | Re-run |
 |---|---|---|

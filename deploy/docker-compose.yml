@@ -2,7 +2,7 @@
 #
 #   cd deploy
 #   cp mint.env.example mint.env && cp sidecar.env.example sidecar.env   # fill in
-#   cp mint.fakewallet.toml mint.toml        # or mint.lnd.toml
+#   cp mint.ldk-node.toml mint.toml          # or mint.lnd.toml / mint.fakewallet.toml
 #   docker compose up -d --build                          # mint + sidecar
 #   docker compose --profile https up -d                  # + Caddy (HTTPS)
 #

@@ -4,18 +4,19 @@
 
 The public app, <https://solvent-ashen.vercel.app/>, has four experiences, and keeps them apart.
 
-**Live mint** (`#/mint`): a fresh issuance on the real mint.
+**Mint ecash** (`#/mint`): the full lifecycle on the real mint — mint, verify, accept, swap, pay, and the broken promise.
 - The mint is a real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`), hosted on Railway with persistent SQLite.
-- Its Lightning is **fakewallet** (demo). That is labelled on the page and recorded in the evidence.
-- Receipts, epochs, manifests, the NUT-06 delegation, public Nostr and the Mutinynet reserve are all real.
-- The same pipeline runs over **real LND** in CI (`.github/workflows/real-cashu-integration.yml`; runs 36614823173 and 36619816959).
+- Its Lightning is **real**: an LDK node inside `cdk-mintd` on **Mutinynet**, a Bitcoin test network, with a public channel to the faucet's Lightning node. Every issuance needs a real payment, and every pay step makes one. The sats have no monetary value. The backend is shown on the page (from the evidence service's status) and recorded in the evidence; a mint running CDK's fakewallet is labelled as a demo instead, never as real Lightning.
+- Receipts, epochs, manifests, the NUT-06 delegation, the issued and spent commitments, public Nostr and the Mutinynet reserve are all real.
+- The broken promise is a **deliberate, labelled demo fault**: an explicit request to the real epoch closer to omit exactly one issuance (`SOLVENT_DEMO_ALLOW_OMISSION=1`).
+- The same pipeline also runs over **real LND** (regtest) in CI (`.github/workflows/real-cashu-integration.yml`; runs 36614823173 and 36619816959).
 
 **Re-check published evidence** (`#/verify`, first tab): a **captured reference case**.
 - It was published earlier (`evidence/nostr/live-demo.json`, by `npm run live-demo`, refreshed twice a day).
 - Its Nostr event is re-fetched from public relays and its reserve re-queried on every run.
 - It mints nothing, and its publication date is shown before it runs.
 
-**Verify evidence** (`#/verify`, second tab): SOLVENT-compatible bundles someone supplies, checked the same way. A replay bundle downloaded from a live-mint result is one.
+**Verify evidence** (`#/verify`, second tab): SOLVENT-compatible bundles someone supplies, checked the same way. A replay bundle downloaded from a Mint ecash result is one.
 
 **Reference lab** (`#/lab`, developers only): SOLVENT's in-browser reference mint for inspecting the protocol.
 - It is never published, so a full verification of its evidence refuses with `REFUSE_NOSTR_EVENT_NOT_FOUND`.

@@ -7,16 +7,17 @@ What runs where, so you know what each check touches:
 | **App** (canonical) | <https://solvent-ashen.vercel.app/>, a static build on Vercel. GitHub Pages hosts a mirror, not the canonical app |
 | **Interactive mint** | A real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`) on Railway, with persistent SQLite |
 | **Evidence service** | The SOLVENT sidecar on Railway: epoch closer, Nostr publisher, evidence API |
-| **Lightning on the public mint** | **fakewallet**: a demo backend whose invoices settle by themselves. It is labelled as such everywhere; no real payment happens |
-| **Real Lightning** | Real LND, in CI; the results are committed under `evidence/real-pol/ci-*-lnd/` (see the Evidence page, `#/publish`) |
+| **Lightning on the public mint** | **Real**: an LDK node inside the mint, on Mutinynet (a Bitcoin test network), with a public channel to the faucet's Lightning node. Invoices must actually be paid; the sats have no monetary value |
+| **Also real Lightning** | Real LND (regtest), in CI; the results are committed under `evidence/real-pol/ci-*-lnd/` (see the Evidence page, `#/publish`) |
 | **Reserve** | A real Mutinynet (Bitcoin Signet) UTXO. Test coins with no monetary value |
 
 ## 1. In the browser (no install)
 
 Follow [Start here](#/docs?doc=start-here):
-1. Open the **live mint** and run an honest issuance → `ACCEPT_VERIFIED`.
-2. Break the promise → `REFUSE_ISSUANCE_OMITTED`.
-3. Open the [Evidence page](#/publish).
+1. Open **Mint ecash**, pay the 64-sat Mutinynet invoice → `ACCEPT_VERIFIED`.
+2. **Swap ecash** → liability conserved; **Pay with ecash** → a real Lightning payment, liability reduced by what was paid.
+3. Break the promise → `REFUSE_ISSUANCE_OMITTED`.
+4. Open the [Evidence page](#/publish).
 
 ## 2. In a terminal
 
@@ -45,7 +46,8 @@ The line **"Canonical Live Public Demo"** in its output is a check performed rig
 - **Real-LND NUT-05:** [`nut05-melt.json`](evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json). An inspectable record.
 - **Phase 3A:** [`phase3a/`](evidence/real-pol/ci-36614823173-lnd/phase3a/). A public audit record, not offline-replay complete (never-spent proof secrets were withheld).
 - **Attacks:** `ATTACKS.md` and `evidence/attacks/`.
-- **Real browsers against the live mint:** [`evidence/browser-runs/2026-10-02/`](evidence/browser-runs/2026-10-02/). These are Chromium and WebKit logs and screenshots, including at phone width, with full ids for every fresh Nostr event.
+- **Real Mutinynet Lightning, end to end:** [`evidence/real-lightning-mutinynet/`](evidence/real-lightning-mutinynet/): the public production mint, the Railway staging gate and the Railway-shaped container gate — NUT-04, swap, pay and the broken promise in Chromium and WebKit, including at phone width, with restart checks.
+- **Real browsers against the earlier fakewallet deployment:** [`evidence/browser-runs/2026-10-02/`](evidence/browser-runs/2026-10-02/).
 
 The full index is [`evidence/README.md`](evidence/README.md).
 
@@ -58,7 +60,7 @@ npm run live-demo         # republish the reference case (evidence/nostr/live-de
 npm run verify:live-demo  # re-check the reference case right now
 ```
 
-The reference case is bundled into the static build. `.github/workflows/refresh-live-demo.yml` republishes it twice a day and commits it to `main`, which redeploys Vercel; the GitHub Pages mirror is redeployed by `deploy-site.yml`. Live-mint evidence comes from Railway at run time and needs no redeploy.
+The reference case is bundled into the static build. `.github/workflows/refresh-live-demo.yml` republishes it twice a day and commits it to `main`, which redeploys Vercel; the GitHub Pages mirror is redeployed by `deploy-site.yml`. The public mint's evidence comes from Railway at run time and needs no redeploy.
 
 ## What this does not verify
 

@@ -1,18 +1,21 @@
 # Architecture
 
-## Current production architecture (2026-09-30)
+## Current production architecture (2026-10-04)
 
 ```text
 visitor's browser ── https://solvent-ashen.vercel.app/  (static Vite app, Vercel; mirrored on GitHub Pages)
-   │  cashu-ts wallet: NUT-04 mint, NUT-12 DLEQ; builds its own outputs (knows B_ before the mint)
+   │  cashu-ts wallet: NUT-04 mint, NUT-03 swap, NUT-05 melt, NUT-07 state, NUT-12 DLEQ;
+   │  builds its own outputs (knows B_ before the mint)
    │  verifySubmission() -> verify(): NUT-06 identity, delegation, receipt, manifest, inclusion,
    │  Nostr event (own relay sockets, else the HTTPS relay fetch), reserve (Esplora), coverage
    ▼
 Railway service (railway.toml -> deploy/railway/Dockerfile), one volume at /data
-   ├── cdk-mintd  :8085  real patched CDK (patches/cdk/0001-0009), fakewallet Lightning
+   ├── cdk-mintd  :8085  real patched CDK (patches/cdk/0001-0009), with an LDK Lightning node
+   │                     on Mutinynet (/data/ldk-node; channel to the faucet's node)
    │                     SQLite: CDK tables + SOLVENT triggers (receipts signed in CDK's transactions)
    └── sidecar    :8086  src/sidecar/: epoch closer, Nostr publisher (ACK + fetch-back),
-                         evidence API, broken-promise queue, read-only relay fetch
+                         evidence API (issued and spent evidence), broken-promise queue,
+                         read-only relay fetch, faucet invoices for the pay step
    │
    ├──► public Nostr relays (kind 8181)       └──► Mutinynet reserve UTXO (Esplora)
 ```
