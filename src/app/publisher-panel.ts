@@ -11,7 +11,7 @@ import omissionPublication3b from '../../evidence/real-pol/ci-36614823173-lnd/ph
 import reserve3b from '../../evidence/real-pol/ci-36614823173-lnd/phase3b/phase3-reserve.json' with { type: 'json' };
 import nut05 from '../../evidence/real-pol/ci-36619816959-lnd/nut05/nut05-melt.json' with { type: 'json' };
 import liveDemo from '../../evidence/nostr/live-demo.json' with { type: 'json' };
-import { escapeHtml, formatUtc, mutinynetTxUrl, njumpUrl, nostrExplorerLinks } from './decision-view.js';
+import { escapeHtml, formatUtc, lightningBackendLabel, mutinynetTxUrl, njumpUrl, nostrExplorerLinks } from './decision-view.js';
 import { freshnessLabel, observe, timeWithAgo } from './live-status.js';
 import { NOSTR_EVIDENCE, RESERVE_EVIDENCE } from './evidence-data.js';
 import { formatSats, truncateHex } from './format.js';
@@ -143,13 +143,13 @@ export async function refreshEvidenceLive(): Promise<void> {
       [
         ['Mint', `<code>${escapeHtml(mintUrl)}</code> · ${escapeHtml(info.version ?? '')}`],
         ['NUT-06 identity', `<code>${escapeHtml(info.pubkey ?? 'not advertised')}</code>`],
-        ['Lightning', `<code>${escapeHtml(st.lightning_backend)}</code> — demo; invoices settle by themselves`],
+        ['Lightning', `<code>${escapeHtml(st.lightning_backend)}</code> — ${escapeHtml(lightningBackendLabel(st.lightning_backend).text)}`],
         ['Latest epoch', p ? `${p.epoch_index} (${escapeHtml(p.status)}) · open epoch ${st.open_epoch}` : `none published yet · open epoch ${st.open_epoch}`],
         ['Last publication', p ? timeWithAgo(p.published_at) : '—'],
         ['Latest Nostr event', p?.event_id ? `<code>${truncateHex(p.event_id, 10, 6)}</code> · ${nostrExplorerLinks(p.event_id)}` : '—'],
         ['Reserve', ext(mutinynetTxUrl(txid!), `<code>${truncateHex(txid!, 10, 6)}:${vout}</code>`)],
       ],
-      [`<a href="#/mint">Run it yourself on the live mint</a>`],
+      [`<a href="#/mint">Mint &amp; verify ecash yourself</a>`],
     );
   } catch (err) {
     box.innerHTML = `<p class="evidence-block-sub">The live mint could not be reached just now (${escapeHtml((err as Error).message)}). The committed evidence above does not depend on it.</p>`;

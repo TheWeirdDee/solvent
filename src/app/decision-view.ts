@@ -391,6 +391,13 @@ export function bindCopyButtons(root: HTMLElement): void {
   });
 }
 
+/** The mint's Lightning backend in plain words. Anything not known to be real is shown as the demo it is. */
+export function lightningBackendLabel(backend: string | null | undefined): { real: boolean; text: string } {
+  if (backend === 'lnd') return { real: true, text: 'Real Lightning (LND) on a test network — invoices must actually be paid' };
+  if (backend === 'ldk-node') return { real: true, text: 'Real Lightning (LDK node) on Mutinynet — invoices must actually be paid; test-network sats, no monetary value' };
+  return { real: false, text: 'Demo fakewallet — invoices settle automatically; no real Lightning payment' };
+}
+
 /** The exact public identifiers a check used, in full, so anyone can look them up independently. */
 export function checkedIdsHtml(eventId: string | null, outpoint: { txid: string; vout: number } | null): string {
   const rows: string[] = [];

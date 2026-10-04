@@ -32,14 +32,14 @@ export const FAQ: FaqEntry[] = [
     linkHref: '#/docs?doc=nostr-schema',
   },
   {
-    q: 'What is the difference between "Try the live mint" and "Re-check published evidence"?',
-    a: 'Try the live mint creates a fresh issuance on a real patched CDK mint (hosted on Railway), waits for its epoch to close and be published, then verifies it — about 30–90 seconds, with a new receipt, new public evidence and a fresh ACCEPT or REFUSE. Re-check published evidence re-verifies a captured reference case that was published earlier: its Nostr event and reserve are fetched again now, but it mints nothing.',
-    linkLabel: 'Try the live mint',
+    q: 'What is the difference between "Mint & verify ecash" and "Re-check published evidence"?',
+    a: 'Mint &amp; verify ecash creates a fresh issuance on a real patched CDK mint (hosted on Railway), waits for its epoch to close and be published, then verifies it before accepting it, with a new receipt, new public evidence and a fresh ACCEPT or REFUSE. Re-check published evidence re-verifies a captured reference case that was published earlier: its Nostr event and reserve are fetched again now, but it mints nothing.',
+    linkLabel: 'Mint &amp; verify ecash',
     linkHref: '#/mint',
   },
   {
     q: 'Is the Lightning payment on the live mint real?',
-    a: "No — the public mint uses CDK's fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI; those results are committed and shown on the Evidence page.",
+    a: '<span data-show="real">Yes — on a test network. The public mint runs a real Lightning node (an LDK node inside the CDK mint) on Mutinynet, a Bitcoin test network: you pay its invoice from a Mutinynet wallet or the public faucet, and the mint issues ecash only after its own node sees the payment. Test sats have no monetary value; this is not mainnet.</span><span data-show="demo unknown">No — the public mint uses CDK&rsquo;s fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI; those results are committed and shown on the Evidence page.</span>',
     linkLabel: 'See the real-LND evidence',
     linkHref: '#/publish',
   },

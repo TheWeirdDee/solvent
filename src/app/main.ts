@@ -28,7 +28,7 @@ function byId<T extends HTMLElement>(id: string): T {
 
 export const ROUTE_TITLES: Record<Route, string> = {
   home: 'SOLVENT — Auditable Ecash',
-  mint: 'SOLVENT — Live Mint',
+  mint: 'SOLVENT — Mint ecash',
   verify: 'SOLVENT — Verify',
   protocol: 'SOLVENT — Protocol',
   publish: 'SOLVENT — Evidence',

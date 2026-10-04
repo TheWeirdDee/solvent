@@ -181,6 +181,9 @@ a {
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-weight: 900;
   font-size: 1.2rem;
   letter-spacing: 0.04em;
@@ -1247,6 +1250,9 @@ body:has(#panel-home:not([hidden])) .topbar {
 }
 
 .footer-wordmark {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-weight: 900;
   font-size: 1.8rem;
   letter-spacing: 0.01em;
@@ -4283,8 +4289,144 @@ body:not([data-route='home']) .nav-landing-anchor { display: none !important; }
 
 /* In-page scroll targets land below the sticky header, never under it. */
 :root { --header-offset: 96px; }
+.mint-swap { margin: 18px 0 8px; padding: 16px; border: 1px solid var(--border, rgba(127,127,127,.3)); border-radius: 12px; }
+.mint-swap-title { margin: 0 0 6px; font-size: 1.05rem; }
+.mint-swap-copy { margin: 0 0 12px; line-height: 1.5; }
+.mint-swap-verdict { margin: 12px 0 6px; font-weight: 700; }
+.mint-swap-verdict[data-ok='true'] { color: var(--green, #1a7f37); }
+.mint-swap-verdict[data-ok='false'] { color: var(--red, #c62828); }
+.pay-box { display: grid; gap: 8px; }
+.pay-box-lead, .pay-box-how { margin: 0; line-height: 1.5; }
+.pay-box-facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0; }
+.pay-box-facts div { display: contents; }
+.pay-box-facts dt { font-weight: 600; }
+.pay-box-facts dd { margin: 0; }
+.pay-box-invoice { display: block; padding: 8px; border-radius: 8px; overflow-wrap: anywhere; word-break: break-all; font-size: 0.8rem; background: var(--green-dim); }
+.mint-swap-check-list { margin: 8px 0 0; padding-left: 18px; line-height: 1.5; overflow-wrap: anywhere; }
 .protocol-doc h2[id], .doc-article [id], #mint-op, #mint-result, #mint-decision-badge { scroll-margin-top: var(--header-offset); }
 .terminal-scope { margin: 0 0 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); }
 .cache-tag { display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(205, 191, 177, 0.14); color: var(--text-muted-on-dark); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.04em; }
 .explorer-note { font-size: 0.82rem; color: var(--text-subtle-on-dark); }
 .bundle-drop-hint { font-size: 0.86rem; color: var(--text-subtle-on-dark); }
+
+/* ---- brand mark: two ledger lines resolving into one checked inclusion point ---- */
+.brand-mark { width: 28px; height: 28px; flex: none; display: block; }
+.brand-word { line-height: 1; }
+.footer-wordmark .brand-mark { width: 32px; height: 32px; }
+@media (max-width: 640px) {
+  .brand-mark { width: 24px; height: 24px; }
+  .brand { gap: 8px; }
+}
+
+/* ---- copy that depends on the live mint's Lightning backend (set from its status) ---- */
+html:not([data-lightning]) [data-show]:not([data-show~='unknown']),
+html[data-lightning='real'] [data-show]:not([data-show~='real']),
+html[data-lightning='demo'] [data-show]:not([data-show~='demo']) { display: none !important; }
+
+/* ---- the mint journey ---- */
+.mint-progress {
+  position: sticky;
+  top: 69px;
+  z-index: 5;
+  margin: 0 0 18px;
+  padding: 10px 0 8px;
+  background: var(--bg-dark);
+  border-bottom: 1px solid var(--border);
+}
+@media (min-width: 641px) { .mint-progress { top: 78px; } }
+.lifecycle {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.lifecycle li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 3px solid var(--border);
+  color: var(--text-subtle-on-dark);
+  font: 700 0.72rem var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lc-num {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.68rem;
+}
+.lc-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lifecycle li[data-state='current'] { color: var(--yellow); border-top-color: var(--yellow); }
+.lifecycle li[data-state='done'] { color: var(--green); border-top-color: var(--green); }
+.lifecycle li[data-state='done'] .lc-num { background: var(--green); color: var(--bg-dark); border-color: var(--green); }
+.lifecycle li[data-state='failed'] { color: var(--red); border-top-color: var(--red); }
+@media (max-width: 420px) {
+  .lifecycle { gap: 4px; }
+  .lifecycle li { font-size: 0.6rem; letter-spacing: 0.02em; gap: 4px; }
+  .lc-num { width: 17px; height: 17px; }
+}
+.ecash-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 8px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted-on-dark);
+}
+.ecash-label { font: 700 0.68rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle-on-dark); }
+.ecash-amount { font-weight: 800; color: var(--text-on-dark); }
+.ecash-state { font-family: var(--font-mono); font-size: 0.78rem; overflow-wrap: anywhere; }
+
+.step-kicker {
+  margin: 0 0 6px;
+  font: 700 0.72rem var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+.step-kicker-red { color: var(--red); }
+.mint-step-card, .mint-promise, .mint-attack, .mint-about { margin: 0 0 18px; }
+.mint-step-title { margin: 0 0 8px; font-size: 1.35rem; font-weight: 900; color: var(--text-on-dark); }
+.mint-step-copy { margin: 0 0 14px; line-height: 1.55; color: var(--text-muted-on-dark); }
+.mint-step-note { margin: 10px 0 0; font-size: 0.85rem; line-height: 1.5; color: var(--text-subtle-on-dark); }
+.need-sats { margin: 12px 0 0; font-size: 0.88rem; line-height: 1.5; color: var(--text-muted-on-dark); }
+.tech-label {
+  display: inline-block;
+  margin-left: 4px;
+  font: 0.7rem var(--font-mono);
+  color: var(--text-subtle-on-dark);
+  white-space: nowrap;
+}
+.promise-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.promise-facts div { min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.promise-facts dt { font: 700 0.66rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle-on-dark); }
+.promise-facts dd { margin: 4px 0 0; font-weight: 800; color: var(--text-on-dark); overflow-wrap: anywhere; }
+@media (max-width: 640px) { .promise-facts { grid-template-columns: 1fr; } }
+.hl-checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 18px; margin: 14px 0 0; padding: 0; list-style: none; }
+.hl-checks li { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 0.92rem; color: var(--text-on-dark); }
+.hl-mark { flex: none; width: 1em; font-weight: 900; }
+.hl-word { margin-left: auto; font: 700 0.68rem var(--font-mono); letter-spacing: 0.06em; color: var(--text-subtle-on-dark); white-space: nowrap; }
+.hl-checks li[data-state='ok'] .hl-mark, .hl-checks li[data-state='ok'] .hl-word { color: var(--green); }
+.hl-checks li[data-state='fail'] .hl-mark, .hl-checks li[data-state='fail'] .hl-word { color: var(--red); }
+@media (max-width: 640px) { .hl-checks { grid-template-columns: 1fr; } }
+.accept-line { margin: 4px 0 14px; font: 700 0.9rem var(--font-mono); }
+.accept-line[data-ok='true'] { color: var(--green); }
+.accept-line[data-ok='false'] { color: var(--red); }
+.accept-line:empty { display: none; }
+.mint-evidence-heading { margin: 22px 0 8px; font-size: 1rem; color: var(--text-on-dark); }
+.mint-attack { border-color: rgb(243 43 53 / 45%); }
+.mint-about summary { cursor: pointer; font-weight: 800; color: var(--text-on-dark); }
+.mint-about[open] summary { margin-bottom: 12px; }
+#mint-swap-facts dd, #mint-pay-facts dd { margin: 2px 0 10px; font-weight: 700; color: var(--text-on-dark); overflow-wrap: anywhere; }
+#mint-swap-facts dt, #mint-pay-facts dt { font: 700 0.68rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-subtle-on-dark); }

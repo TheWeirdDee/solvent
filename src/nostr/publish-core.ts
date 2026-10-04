@@ -5,7 +5,7 @@
 import { SimplePool, type NostrEvent } from 'nostr-tools';
 import { hexToBytes } from '../encode/canonical.js';
 import type { MintFixture } from '../mint/types.js';
-import { buildEventContent, signSolvencyEvent, SOLVENT_EVENT_KIND } from './event.js';
+import { buildEventContent, signSolvencyEvent } from './event.js';
 
 import { POL_RELAYS } from './pol-evidence.js';
 
@@ -47,36 +47,4 @@ export async function publishToRelays(event: NostrEvent, relays: string[] = RELA
     ok: r.status === 'fulfilled',
     detail: r.status === 'fulfilled' ? r.value : ((r.reason as Error)?.message ?? String(r.reason)),
   }));
-}
-
-export interface LiveFetchResult {
-  event: NostrEvent | null;
-  /** Which relays actually responded with the event, if any. */
-  respondedRelays: string[];
-}
-
-/**
- * Tries to fetch the mint's latest solvency event from public relays, racing
- * against a timeout so the UI never hangs on an unreachable relay. Returns
- * null (not a thrown error) when nothing is found in time — callers decide
- * how to label that (e.g. "local development fallback").
- */
-export async function fetchLatestEvent(
-  fixture: MintFixture,
-  mintIdentity: string,
-  relays: string[] = RELAYS,
-  timeoutMs = 5000,
-): Promise<LiveFetchResult> {
-  const pool = new SimplePool();
-  try {
-    const event = await Promise.race([
-      pool.get(relays, { kinds: [SOLVENT_EVENT_KIND], authors: [fixture.nostrPubkeyHex], '#d': [mintIdentity] }),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ]);
-    return { event, respondedRelays: event ? relays : [] };
-  } catch {
-    return { event: null, respondedRelays: [] };
-  } finally {
-    pool.destroy();
-  }
 }

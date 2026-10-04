@@ -1,4 +1,4 @@
-// npm run verify:real-mint:browser -- <site-url> <mint-url> <evidence-url> [--screenshots <dir>] [--browser chromium|webkit] [--width 1440|390] [--skip-transient]
+// npm run verify:real-mint:browser -- <site-url> <mint-url> <evidence-url> [--screenshots <dir>] [--browser chromium|webkit] [--width 1440|390] [--skip-transient] [--swap [--melt]] [--pay-ldk <dashboard>] [--evidence-out <file>]
 //   (<mint-url> and <evidence-url> both `-`: the site's built-in backend)
 //
 // Drives the real-backend flow (#/mint) in a real browser, exactly as a judge
@@ -13,11 +13,16 @@
 //
 // D blocks the browser's relay WebSockets and the HTTPS relay fetch inside
 // this test browser only (Playwright routing) — nothing on the servers changes.
-import { mkdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { invoicePaymentHash as paymentHash } from '../app/bolt11.js';
 import path from 'node:path';
 import { SimplePool, verifyEvent, type NostrEvent } from 'nostr-tools';
 import { chromium, webkit, type Page } from 'playwright';
 import { POL_RELAYS } from '../nostr/pol-evidence.js';
+import { hexToBytes, spentLeaf, verifyInclusionProof } from '../pol/mmr.js';
+import { inclusionProofFromJson } from '../app/bundle-json.js';
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
@@ -63,6 +68,15 @@ async function tap(page: Page, sel: string): Promise<void> {
     await page.waitForTimeout(150);
   }
   await page.click(sel);
+}
+
+/** The lifecycle as "mint:done verify:done …", and the YOUR ECASH strip's text. */
+async function journey(page: Page): Promise<{ lc: string; wallet: string; overflow: number }> {
+  return page.evaluate(() => ({
+    lc: Array.from(document.querySelectorAll<HTMLElement>('#mint-lifecycle li')).map((li) => `${li.dataset.step}:${li.dataset.state}`).join(' '),
+    wallet: (document.getElementById('mint-wallet')?.hidden ? '' : document.getElementById('mint-wallet')?.textContent ?? '').replace(/\s+/g, ' ').trim(),
+    overflow: document.documentElement.scrollWidth - window.innerWidth,
+  }));
 }
 
 async function waitResult(page: Page, timeoutMs: number): Promise<void> {
@@ -122,8 +136,77 @@ async function copyCheck(page: Page, label: string, canReadClipboard: boolean): 
   return { ok, detail: `"${feedback}"${canReadClipboard ? `, clipboard ${copied === expected ? 'holds exactly the value' : 'differs'}` : ' (clipboard not readable in this engine)'}` };
 }
 
+/**
+ * --pay-ldk <dashboard url>: pays the invoice the page shows from a separate,
+ * real Lightning node (a CDK LDK-node dashboard on localhost), standing in for
+ * the visitor's own wallet. The payment is a real Lightning payment; the mint
+ * learns of it only from its own Lightning backend.
+ */
+/**
+ * --pay-faucet <token file>: pays the invoice the page shows through the public
+ * Mutinynet faucet's Lightning node (Faucet LND), exactly what a judge does on
+ * faucet.mutinynet.com. The token file holds a faucet session; it is read here
+ * and never printed.
+ */
+async function payViaFaucet(page: Page, tokenFile: string): Promise<string> {
+  const invoice = await page
+    .waitForFunction(() => /(lntbs|lntb|lnbcrt)[0-9a-z]+/i.exec(document.getElementById('mint-steps')?.textContent ?? '')?.[0] ?? null, undefined, { timeout: 120_000 })
+    .then((h) => h.jsonValue() as Promise<string>);
+  const token = readFileSync(tokenFile, 'utf8').trim();
+  let last = '';
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    const res = await fetch('https://faucet.mutinynet.com/api/lightning', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+      body: JSON.stringify({ bolt11: invoice }),
+    });
+    last = `HTTP ${res.status} ${(await res.text()).replace(token, '<token>').slice(0, 200)}`;
+    if (res.ok) return invoice;
+    await new Promise((r) => setTimeout(r, 10_000));
+  }
+  throw new Error(`the faucet did not pay: ${last}`);
+}
+
+async function payShownInvoice(page: Page, dashboard: string): Promise<string> {
+  const invoice = await page
+    .waitForFunction(() => /(lntbs|lntb|lnbcrt)[0-9a-z]+/i.exec(document.getElementById('mint-steps')?.textContent ?? '')?.[0] ?? null, undefined, { timeout: 120_000 })
+    .then((h) => h.jsonValue() as Promise<string>)
+    .catch(async (err: Error) => {
+      const state = await page.evaluate(() => ({
+        op: document.getElementById('mint-op')?.dataset.state ?? '(none)',
+        title: document.getElementById('mint-op-title')?.textContent ?? '',
+        steps: document.getElementById('mint-steps')?.textContent ?? '',
+        status: document.getElementById('mint-status')?.textContent ?? '',
+      }));
+      await page.screenshot({ path: `invoice-wait-failure-${Date.now()}.png`, fullPage: true }).catch(() => {});
+      throw new Error(`no invoice appeared: ${JSON.stringify(state)} (${err.message.split('\n')[0]})`);
+    });
+  // A real wallet retries a payment that found no route (e.g. its own peer link was momentarily down);
+  // the mint still issues only once its own Lightning node has seen the payment settle.
+  let res: Response | null = null;
+  let html = '';
+  for (let attempt = 1; attempt <= 8; attempt++) {
+    const token = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, '0')).join('');
+    res = await fetch(`${dashboard.replace(/\/$/, '')}/payments/bolt11`, {
+      method: 'POST',
+      headers: { cookie: `ldk_node_dashboard_csrf=${token}`, 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ _csrf: token, invoice, amount_btc: '' }),
+    });
+    html = await res.text();
+    if (res.ok && !/<title>[^<]*Payment Error/i.test(html)) break;
+    if (attempt < 8) await new Promise((r) => setTimeout(r, 15_000));
+  }
+  if (!res) throw new Error('payer node not reached');
+  // The dashboard titles its result page "Payment Error" on any failure (cdk-ldk-node web/handlers/payments.rs).
+  if (!res.ok || /<title>[^<]*Payment Error/i.test(html)) throw new Error(`payer node did not pay: HTTP ${res.status} ${html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 300)}`);
+  return invoice;
+}
+
+/** --evidence-out: one machine-readable record of the runs, public values only (no proof secrets). */
+const evidenceRecord: Record<string, unknown> = {};
+
 async function main() {
-  const [site, mint, evidence] = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--screenshots', '--browser', '--width', '--height'].includes(all[i - 1] ?? ''));
+  const [site, mint, evidence] = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--screenshots', '--browser', '--width', '--height', '--pay-ldk', '--pay-faucet', '--evidence-out'].includes(all[i - 1] ?? ''));
   const shots = opt('--screenshots');
   const which = opt('--browser') ?? 'chromium';
   const width = Number(opt('--width') ?? '1440');
@@ -151,6 +234,14 @@ async function main() {
 
     // ---- A. honest
     await tap(page, '#mint-honest-btn');
+    const payLdk = opt('--pay-ldk');
+    const payFaucet = opt('--pay-faucet');
+    const pay = async (p: Page) => (payFaucet ? payViaFaucet(p, payFaucet) : payShownInvoice(p, payLdk!));
+    if (payLdk || payFaucet) {
+      const inv = await pay(page);
+      evidenceRecord.honest_invoice = { bolt11: inv, payment_hash: paymentHash(inv), paid_by: payFaucet ? 'Mutinynet faucet (Faucet LND)' : 'test payer node' };
+      check(`[${tag}] A. the honest run's real Lightning invoice was paid by a separate node`, /^ln/.test(inv), `payment hash ${paymentHash(inv)}`);
+    }
     await page.waitForTimeout(800);
     check(`[${tag}] A. progress appears in the viewport immediately`, await inViewport(page, '#mint-op'));
     check(`[${tag}] A. disabled buttons say why`, ((await page.textContent('#mint-busy-reason')) ?? '').length > 0 && (await page.isDisabled('#mint-omit-btn')));
@@ -170,6 +261,14 @@ async function main() {
     const a = await outcome(page);
     check(`[${tag}] A. progress named the epoch wait or publishing stage`, [...details].some((d) => /Waiting for epoch \d+ to close|Publishing epoch|Fetching epoch|Observing the Mutinynet reserve|closed; waiting for its public evidence/.test(d)), [...details].slice(0, 3).join(' | '));
     check(`[${tag}] A. honest -> ACCEPT_VERIFIED`, a.code === 'ACCEPT_VERIFIED', `${a.badge} (${a.code})`);
+    const promise = ((await page.textContent('#mint-promise')) ?? '').replace(/\s+/g, ' ');
+    check(`[${tag}] A. the mint's promise is shown in words: receipt SIGNED, promised epoch, epoch closed`, (await page.isVisible('#mint-promise')) && /promised to count this issuance in epoch \d+/.test(promise) && /SIGNED ✓/.test(promise) && /CLOSED/.test(promise), promise.slice(0, 160));
+    const hl = await page.$$eval('#mint-checks li', (els) => els.map((e) => `${(e.textContent ?? '').replace(/\s+/g, ' ').trim()}`));
+    check(`[${tag}] A. plain-language checks lead, all VALID (signature, promise, closed epoch, included, Nostr, reserve)`, hl.length === 6 && hl.every((x) => /VALID$/.test(x)), hl.join(' | '));
+    check(`[${tag}] A. "accept() called exactly once" is stated under the verdict`, /accept\(\) called exactly once/.test((await page.textContent('#mint-accept-line')) ?? ''), (await page.textContent('#mint-accept-line')) ?? '');
+    const jA = await journey(page);
+    check(`[${tag}] A. lifecycle: Mint, Verify, Accept completed; YOUR ECASH shows ACCEPTED ✓`, /^mint:done verify:done accept:done swap:(current|pending) pay:pending$/.test(jA.lc) && /ACCEPTED ✓/.test(jA.wallet) && !/secret/i.test(jA.wallet), `${jA.lc} | ${jA.wallet}`);
+    check(`[${tag}] A. no horizontal page overflow`, jA.overflow <= 0, `${jA.overflow}px`);
     check(`[${tag}] A. Nostr retrieval passed`, /RETRIEVED/.test(a.facts['Public Nostr retrieval'] ?? ''), a.facts['Public Nostr retrieval']);
     check(`[${tag}] A. accept function called once, record stored`, a.enforcement['Accept function calls (this issuance)'] === '1' && a.enforcement['Accepted record stored'] === 'yes', JSON.stringify(a.enforcement));
     check(`[${tag}] A. evidence actions: explorer links + downloads`, (await page.$$('#mint-evidence-card a[target="_blank"][rel~="noopener"]')).length >= 2 && (await page.isVisible('#mint-dl-public')));
@@ -182,6 +281,7 @@ async function main() {
     // After the in-view check: a full-page screenshot resizes the page and resets its scroll.
     await shot(page, 'honest');
     const aRows = await evidenceRows(page);
+    evidenceRecord.honest = { decision: a.code, facts: a.facts, enforcement: a.enforcement, evidence: aRows, steps: a.steps };
     const aInd = await independentEventCheck(aRows, mint);
     check(`[${tag}] A. independent check of the fresh event (Node + nostr-tools, outside the app)`, aInd.ok, aInd.detail);
     for (const label of ['Copy event ID', 'Copy receipt']) {
@@ -205,6 +305,107 @@ async function main() {
     const publicOk = !!dl && (await dl.failure()) === null;
     check(`[${tag}] A. the public evidence download completed (not just started)`, publicOk);
 
+    // A swap/payment is offered only where the mint's books can be checked for it (and paying only on real Lightning).
+    const evBase = (await page.evaluate(() => JSON.parse(localStorage.getItem('solvent.mint.lastRun.v1') ?? '{}').cfg?.evidenceUrl)) as string;
+    const evStatus = (await (await fetch(`${evBase}/v1/solvent/status`)).json()) as { spend_evidence?: boolean; lightning_backend?: string; demo_faucet_invoices?: boolean };
+    if (!evStatus.spend_evidence) check(`[${tag}] A2. no swap is offered when the evidence service cannot show the mint's books for it`, await page.locator('#mint-swap').isHidden());
+    if (evStatus.lightning_backend === 'fakewallet') check(`[${tag}] A3. no "payment" is offered on a fakewallet mint`, await page.locator('#mint-pay').isHidden());
+
+    // ---- A2. spend it: the live NUT-03 swap (--swap), checked from outside the browser too
+    if (process.argv.includes('--swap')) {
+      const mintBase = (await page.evaluate(() => JSON.parse(localStorage.getItem('solvent.mint.lastRun.v1') ?? '{}').cfg)) as { mintUrl: string; evidenceUrl: string };
+      check(`[${tag}] A2. "Swap ecash" is offered directly under the accepted result`, await page.isVisible('#mint-swap-btn'));
+      await tap(page, '#mint-swap-btn');
+      await page.waitForFunction(() => !document.getElementById('mint-swap-verdict')?.hidden || /Stopped:/.test(document.getElementById('mint-swap-steps')?.textContent ?? ''), undefined, { timeout: 600_000 });
+      const verdict = ((await page.textContent('#mint-swap-verdict')) ?? '').trim();
+      const swapSteps = await page.$$eval('#mint-swap-steps li', (els) => els.map((e) => e.textContent ?? ''));
+      check(`[${tag}] A2. swap verdict`, /^SWAP COMPLETE/.test(verdict), verdict || swapSteps.join(' | '));
+      const stored = (await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('solvent.mint.swaps.v1') ?? '{}'))[0])) as
+        | { exec: { inputY: string; inputAmount: number; outputs: { y: string; amount: number }[] } }
+        | undefined;
+      if (stored) {
+        // NUT-07 straight from the mint, not through the app.
+        const ys = [stored.exec.inputY, ...stored.exec.outputs.map((o) => o.y)];
+        const states = (await (await fetch(`${mintBase.mintUrl}/v1/checkstate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ Ys: ys }) })).json()) as { states: { Y: string; state: string }[] };
+        const st = Object.fromEntries(states.states.map((x) => [x.Y, x.state]));
+        check(
+          `[${tag}] A2. independent NUT-07: original SPENT, every replacement UNSPENT`,
+          st[stored.exec.inputY] === 'SPENT' && stored.exec.outputs.every((o) => st[o.y] === 'UNSPENT'),
+          `original ${st[stored.exec.inputY]}; replacements ${stored.exec.outputs.map((o) => `${o.amount}:${st[o.y]}`).join(', ')}`,
+        );
+        // The spent sum-MMR inclusion, recomputed here from the evidence service's raw response.
+        const sp = (await (await fetch(`${mintBase.evidenceUrl}/v1/solvent/spend/${stored.exec.inputY}`)).json()) as {
+          state: string; target_epoch: number; operation: { consumed_sum: number; issued_sum: number; issued: unknown[] };
+          evidence?: { manifest: { spent_mmr_root_hash: string; spent_mmr_root_sum: number; outstanding_balance: number }; spentMmrSize: number; inclusionProof: Parameters<typeof inclusionProofFromJson>[0]; previous: { manifest: { outstanding_balance: number } } | null };
+        };
+        evidenceRecord.swap = {
+          verdict,
+          original: { y: stored.exec.inputY, amount: stored.exec.inputAmount, nut07_state: st[stored.exec.inputY] },
+          replacements: stored.exec.outputs.map((o) => ({ y: o.y, amount: o.amount, nut07_state: st[o.y] })),
+          epoch: sp.target_epoch,
+          operation: sp.operation,
+          liability_before: sp.evidence?.previous?.manifest.outstanding_balance ?? null,
+          liability_after: sp.evidence?.manifest.outstanding_balance ?? null,
+        };
+        const ip = sp.evidence ? inclusionProofFromJson(sp.evidence.inclusionProof) : null;
+        const inSpent = !!ip && !!sp.evidence && verifyInclusionProof(spentLeaf(stored.exec.inputY, stored.exec.inputAmount), ip, sp.evidence.spentMmrSize, hexToBytes(sp.evidence.manifest.spent_mmr_root_hash), BigInt(sp.evidence.manifest.spent_mmr_root_sum));
+        check(
+          `[${tag}] A2. independent spent-side check: in the signed spent sum-MMR, operation conserves value`,
+          sp.state === 'EPOCH_CLOSED' && inSpent && sp.operation.consumed_sum === sp.operation.issued_sum && sp.operation.issued.length === stored.exec.outputs.length,
+          `epoch ${sp.target_epoch}; consumed ${sp.operation.consumed_sum}, issued ${sp.operation.issued_sum} in ${sp.operation.issued.length} outputs; outstanding ${sp.evidence?.previous?.manifest.outstanding_balance ?? '—'} -> ${sp.evidence?.manifest.outstanding_balance ?? '—'}`,
+        );
+      } else check(`[${tag}] A2. the swap was recorded in this browser`, false);
+      const swapFacts = ((await page.textContent('#mint-swap-facts')) ?? '').replace(/\s+/g, ' ');
+      check(`[${tag}] A2. SWAP COMPLETE shows original SPENT, replacements UNSPENT, liability CONSERVED ✓, spent accounting COMMITTED ✓`, /SPENT/.test(swapFacts) && /UNSPENT/.test(swapFacts) && /CONSERVED ✓/.test(swapFacts) && /COMMITTED ✓/.test(swapFacts), swapFacts.slice(0, 200));
+      const jS = await journey(page);
+      check(`[${tag}] A2. lifecycle: Swap completed; YOUR ECASH shows SWAPPED ✓`, /swap:done/.test(jS.lc) && /SWAPPED ✓/.test(jS.wallet), `${jS.lc} | ${jS.wallet}`);
+      await shot(page, 'swap');
+
+      // ---- A3. pay with it: a real NUT-05 melt (--melt; real-Lightning mints only)
+      if (process.argv.includes('--melt')) {
+        check(`[${tag}] A3. "Pay with ecash" is offered directly after the verified swap`, await page.isVisible('#mint-pay-btn'));
+        await tap(page, '#mint-pay-btn');
+        await page.waitForFunction(() => !document.getElementById('mint-pay-verdict')?.hidden || /Stopped:/.test(document.getElementById('mint-pay-steps')?.textContent ?? ''), undefined, { timeout: 600_000 });
+        const payVerdict = ((await page.textContent('#mint-pay-verdict')) ?? '').trim();
+        const paySteps = await page.$$eval('#mint-pay-steps li', (els) => els.map((e) => e.textContent ?? ''));
+        check(`[${tag}] A3. payment verdict`, /^PAYMENT COMPLETE/.test(payVerdict), payVerdict || paySteps.join(' | '));
+        const melt = (await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem('solvent.mint.melts.v1') ?? '{}'))[0])) as
+          | { invoice: string; preimage: string | null; epoch: number; feePaid: number; liabilityBefore: number | null; liabilityAfter: number | null; inputs: { y: string; amount: number }[]; change: { y: string; amount: number }[] }
+          | undefined;
+        if (melt?.invoice) {
+          // Proof of payment, recomputed here: sha256(preimage) must be the invoice's own payment hash.
+          const hash = paymentHash(melt.invoice);
+          const preOk = !!melt.preimage && createHash('sha256').update(Buffer.from(melt.preimage, 'hex')).digest('hex') === hash;
+          check(`[${tag}] A3. independent proof of payment: sha256(preimage) = invoice payment hash`, preOk, `payment hash ${hash}`);
+          const ys = [...melt.inputs.map((i) => i.y), ...melt.change.map((c) => c.y)];
+          const states = (await (await fetch(`${mintBase.mintUrl}/v1/checkstate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ Ys: ys }) })).json()) as { states: { Y: string; state: string }[] };
+          const st = Object.fromEntries(states.states.map((x) => [x.Y, x.state]));
+          check(
+            `[${tag}] A3. independent NUT-07: every input SPENT, every change proof UNSPENT`,
+            melt.inputs.every((i) => st[i.y] === 'SPENT') && melt.change.every((c) => st[c.y] === 'UNSPENT'),
+            `inputs ${melt.inputs.map((i) => `${i.amount}:${st[i.y]}`).join(', ')}; change ${melt.change.map((c) => `${c.amount}:${st[c.y]}`).join(', ') || 'none'}`,
+          );
+          evidenceRecord.melt = {
+            verdict: payVerdict,
+            invoice: { bolt11: melt.invoice, payment_hash: hash, payee: 'Mutinynet faucet (faucet.mutinynet.com)' },
+            payment_preimage: melt.preimage,
+            inputs: melt.inputs.map((i) => ({ y: i.y, amount: i.amount, nut07_state: st[i.y] })),
+            change: melt.change.map((c) => ({ y: c.y, amount: c.amount, nut07_state: st[c.y] })),
+            lightning_fee_paid: melt.feePaid,
+            epoch: melt.epoch,
+            liability_before: melt.liabilityBefore,
+            liability_after: melt.liabilityAfter,
+          };
+        } else check(`[${tag}] A3. the payment was recorded in this browser`, false);
+        const payFacts = ((await page.textContent('#mint-pay-facts')) ?? '').replace(/\s+/g, ' ');
+        check(`[${tag}] A3. PAYMENT COMPLETE shows Lightning PAID ✓, inputs SPENT, change RETURNED, accounting UPDATED ✓`, /PAID ✓/.test(payFacts) && /SPENT/.test(payFacts) && /RETURNED/.test(payFacts) && /UPDATED ✓/.test(payFacts), payFacts.slice(0, 200));
+        const jP = await journey(page);
+        check(`[${tag}] A3. lifecycle: all five completed; YOUR ECASH shows what remains`, jP.lc === 'mint:done verify:done accept:done swap:done pay:done' && /\d+ test sats remaining/.test(jP.wallet), `${jP.lc} | ${jP.wallet}`);
+        check(`[${tag}] A3. no horizontal page overflow`, jP.overflow <= 0, `${jP.overflow}px`);
+        await shot(page, 'melt');
+      }
+    }
+
     // ---- B. reload restores; retry never accepts twice
     await page.reload();
     await page.waitForFunction(() => document.getElementById('mint-op')?.dataset.state === 'restored', undefined, { timeout: 30_000 });
@@ -217,6 +418,11 @@ async function main() {
     // ---- C. broken promise
     await tap(page, '#mint-again-btn');
     await tap(page, '#mint-omit-btn');
+    if (payLdk || payFaucet) {
+      const inv = await pay(page);
+      evidenceRecord.broken_promise_invoice = { bolt11: inv, payment_hash: paymentHash(inv), paid_by: payFaucet ? 'Mutinynet faucet (Faucet LND)' : 'test payer node' };
+      check(`[${tag}] C. the broken-promise run's real Lightning invoice was paid by a separate node`, /^ln/.test(inv), `payment hash ${paymentHash(inv)}`);
+    }
     await waitResult(page, interval);
     const c = await outcome(page);
     await shot(page, 'broken-promise');
@@ -228,8 +434,13 @@ async function main() {
     check(`[${tag}] C. everything valid except the promised issuance`, onlyInclusion, JSON.stringify(c.facts));
     check(`[${tag}] C. a proven refusal offers no "retry" (retry is for availability failures)`, !(await page.isVisible('#mint-retry-btn')) && !(await page.isVisible('#mint-result-retry-btn')));
     check(`[${tag}] C. the note under a refusal does not mention a Retry that is not offered`, !/Retry/.test((await page.textContent('#mint-result-actions-note')) ?? ''), (await page.textContent('#mint-result-actions-note')) ?? '');
-    const cInd = await independentEventCheck(await evidenceRows(page), mint);
+    const cRows = await evidenceRows(page);
+    evidenceRecord.broken_promise = { decision: c.code, facts: c.facts, enforcement: c.enforcement, evidence: cRows, steps: c.steps };
+    const cInd = await independentEventCheck(cRows, mint);
     check(`[${tag}] C. independent check of the broken-promise event (Node + nostr-tools, outside the app)`, cInd.ok, cInd.detail);
+    check(`[${tag}] C. the attack plays out in its own section, saying "accept() NOT CALLED"`, (await page.$('#mint-attack #mint-result')) !== null && /accept\(\) NOT CALLED/.test((await page.textContent('#mint-accept-line')) ?? ''), (await page.textContent('#mint-accept-line')) ?? '');
+    const hlC = await page.$$eval('#mint-checks li', (els) => els.map((e) => `${(e.textContent ?? '').replace(/\s+/g, ' ').trim()}`));
+    check(`[${tag}] C. plain-language checks: only "Your issuance included" fails (MISSING)`, hlC.filter((x) => /MISSING$/.test(x)).length === 1 && /included/.test(hlC.find((x) => /MISSING$/.test(x)) ?? '') && hlC.filter((x) => /VALID$/.test(x)).length === 5, hlC.join(' | '));
     check(`[${tag}] C. accept function not called, store unchanged`, c.enforcement['Accept function calls'] === '0' && c.enforcement['Store changed'] === 'no', JSON.stringify(c.enforcement));
 
     // ---- D. transient relay outage, then retry of the same issuance
@@ -252,6 +463,7 @@ async function main() {
       await blocked.goto(url);
       await blocked.waitForFunction(() => (document.getElementById('mint-reality')?.textContent ?? '').length > 0, undefined, { timeout: 30_000 });
       await tap(blocked, '#mint-honest-btn');
+      if (payLdk || payFaucet) await pay(blocked);
       await waitResult(blocked, interval);
       const d1 = await outcome(blocked);
       await shot(blocked, 'relay-outage');
@@ -285,6 +497,32 @@ async function main() {
     }
   } finally {
     await browser.close();
+  }
+  const outFile = opt('--evidence-out');
+  if (outFile) {
+    const info = mint === '-' ? null : ((await (await fetch(`${mint}/v1/info`)).json()) as { name?: string; version?: string; pubkey?: string });
+    const st = evidence === '-' ? null : ((await (await fetch(`${evidence}/v1/solvent/status`)).json()) as Record<string, unknown>);
+    writeFileSync(
+      outFile,
+      JSON.stringify(
+        {
+          schema: 'solvent/browser-run-evidence/v1',
+          note: 'Public values only. No Cashu proof secret, key or mnemonic is recorded.',
+          generated_at: new Date().toISOString(),
+          git_commit: execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim(),
+          working_tree_clean: execSync('git status --porcelain', { encoding: 'utf8' }).trim() === '',
+          site,
+          mint: { url: mint, name: info?.name, version: info?.version, nut06_identity: info?.pubkey },
+          evidence_service: { url: evidence, lightning_backend: st?.lightning_backend, manifest_pubkey: st?.manifest_pubkey, reserve_outpoint: st?.reserve_outpoint, reserve_network: st?.reserve_network, relays: st?.relays },
+          browser: `${opt('--browser') ?? 'chromium'}-${opt('--width') ?? '1440'}`,
+          checks_failed: failures,
+          ...evidenceRecord,
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    console.log(`evidence written to ${outFile}`);
   }
   console.log(failures === 0 ? '\nREAL MINT BROWSER FLOW VERIFIED' : `\n${failures} check(s) failed`);
   process.exit(failures === 0 ? 0 : 1);

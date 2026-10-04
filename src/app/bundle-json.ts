@@ -58,7 +58,7 @@ export function inclusionProofToJson(p: InclusionProof | null): JsonInclusionPro
   return { leafIndex: p.leafIndex, siblingPath: p.siblingPath.map(siblingStepToJson), peaks: p.peaks.map(sumNodeToJson) };
 }
 
-function inclusionProofFromJson(p: JsonInclusionProof | null | undefined): InclusionProof | null {
+export function inclusionProofFromJson(p: JsonInclusionProof | null | undefined): InclusionProof | null {
   if (!p) return null;
   return { leafIndex: p.leafIndex, siblingPath: p.siblingPath.map(siblingStepFromJson), peaks: p.peaks.map(sumNodeFromJson) };
 }

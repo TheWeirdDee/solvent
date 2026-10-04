@@ -17,7 +17,7 @@
 // Configuration: VITE_SOLVENT_MINT_URL + VITE_SOLVENT_EVIDENCE_URL at build
 // time (.env.production), or `#/mint?mint=<url>&evidence=<url>` at run time.
 import { Mint, OutputData, Wallet, type Proof } from '@cashu/cashu-ts';
-import { reconstruct } from '../cashu/reconstruct.js';
+import { reconstruct, spentY } from '../cashu/reconstruct.js';
 import { manifestDigestHex } from '../pol/manifest.js';
 import { verifyIssuedReceipt } from '../pol/receipt.js';
 import { acceptedRecord, enforce, type EnforcementOutcome } from './acceptance-store.js';
@@ -25,10 +25,12 @@ import { proofFromJson, proofToJson, submissionBundleFromJson } from './bundle-j
 import {
   bindCopyButtons,
   chainStates,
+  copyWithFeedback,
   decisionCopy,
   decisionFacts,
   escapeHtml,
   formatUtc,
+  lightningBackendLabel,
   mutinynetTxUrl,
   njumpUrl,
   nostrDiagnosticsHtml,
@@ -40,6 +42,8 @@ import { formatSats } from './format.js';
 import { timeWithAgo } from './live-status.js';
 import { relayAssistFor } from './relay-assist.js';
 import { verifySubmission, type SubmissionVerification } from './submission.js';
+import { checkMeltAccounting, checkSwapAccounting, executeMelt, executeSwap, proofStates, type MeltExecution, type OutputIssuance, type SpendResponse, type SwapExecution } from './live-swap.js';
+import { invoicePaymentHash, invoiceTimes } from './bolt11.js';
 
 export interface RealMintConfig {
   mintUrl: string;
@@ -58,11 +62,13 @@ interface Publishing {
 interface SidecarStatus {
   mint_url: string;
   mint_identity_pubkey: string;
-  lightning_backend: 'lnd' | 'fakewallet';
+  lightning_backend: 'lnd' | 'ldk-node' | 'fakewallet';
   open_epoch: number;
   epoch_interval_seconds: number;
   next_close_at: number;
   demo_omission_enabled: boolean;
+  demo_faucet_invoices?: boolean;
+  spend_evidence?: boolean;
   last_publication?: { epoch_index: number; status: string; event_id: string | null; published_at: string; acked?: string[]; fetched_from?: string[] } | null;
   publishing?: Publishing | null;
   relays?: string[];
@@ -100,6 +106,10 @@ interface MintRun {
 const env = ((import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}) as Record<string, string | undefined>;
 const AMOUNT = 64;
 const RUN_KEY = 'solvent.mint.lastRun.v1';
+const SWAP_KEY = 'solvent.mint.swaps.v1';
+const MELT_KEY = 'solvent.mint.melts.v1';
+const HONEST_KEY = 'solvent.mint.lastHonest.v1';
+const MELT_INVOICE_SATS = 40;
 const trim = (u: string) => u.replace(/\/+$/, '');
 
 /** Run-time query overrides build-time configuration; both URLs are required. */
@@ -197,10 +207,7 @@ const host = (u: string) => u.replace(/^wss:\/\//, '').replace(/\/$/, '');
 // -------------------- the mint + live status --------------------
 
 function renderReality(cfg: RealMintConfig, info: { name?: string; version?: string; pubkey?: string }, s: SidecarStatus): void {
-  const lightning =
-    s.lightning_backend === 'lnd'
-      ? 'Real Lightning (LND) — invoices must actually be paid'
-      : 'Demo fakewallet — invoices settle automatically; no real Lightning payment';
+  const lightning = lightningBackendLabel(s.lightning_backend).text;
   const rows: [string, string][] = [
     ['Mint', `${info.name ?? 'Cashu mint'} — ${cfg.mintUrl}`],
     ['Evidence service', `${cfg.evidenceUrl} (closes and publishes epochs; reports the mint's status)`],
@@ -235,18 +242,135 @@ export async function enterRealMintPanel(): Promise<void> {
   try {
     const [info, st] = await Promise.all([getJson<{ name?: string; version?: string; pubkey?: string }>(`${cfg.mintUrl}/v1/info`), getJson<SidecarStatus>(`${cfg.evidenceUrl}/v1/solvent/status`)]);
     status = st.body;
+    document.documentElement.dataset.lightning = lightningBackendLabel(st.body.lightning_backend).real ? 'real' : 'demo';
     renderReality(cfg, info.body, st.body);
     el('mint-omit-btn').hidden = !st.body.demo_omission_enabled;
     el('mint-omit-note').hidden = !st.body.demo_omission_enabled;
+    el('mint-attack').hidden = !st.body.demo_omission_enabled;
     setStatus(trim(st.body.mint_url) !== cfg.mintUrl ? `Warning: the evidence service is configured for ${st.body.mint_url}, not ${cfg.mintUrl}. Verification will refuse a mismatch.` : '');
   } catch (err) {
     setStatus(`Could not reach the mint or its evidence service: ${(err as Error).message}`);
   }
   if (!current) restoreLastRun(cfg);
+  updateLifecycle();
 }
 
 function setStatus(text: string): void {
   el('mint-status').textContent = text;
+}
+
+// -------------------- where you are: the lifecycle, your ecash, the promise --------------------
+
+type LcState = 'pending' | 'current' | 'done' | 'failed';
+type StoredMelt = { verdict: string; ok: boolean; meltedAt: string; change?: { amount: number }[]; invoice?: string };
+
+function lastHonest(): MintRun | null {
+  try {
+    return JSON.parse(localStorage.getItem(HONEST_KEY) ?? 'null') as MintRun | null;
+  } catch {
+    return null;
+  }
+}
+
+function saveHonest(run: MintRun | null): void {
+  try {
+    if (run) localStorage.setItem(HONEST_KEY, JSON.stringify(run));
+    else localStorage.removeItem(HONEST_KEY);
+  } catch {
+    /* not persisted */
+  }
+}
+
+const unitText = () => (lightningBackendLabel(status?.lightning_backend).real ? 'test sats' : 'demo sats');
+const payOffered = () => lightningBackendLabel(status?.lightning_backend).real && !!status?.demo_faucet_invoices;
+
+/** Steps 1-5 of the honest journey, from what this browser holds. A broken-promise run never moves them. */
+function updateLifecycle(): void {
+  const cfg = configFromLocation(window.location.hash);
+  const saved = lastHonest();
+  const honest = current?.run.mode === 'honest' ? current.run : saved && saved.cfg.mintUrl === cfg?.mintUrl ? saved : null;
+  const live = honest && current?.run.bm === honest.bm ? current : null;
+  const accepted = honest ? acceptedRecord(proofFromJson(honest.proof)) : undefined;
+  const refused = !accepted && live?.verification && resultClass(live.verification.result, live.verification.reserveLive, live.verification.nostrLive) === 'refusal';
+  const swap = honest ? storedSwaps()[spentYOf(honest.proof)] : undefined;
+  const melt = swap ? (storedMelts()[swap.exec.inputY] as StoredMelt | undefined) : undefined;
+  const states: Record<string, LcState> = {
+    mint: honest ? 'done' : 'current',
+    verify: accepted ? 'done' : refused ? 'failed' : honest ? 'current' : 'pending',
+    accept: accepted ? 'done' : refused ? 'failed' : 'pending',
+    swap: swap?.ok ? 'done' : swap && swap.ok === false ? 'failed' : accepted && status?.spend_evidence ? 'current' : 'pending',
+    pay: melt?.ok ? 'done' : melt && melt.verdict && !/checking/.test(melt.verdict) && !melt.ok ? 'failed' : swap?.ok && payOffered() ? 'current' : 'pending',
+  };
+  for (const li of Array.from(el('mint-lifecycle').querySelectorAll<HTMLElement>('li'))) {
+    const st = states[li.dataset.step ?? ''] ?? 'pending';
+    li.dataset.state = st;
+    if (st === 'current') li.setAttribute('aria-current', 'step');
+    else li.removeAttribute('aria-current');
+  }
+
+  const wallet = el('mint-wallet');
+  wallet.hidden = !honest;
+  if (!honest) return;
+  const unit = unitText();
+  const trail = [`minted`];
+  let amount = `${AMOUNT} ${unit}`;
+  if (accepted) trail.push('ACCEPTED ✓');
+  else if (refused) trail.push('NOT ACCEPTED ✕');
+  else trail.push('verifying…');
+  if (swap?.ok) {
+    trail.push('SWAPPED ✓');
+    amount = `${swap.exec.outputs.reduce((a, o) => a + o.amount, 0)} ${unit}`;
+  }
+  if (melt?.ok) {
+    const left = (melt.change ?? []).reduce((a, c) => a + c.amount, 0);
+    trail.push('PAID ✓');
+    amount = `${left} ${unit} remaining`;
+  }
+  el('mint-wallet-amount').textContent = amount;
+  el('mint-wallet-state').textContent = trail.join(' → ');
+}
+
+/** The mint's signed promise for this issuance, in plain words, before the evidence exists. */
+function showPromise(run: MintRun, epochState: string): void {
+  const card = el('mint-promise');
+  card.hidden = false;
+  card.querySelector('.step-kicker')!.textContent = run.mode === 'omit' ? 'The attack · verify' : 'Step 2 · Verify';
+  el('mint-promise-line').textContent = `The mint promised to count this issuance in epoch ${run.epoch}.`;
+  el('mint-promise-receipt').textContent = 'SIGNED ✓';
+  el('mint-promise-epoch').textContent = String(run.epoch);
+  el('mint-promise-status').textContent = epochState;
+  el('mint-checks').hidden = true;
+}
+
+/** The eight checks, grouped into what a person asks: did the mint sign it, promise it, count it, publish it, cover it? */
+function showChecks(v: SubmissionVerification): void {
+  const st = chainStates(v.result);
+  const groups: [string, number[]][] = [
+    ['Mint signature', [1]],
+    ['Promise (signed receipt)', [2]],
+    ['Closed epoch', [3, 4]],
+    ['Your issuance included', [5]],
+    ['Public Nostr evidence', [6]],
+    ['Reserve', [7]],
+  ];
+  el('mint-checks').innerHTML = groups
+    .map(([label, idx]) => {
+      const s2 = idx.map((i) => st[i] ?? 'na');
+      const mark = s2.some((x) => x === 'fail') ? 'fail' : s2.every((x) => x === 'ok') ? 'ok' : 'na';
+      return `<li data-state="${mark}"><span class="hl-mark" aria-hidden="true">${mark === 'ok' ? '✓' : mark === 'fail' ? '✕' : '–'}</span>${escapeHtml(label)}<span class="hl-word">${mark === 'ok' ? 'VALID' : mark === 'fail' ? (label === 'Your issuance included' ? 'MISSING' : 'FAILED') : 'NOT CHECKED'}</span></li>`;
+    })
+    .join('');
+  el('mint-checks').hidden = false;
+}
+
+/** An honest run lives in steps 1-3; a broken-promise run plays out inside the attack section. */
+function placeRun(mode: 'honest' | 'omit'): void {
+  if (mode === 'omit') {
+    el('mint-attack-flow').append(el('mint-op'), el('mint-promise'), el('mint-result'));
+  } else {
+    el('mint-step-mint').appendChild(el('mint-op'));
+    el('mint-flow').append(el('mint-promise'), el('mint-result'));
+  }
 }
 
 // -------------------- one run --------------------
@@ -261,17 +385,42 @@ async function obtainEcash(cfg: RealMintConfig, custom: OutputData | null): Prom
   const wallet = new Wallet(cfg.mintUrl);
   await wallet.loadMint();
   const quote = await wallet.createMintQuoteBolt11(AMOUNT);
-  const pay = step(
-    status?.lightning_backend === 'lnd'
-      ? `Pay this Lightning invoice for ${AMOUNT} sats: ${quote.request}`
-      : `The mint issued a ${AMOUNT}-sat invoice (demo fakewallet: it settles itself).`,
-  );
-  opDetail('Waiting for the invoice to be paid…');
-  for (let i = 0; i < 600; i++) {
-    if ((await wallet.checkMintQuoteBolt11(quote.quote)).state === 'PAID') break;
+  const real = lightningBackendLabel(status?.lightning_backend).real;
+  const pay = step(real ? '' : `The mint issued a ${AMOUNT}-sat invoice (demo fakewallet: it settles itself).`);
+  // Real Lightning: the visitor funds the invoice. Nothing on this page or server pays it for them.
+  const times = invoiceTimes(quote.request);
+  const deadline = times ? times.expiresAt * 1000 : Date.now() + 600_000;
+  if (real) {
+    pay.innerHTML = `<div class="pay-box">
+      <p class="pay-box-lead"><strong>Fund this test invoice over Mutinynet Lightning.</strong> These are test sats with no monetary value.</p>
+      <dl class="pay-box-facts"><div><dt>Amount</dt><dd>${AMOUNT} sats (Mutinynet)</dd></div><div><dt>Expires</dt><dd><span id="mint-pay-expiry"></span></dd></div><div><dt>Status</dt><dd id="mint-pay-status">waiting for payment — checked every second</dd></div></dl>
+      <code class="pay-box-invoice" id="mint-pay-invoice">${escapeHtml(quote.request)}</code>
+      <button type="button" class="btn btn-solid btn-sm" id="mint-pay-copy">Copy invoice</button>
+      <p class="pay-box-how">No Mutinynet wallet? Open <a href="https://faucet.mutinynet.com/" target="_blank" rel="noopener noreferrer">faucet.mutinynet.com</a>, sign in with GitHub, paste this invoice where it asks for a BOLT11 invoice, and pay. Any Mutinynet (signet) Lightning wallet works too.</p>
+    </div>`;
+    el('mint-pay-copy').addEventListener('click', (e) => void copyWithFeedback(e.currentTarget as HTMLButtonElement, quote.request));
+  }
+  opDetail(real ? 'Waiting for you to pay the invoice…' : 'Waiting for the invoice to be paid…');
+  const tickExpiry = () => {
+    const left = Math.max(0, Math.round((deadline - Date.now()) / 1000));
+    const e = document.getElementById('mint-pay-expiry');
+    if (e) e.textContent = `${formatUtc(new Date(deadline).toISOString())} (${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} left)`;
+  };
+  tickExpiry();
+  let paid = false;
+  while (Date.now() < deadline) {
+    if ((await wallet.checkMintQuoteBolt11(quote.quote)).state === 'PAID') {
+      paid = true;
+      break;
+    }
+    tickExpiry();
     await new Promise((r) => setTimeout(r, 1000));
   }
-  settle(pay, `Invoice for ${AMOUNT} sats paid.`, 'ok');
+  if (!paid) throw new Error('the invoice expired unpaid — nothing was minted');
+  const statusEl = document.getElementById('mint-pay-status');
+  if (statusEl) statusEl.textContent = 'paid — the mint saw the payment on its own Lightning node';
+  if (real) pay.className = 'mint-step mint-step-ok';
+  else settle(pay, `Invoice for ${AMOUNT} sats paid.`, 'ok');
   const proofs = custom
     ? await wallet.mintProofsBolt11(AMOUNT, quote.quote, undefined, { type: 'custom', data: [custom] })
     : await wallet.mintProofsBolt11(AMOUNT, quote.quote);
@@ -292,6 +441,7 @@ async function waitForEvidence(run: MintRun): Promise<IssuanceResponse> {
   while (Date.now() < deadline) {
     const r = (await getJson<IssuanceResponse>(`${run.cfg.evidenceUrl}/v1/solvent/issuance/${run.bm}`)).body;
     if (r.state === 'EPOCH_CLOSED' && r.publication_status !== 'pending') {
+      el('mint-promise-status').textContent = r.publication_status === 'published' ? `EPOCH ${run.epoch} CLOSED ✓ · PUBLISHED TO NOSTR ✓` : `EPOCH ${run.epoch} CLOSED · NOT PUBLISHED`;
       const relays = r.publication_relays;
       settle(
         wait,
@@ -300,6 +450,7 @@ async function waitForEvidence(run: MintRun): Promise<IssuanceResponse> {
       );
       return r;
     }
+    el('mint-promise-status').textContent = r.state === 'EPOCH_OPEN' ? `WAITING FOR EPOCH ${run.epoch} TO CLOSE` : `EPOCH ${run.epoch} CLOSED · PUBLISHING`;
     if (r.state === 'EPOCH_OPEN') {
       const left = Math.max(0, (r.next_close_at ?? status?.next_close_at ?? 0) - Math.floor(Date.now() / 1000));
       opDetail(left > 0 ? `Waiting for epoch ${run.epoch} to close — expected in about ${left}s (epochs close about every ${status?.epoch_interval_seconds ?? 30}s).` : `Waiting for epoch ${run.epoch} to close — due now.`);
@@ -318,6 +469,7 @@ async function verifyRun(run: MintRun, evidence: IssuanceResponse): Promise<Subm
   const bundle = submissionBundleFromJson(JSON.stringify({ ...evidence.evidence, proof: run.proof, amountPublicKeyHex: run.publicKey }));
   const v = await verifySubmission(bundle, undefined, undefined, undefined, { assistedRelayFetch: relayAssistFor(run.cfg.evidenceUrl) });
   settle(verifying, `4. Verification finished: ${v.result.reasonCode}.`, v.result.decision === 'ACCEPT' ? 'ok' : 'fail');
+  showChecks(v);
   return v;
 }
 
@@ -335,6 +487,10 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
   busy = true;
   current = null;
   el('mint-result').hidden = true;
+  el('mint-promise').hidden = true;
+  // A new honest issuance starts a new journey; the attack leaves the finished one in place.
+  if (mode === 'honest') saveHonest(null);
+  placeRun(mode);
   setButtons(true, mode === 'omit' ? 'A broken-promise run is in progress — see the operation below.' : 'An issuance is in progress — see the operation below.');
   opStart(mode === 'omit' ? 'Breaking the promise: minting ecash the mint will leave out of its books' : 'Minting an honest issuance and verifying it');
   try {
@@ -379,7 +535,10 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
 
     const r: MintRun = { mode, cfg, proof: proofToJson(proof), publicKey, bm, epoch: receipt.target_epoch, startedAt: new Date().toISOString() };
     saveRun(r);
+    if (mode === 'honest') saveHonest(r);
     current = { run: r, evidence: null, verification: null };
+    showPromise(r, `WAITING FOR EPOCH ${r.epoch} TO CLOSE`);
+    updateLifecycle();
     const evidence = await waitForEvidence(r);
     current.evidence = evidence;
     // Older services do not report the request's state; the verdict alone then shows it.
@@ -397,6 +556,7 @@ async function run(mode: 'honest' | 'omit'): Promise<void> {
   } finally {
     busy = false;
     setButtons(false);
+    updateLifecycle();
   }
 }
 
@@ -432,6 +592,8 @@ function restoreLastRun(cfg: RealMintConfig): void {
   }
   if (!saved || saved.cfg.mintUrl !== cfg.mintUrl) return;
   current = { run: saved, evidence: null, verification: null };
+  placeRun(saved.mode);
+  showPromise(saved, 'NOT RE-CHECKED YET — use Retry verification');
   const card = el('mint-op');
   card.hidden = false;
   card.dataset.state = 'restored';
@@ -545,7 +707,7 @@ function evidenceCardHtml(v: SubmissionVerification): string {
     <dl class="evidence-rows evidence-rows-wrap">${rows.map(([k, val]) => `<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(val)}</dd>`).join('')}</dl>
     <div class="evidence-links">${actions}</div>
     <div id="mint-replay-warning" class="replay-warning" hidden>
-      <p>This bundle contains the Cashu proof secret and can represent spendable ecash until the proof is spent. On this demo mint (fakewallet) it has no monetary value, but treat it as money on a real mint.</p>
+      <p>This bundle contains the Cashu proof secret and can represent spendable ecash until the proof is spent. On this test-network mint it has no monetary value, but treat it as money on a mainnet mint.</p>
       <button type="button" class="btn btn-solid btn-sm" id="mint-dl-replay-confirm">Download it anyway</button>
     </div>
     <p class="explorer-note">External viewers can be unavailable; SOLVENT does not need them. The signed event it verified is below.</p>
@@ -563,7 +725,22 @@ function showResult(): void {
   );
   el('mint-result').dataset.reasonCode = result.reasonCode;
   el('mint-result').dataset.resultClass = cls;
-  el('mint-enforcement').innerHTML = enforcementHtml(enforce(v.verifyInput));
+  const omitRun = current!.run.mode === 'omit';
+  el('mint-result-step').textContent = omitRun ? 'The attack · result' : 'Step 3 · Accept';
+  if (result.reasonCode === 'ACCEPT_VERIFIED') el('mint-decision-body').textContent = 'The mint kept its accounting promise for this ecash.';
+  if (result.reasonCode === 'REFUSE_ISSUANCE_OMITTED') {
+    el('mint-decision-body').textContent = `The mint signed a promise to count this issuance in epoch ${current!.run.epoch}, then closed epoch ${current!.run.epoch} without it. Every signature is valid; the promise is broken.`;
+  }
+  const outcomeE = enforce(v.verifyInput);
+  const line = el('mint-accept-line');
+  line.dataset.ok = String(outcomeE.decision === 'ACCEPT');
+  line.innerHTML =
+    outcomeE.decision === 'ACCEPT'
+      ? `<code>accept()</code> called exactly once${outcomeE.alreadyAccepted ? ' — this re-check called it 0 more times' : ''}`
+      : `<code>accept()</code> NOT CALLED`;
+  el('mint-promise-status').textContent = `EPOCH ${current!.run.epoch} CLOSED · CHECKED`;
+  showChecks(v);
+  el('mint-enforcement').innerHTML = enforcementHtml(outcomeE);
   el('mint-evidence-card').innerHTML = evidenceCardHtml(v);
   bindCopyButtons(el('mint-evidence-card'));
   el('mint-dl-public').addEventListener('click', () => download(`solvent-public-evidence-epoch-${current!.run.epoch}.json`, publicEvidence()));
@@ -578,17 +755,368 @@ function showResult(): void {
     cls === 'refusal'
       ? 'This refusal is proven from the published evidence, so re-checking it would give the same answer. Start again mints a new issuance.'
       : 'Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.';
+  el('mint-swap-steps').innerHTML = '';
+  el('mint-swap-verdict').hidden = true;
+  el('mint-swap-facts').hidden = true;
+  el('mint-swap-checks').hidden = true;
+  el('mint-pay-steps').innerHTML = '';
+  el('mint-pay-verdict').hidden = true;
+  el('mint-pay-facts').hidden = true;
+  el('mint-pay-checks').hidden = true;
+  showSwapSection(cls);
   el('mint-result').hidden = false;
+  updateLifecycle();
   // The decision is the point of the run: bring its headline into view.
   reveal(el('mint-decision-badge'), 'start', 0.4);
 }
 
+// -------------------- spend it: the live NUT-03 swap --------------------
+
+interface StoredSwap {
+  exec: { inputY: string; inputAmount: number; fee: number; swappedAt: string; outputs: { blindedMessage: string; amount: number; y: string; proof: Record<string, unknown> }[] };
+  verdict: string | null;
+  ok: boolean | null;
+}
+
+function storedSwaps(): Record<string, StoredSwap> {
+  try {
+    return JSON.parse(localStorage.getItem(SWAP_KEY) ?? '{}') as Record<string, StoredSwap>;
+  } catch {
+    return {};
+  }
+}
+
+function saveSwap(s: StoredSwap): void {
+  try {
+    localStorage.setItem(SWAP_KEY, JSON.stringify({ ...storedSwaps(), [s.exec.inputY]: s }));
+  } catch {
+    /* not persisted: the swap itself already happened at the mint */
+  }
+}
+
+function swapStep(text: string, state: 'run' | 'ok' | 'fail' | 'info' = 'run'): HTMLElement {
+  const li = document.createElement('li');
+  li.className = `mint-step mint-step-${state}`;
+  li.textContent = text;
+  el('mint-swap-steps').appendChild(li);
+  return li;
+}
+
+/** Shown under an accepted honest result only; a proof that was already swapped shows what happened instead. */
+function showSwapSection(cls: string): void {
+  const run = current?.run;
+  const accepted = run ? acceptedRecord(proofFromJson(run.proof)) : null;
+  const section = el('mint-swap');
+  // Only where the mint's books can be checked for it: an evidence service that serves spent-side evidence.
+  section.hidden = !(run && run.mode === 'honest' && cls === 'accept' && accepted && status?.spend_evidence);
+  if (section.hidden || !run) return;
+  const prior = storedSwaps()[spentYOf(run.proof)];
+  el<HTMLButtonElement>('mint-swap-btn').disabled = !!prior;
+  el<HTMLButtonElement>('mint-swap-btn').textContent = prior ? 'Already swapped' : 'Swap ecash';
+  if (prior && el('mint-swap-steps').childElementCount === 0) {
+    swapStep(`Swapped ${formatUtc(prior.exec.swappedAt)}: 1 proof (${prior.exec.inputAmount} sats) → ${prior.exec.outputs.length} proofs (${prior.exec.outputs.map((o) => o.amount).join(' + ')}).`, 'info');
+    if (prior.verdict) setSwapVerdict(prior.verdict, prior.ok === true);
+  }
+  showPaySection();
+}
+
+// -------------------- pay with it: a real NUT-05 melt (real-Lightning mints only) --------------------
+
+function payStep(text: string, state: 'run' | 'ok' | 'fail' | 'info' = 'run'): HTMLElement {
+  const li = document.createElement('li');
+  li.className = `mint-step mint-step-${state}`;
+  li.textContent = text;
+  el('mint-pay-steps').appendChild(li);
+  return li;
+}
+
+function setPayVerdict(text: string, ok: boolean): void {
+  const v = el('mint-pay-verdict');
+  v.hidden = false;
+  v.dataset.ok = String(ok);
+  v.textContent = text;
+}
+
+function storedMelts(): Record<string, { verdict: string; ok: boolean; meltedAt: string }> {
+  try {
+    return JSON.parse(localStorage.getItem(MELT_KEY) ?? '{}') as Record<string, { verdict: string; ok: boolean; meltedAt: string }>;
+  } catch {
+    return {};
+  }
+}
+
+/** Offered only on a mint whose Lightning is real, once its swap verified; on fakewallet a "payment" would not be one. */
+function showPaySection(): void {
+  const run = current?.run;
+  const swap = run ? storedSwaps()[spentYOf(run.proof)] : undefined;
+  const section = el('mint-pay');
+  section.hidden = !(run && swap?.ok && lightningBackendLabel(status?.lightning_backend).real && status?.demo_faucet_invoices);
+  if (section.hidden || !swap) return;
+  const prior = storedMelts()[swap.exec.inputY];
+  el<HTMLButtonElement>('mint-pay-btn').disabled = !!prior;
+  el<HTMLButtonElement>('mint-pay-btn').textContent = prior ? 'Already paid' : 'Pay with ecash';
+  if (prior && el('mint-pay-steps').childElementCount === 0) {
+    payStep(`Paid ${formatUtc(prior.meltedAt)}.`, 'info');
+    setPayVerdict(prior.verdict, prior.ok);
+  }
+}
+
+async function payWithAccepted(): Promise<void> {
+  if (!current || busy) return;
+  const run = current.run;
+  const swap = storedSwaps()[spentYOf(run.proof)];
+  const delegation = (current.evidence?.evidence as { delegation?: { manifest_pubkey?: string } } | undefined)?.delegation;
+  if (!swap?.ok || !delegation?.manifest_pubkey) return;
+  busy = true;
+  setButtons(true, 'A payment is in progress — see below.');
+  const btn = el<HTMLButtonElement>('mint-pay-btn');
+  btn.disabled = true;
+  el('mint-pay-steps').innerHTML = '';
+  el('mint-pay-verdict').hidden = true;
+  el('mint-pay-facts').hidden = true;
+  el('mint-pay-checks').hidden = true;
+  let exec: MeltExecution | null = null;
+  try {
+    const s1 = payStep(`1. Getting a ${MELT_INVOICE_SATS}-sat Lightning invoice from the public Mutinynet faucet…`);
+    const inv = await getJson<{ bolt11?: string; error?: string }>(`${run.cfg.evidenceUrl}/v1/solvent/demo/invoice`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ amount_sats: MELT_INVOICE_SATS }) });
+    if (inv.status !== 200 || !inv.body.bolt11) throw new Error(inv.body.error ?? `no invoice (HTTP ${inv.status})`);
+    const invoice = inv.body.bolt11;
+    settle(s1, `1. Invoice from the Mutinynet faucet: ${MELT_INVOICE_SATS} sats, payment hash ${invoicePaymentHash(invoice)?.slice(0, 16) ?? '?'}….`, 'ok');
+
+    const s2 = payStep('2. Melting the swapped ecash at the mint (NUT-05) — the mint pays the invoice over Lightning…');
+    const proofs = swap.exec.outputs.map((o) => proofFromJson(o.proof));
+    exec = await executeMelt(run.cfg.mintUrl, proofs, invoice, (secs) => {
+      s2.textContent = `2. The Lightning payment is still in flight (${secs}s) — following the mint's melt quote until it settles…`;
+    });
+    try {
+      localStorage.setItem(MELT_KEY, JSON.stringify({ ...storedMelts(), [swap.exec.inputY]: { verdict: 'paid; checking…', ok: false, meltedAt: exec.meltedAt } }));
+    } catch {
+      /* not persisted */
+    }
+    settle(s2, `2. Paid ${exec.invoiceAmount} sats (fee reserve ${exec.feeReserve}); ${exec.change.length} change proof(s) returned (${exec.change.map((c) => c.amount).join(' + ') || 'none'}).`, 'ok');
+
+    const s3 = payStep('3. Asking the mint (NUT-07) for the state of the spent inputs and the change…');
+    const states = await proofStates(run.cfg.mintUrl, [...exec.inputs.map((i) => i.y), ...exec.change.map((c) => c.y)]);
+    const inStates = exec.inputs.map((i) => states[i.y] ?? 'unknown');
+    const chStates = exec.change.map((c) => states[c.y] ?? 'unknown');
+    const statesOk = inStates.every((x) => x === 'SPENT') && chStates.every((x) => x === 'UNSPENT');
+    settle(s3, `3. NUT-07: inputs ${[...new Set(inStates)].join('/')}; change ${[...new Set(chStates)].join('/') || '—'}.`, statesOk ? 'ok' : 'fail');
+
+    const s4 = payStep('4. Waiting for the epoch that recorded the payment to close…');
+    const spends: SpendResponse[] = [];
+    for (const i of exec.inputs) {
+      const r = await pollUntil(
+        async () => getJson<SpendResponse & { error?: string }>(`${run.cfg.evidenceUrl}/v1/solvent/spend/${i.y}`),
+        (x) => x.status !== 200 || x.body.state === 'EPOCH_CLOSED',
+        ((status?.epoch_interval_seconds ?? 30) * 4 + 60) * 1000,
+        (x) => (s4.textContent = `4. The payment is recorded in open epoch ${x.body.target_epoch}; waiting for it to close…`),
+      );
+      if (r.status !== 200) throw new Error(r.body.error ?? 'no spent-side evidence');
+      spends.push(r.body);
+    }
+    settle(s4, `4. Epoch ${spends[0]!.target_epoch} closed.`, 'ok');
+
+    const s5 = payStep('5. Checking the payment proof and the mint\u2019s accounting…');
+    const issuances: Record<string, OutputIssuance> = {};
+    for (const row of spends[0]!.operation.issued) issuances[row.blinded_message] = (await getJson<OutputIssuance>(`${run.cfg.evidenceUrl}/v1/solvent/issuance/${row.blinded_message}`)).body;
+    const keyset = await activeKeyset(run.cfg);
+    const acct = checkMeltAccounting(exec, spends, issuances, delegation.manifest_pubkey, keyset.keys);
+    settle(s5, `5. ${acct.checks.filter((c) => c.ok).length}/${acct.checks.length} checks pass.`, acct.ok ? 'ok' : 'fail');
+
+    const paidOk = acct.checks.some((c) => /^Invoice paid/.test(c.label) && c.ok);
+    const changeSum = exec.change.reduce((a, c) => a + c.amount, 0);
+    const facts: [string, string][] = [
+      ['Lightning', `${paidOk ? 'PAID ✓' : 'NOT PROVEN ✕'} — ${exec.invoiceAmount} sats to the Mutinynet faucet; the preimage matches payment hash ${invoicePaymentHash(exec.invoice)?.slice(0, 16) ?? '—'}…`],
+      ['Cashu inputs', `${exec.inputs.reduce((a, i) => a + i.amount, 0)} sats · ${[...new Set(inStates)].join('/')}`],
+      ['Change', `RETURNED — ${changeSum} sats · ${[...new Set(chStates)].join('/') || '—'}`],
+      ['Lightning fee', `${acct.feePaid} sats (reserve ${exec.feeReserve})`],
+      ['Accounting', `${acct.ok ? 'UPDATED ✓' : 'NOT VERIFIED ✕'} — liability ${acct.liabilityBefore === null ? '—' : formatSats(acct.liabilityBefore)} → ${acct.liabilityAfter === null ? '—' : formatSats(acct.liabilityAfter)} (epoch ${acct.epoch}, signed)`],
+      ['Remaining', `${changeSum} ${unitText()}`],
+      ['Proof of payment', exec.paymentPreimage ? `preimage ${exec.paymentPreimage}` : 'no preimage returned'],
+    ];
+    el('mint-pay-facts').innerHTML = facts.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    el('mint-pay-facts').hidden = false;
+    el('mint-pay-check-list').innerHTML = acct.checks.map((c) => `<li>${c.ok ? '✓' : '✕'} ${escapeHtml(c.label)} — ${escapeHtml(c.detail)}</li>`).join('');
+    el('mint-pay-checks').hidden = false;
+    const ok = statesOk && acct.ok;
+    setPayVerdict(
+      ok
+        ? 'PAYMENT COMPLETE — the mint paid a Mutinynet Lightning invoice with your ecash, returned your change, and its books fell by exactly what was paid.'
+        : 'PAYMENT NOT VERIFIED — see the failing checks below.',
+      ok,
+    );
+    try {
+      localStorage.setItem(
+        MELT_KEY,
+        JSON.stringify({
+          ...storedMelts(),
+          [swap.exec.inputY]: {
+            verdict: el('mint-pay-verdict').textContent ?? '', ok, meltedAt: exec.meltedAt,
+            invoice: exec.invoice, preimage: exec.paymentPreimage, epoch: acct.epoch, feePaid: acct.feePaid,
+            liabilityBefore: acct.liabilityBefore, liabilityAfter: acct.liabilityAfter,
+            inputs: exec.inputs, change: exec.change.map((c) => ({ y: c.y, amount: c.amount, proof: proofToJson(c.proof) })),
+          },
+        }),
+      );
+    } catch {
+      /* not persisted */
+    }
+  } catch (err) {
+    payStep(`Stopped: ${(err as Error).message}`, 'fail');
+    if (!exec) btn.disabled = false;
+  } finally {
+    busy = false;
+    setButtons(false);
+    btn.textContent = exec ? 'Already paid' : 'Pay with ecash';
+    updateLifecycle();
+  }
+}
+
+function spentYOf(proof: Record<string, unknown>): string {
+  return spentY(String(proof.secret));
+}
+
+function setSwapVerdict(text: string, ok: boolean): void {
+  const v = el('mint-swap-verdict');
+  v.hidden = false;
+  v.dataset.ok = String(ok);
+  v.textContent = text;
+}
+
+async function pollUntil<T>(fetchOnce: () => Promise<T>, done: (t: T) => boolean, timeoutMs: number, onWait?: (t: T) => void): Promise<T> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const t = await fetchOnce();
+    if (done(t) || Date.now() > deadline) return t;
+    onWait?.(t);
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+}
+
+async function swapAccepted(): Promise<void> {
+  if (!current || busy) return;
+  const run = current.run;
+  const delegation = (current.evidence?.evidence as { delegation?: { manifest_pubkey?: string } } | undefined)?.delegation;
+  if (!delegation?.manifest_pubkey) return;
+  busy = true;
+  setButtons(true, 'A swap is in progress — see below.');
+  const btn = el<HTMLButtonElement>('mint-swap-btn');
+  btn.disabled = true;
+  el('mint-swap-steps').innerHTML = '';
+  el('mint-swap-verdict').hidden = true;
+  el('mint-swap-facts').hidden = true;
+  el('mint-swap-checks').hidden = true;
+  let exec: SwapExecution | null = null;
+  try {
+    const keyset = await activeKeyset(run.cfg);
+    const keysets = (await getJson<{ keysets: { id: string; input_fee_ppk?: number }[] }>(`${run.cfg.mintUrl}/v1/keysets`)).body.keysets;
+    const inputFeePpk = keysets.find((k) => k.id === keyset.id)?.input_fee_ppk ?? 0;
+    const s1 = swapStep('1. Sending the accepted proof to the mint\'s /v1/swap with four new blinded outputs…');
+    exec = await executeSwap(run.cfg.mintUrl, proofFromJson(run.proof), { ...keyset, inputFeePpk });
+    const stored: StoredSwap = {
+      exec: { ...exec, outputs: exec.outputs.map((o) => ({ blindedMessage: o.blindedMessage, amount: o.amount, y: o.y, proof: proofToJson(o.proof) })) },
+      verdict: null,
+      ok: null,
+    };
+    saveSwap(stored);
+    settle(s1, `1. Swapped: 1 proof (${exec.inputAmount} sats) → ${exec.outputs.length} proofs (${exec.outputs.map((o) => o.amount).join(' + ')} sats), fee ${exec.fee}.`, 'ok');
+
+    const s2 = swapStep('2. Asking the mint (NUT-07) for the state of the old and new proofs…');
+    const states = await proofStates(run.cfg.mintUrl, [exec.inputY, ...exec.outputs.map((o) => o.y)]);
+    const oldState = states[exec.inputY] ?? 'unknown';
+    const newStates = exec.outputs.map((o) => states[o.y] ?? 'unknown');
+    const statesOk = oldState === 'SPENT' && newStates.every((x) => x === 'UNSPENT');
+    settle(s2, `2. NUT-07: old proof ${oldState}; replacements ${newStates.join(', ')}.`, statesOk ? 'ok' : 'fail');
+
+    const s3 = swapStep('3. Waiting for the epoch that recorded the swap to close…');
+    const spendUrl = `${run.cfg.evidenceUrl}/v1/solvent/spend/${exec.inputY}`;
+    const spend = await pollUntil(
+      async () => getJson<SpendResponse & { error?: string }>(spendUrl),
+      (r) => r.status !== 200 || r.body.state === 'EPOCH_CLOSED',
+      ((status?.epoch_interval_seconds ?? 30) * 4 + 60) * 1000,
+      (r) => (s3.textContent = `3. The swap is recorded in open epoch ${r.body.target_epoch}; waiting for it to close…`),
+    );
+    if (spend.status !== 200) {
+      const missing = spend.body.error === 'not found';
+      settle(s3, missing ? '3. This evidence service does not serve spent-side evidence yet (/v1/solvent/spend).' : `3. ${spend.body.error ?? 'no spent-side evidence'}`, 'fail');
+      setSwapVerdict(
+        missing
+          ? 'SWAP DONE, ACCOUNTING NOT CHECKABLE HERE — the swap is real (NUT-07 above), but this evidence service predates spent-side evidence, so the mint\'s books cannot be checked for it.'
+          : 'SWAP DONE, ACCOUNTING CHECK FAILED — no spent-side record for this proof.',
+        false,
+      );
+      saveSwap({ ...stored, verdict: el('mint-swap-verdict').textContent, ok: false });
+      return;
+    }
+    settle(s3, `3. Epoch ${spend.body.target_epoch} closed.`, 'ok');
+
+    const s4 = swapStep('4. Fetching each replacement output\'s receipt and inclusion proof…');
+    const issuances: Record<string, OutputIssuance> = {};
+    for (const o of exec.outputs) {
+      issuances[o.blindedMessage] = (await getJson<OutputIssuance>(`${run.cfg.evidenceUrl}/v1/solvent/issuance/${o.blindedMessage}`)).body;
+    }
+    const acct = checkSwapAccounting(exec, spend.body, issuances, delegation.manifest_pubkey, keyset.keys);
+    settle(s4, `4. Accounting: ${acct.checks.filter((c) => c.ok).length}/${acct.checks.length} checks pass.`, acct.ok ? 'ok' : 'fail');
+
+    // Usable: the largest replacement proof goes through the full SOLVENT verification on its own.
+    const biggest = exec.outputs.reduce((a, b) => (b.amount > a.amount ? b : a));
+    const s5 = swapStep(`5. Verifying the ${biggest.amount}-sat replacement proof end to end (receipt, epoch, Nostr, reserve)…`);
+    const issUrl = `${run.cfg.evidenceUrl}/v1/solvent/issuance/${biggest.blindedMessage}`;
+    const iss = await pollUntil(
+      async () => (await getJson<IssuanceResponse>(issUrl)).body,
+      (r) => r.state === 'EPOCH_CLOSED' && r.publication_status !== 'pending',
+      180_000,
+      (r) => (s5.textContent = `5. Waiting for epoch ${r.target_epoch}'s public evidence (${r.publication_status ?? 'pending'})…`),
+    );
+    const bundle = submissionBundleFromJson(JSON.stringify({ ...iss.evidence, proof: proofToJson(biggest.proof), amountPublicKeyHex: keyset.keys[String(biggest.amount)] }));
+    const rv = await verifySubmission(bundle, undefined, undefined, undefined, { assistedRelayFetch: relayAssistFor(run.cfg.evidenceUrl) });
+    settle(s5, `5. Replacement proof: ${rv.result.reasonCode}.`, rv.result.decision === 'ACCEPT' ? 'ok' : 'fail');
+
+    const after = exec.outputs.reduce((a, o) => a + o.amount, 0);
+    const conserved = acct.operationNetLiability === -exec.fee;
+    const spentRows = acct.checks.filter((c) => /spent sum-MMR/.test(c.label));
+    const committed = spentRows.length > 0 && spentRows.every((c) => c.ok);
+    const facts: [string, string][] = [
+      ['Original proof', `${exec.inputAmount} sats · ${oldState}`],
+      ['Replacement proofs', `${exec.outputs.map((o) => o.amount).join(' + ')} sats · ${[...new Set(newStates)].join('/')}`],
+      ['Value', `${exec.inputAmount} sats before → ${after} sats after${exec.fee ? ` (fee ${exec.fee})` : ''}`],
+      ['Liability', `${conserved ? 'CONSERVED ✓' : 'NOT CONSERVED ✕'} — ${acct.liabilityBefore === null ? '—' : formatSats(acct.liabilityBefore)} → ${acct.liabilityAfter === null ? '—' : formatSats(acct.liabilityAfter)} (epochs ${acct.epoch - 1} → ${acct.epoch}, signed)`],
+      ['Spent accounting', `${committed ? 'COMMITTED ✓' : 'NOT COMMITTED ✕'} — the original proof is in epoch ${acct.epoch}'s signed spent commitment`],
+      ['Replacement ecash', `${rv.result.reasonCode}`],
+    ];
+    el('mint-swap-facts').innerHTML = facts.map(([k, v]) => `<div><dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd></div>`).join('');
+    el('mint-swap-facts').hidden = false;
+    el('mint-swap-check-list').innerHTML = acct.checks.map((c) => `<li>${c.ok ? '✓' : '✕'} ${escapeHtml(c.label)} — ${escapeHtml(c.detail)}</li>`).join('');
+    el('mint-swap-checks').hidden = false;
+    const ok = statesOk && acct.ok && rv.result.decision === 'ACCEPT';
+    setSwapVerdict(
+      ok
+        ? 'SWAP COMPLETE — the original proof is spent, the replacements are usable, and the mint\'s books show the liability unchanged.'
+        : 'SWAP NOT VERIFIED — see the failing checks below.',
+      ok,
+    );
+    saveSwap({ ...stored, verdict: el('mint-swap-verdict').textContent, ok });
+    showPaySection();
+  } catch (err) {
+    swapStep(`Stopped: ${(err as Error).message}`, 'fail');
+    if (!exec) btn.disabled = false;
+  } finally {
+    busy = false;
+    setButtons(false);
+    btn.textContent = exec ? 'Already swapped' : 'Swap ecash';
+    updateLifecycle();
+  }
+}
+
 export function initRealMintPanel(): void {
+  el('mint-swap-btn').addEventListener('click', () => void swapAccepted());
+  el('mint-pay-btn').addEventListener('click', () => void payWithAccepted());
   el('mint-honest-btn').addEventListener('click', () => void run('honest'));
   el('mint-omit-btn').addEventListener('click', () => void run('omit'));
   el('mint-retry-btn').addEventListener('click', () => void retry());
   el('mint-result-retry-btn').addEventListener('click', () => void retry());
   el('mint-again-btn').addEventListener('click', () => {
+    const wasHonest = current?.run.mode !== 'omit';
     current = null;
     try {
       localStorage.removeItem(RUN_KEY);
@@ -597,7 +1125,10 @@ export function initRealMintPanel(): void {
     }
     el('mint-result').hidden = true;
     el('mint-op').hidden = true;
+    el('mint-promise').hidden = true;
     el('mint-retry-btn').hidden = true;
-    reveal(el('mint-honest-btn'), 'center');
+    placeRun('honest');
+    updateLifecycle();
+    reveal(wasHonest && !el('mint-attack').hidden ? el('mint-omit-btn') : el('mint-honest-btn'), 'center');
   });
 }

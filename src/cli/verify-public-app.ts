@@ -1,9 +1,13 @@
 // npm run verify:public-app -- [<site-url>] [--mint <url>] [--evidence <url>]
+//                                [--pay-faucet <token file> | --pay-ldk <dashboard>] [--swap] [--melt]
+//
+// On a real-Lightning mint every issuance needs a real payment: pass a payer
+// (verify-real-mint-browser.ts), or pay each invoice the page shows by hand.
 //
 // The judge path on the public app, in a real Chromium, with nothing pasted:
 //
 //   1. / shows the full landing page first
-//   2. the primary CTA ("Try the live mint") reaches #/mint
+//   2. the primary CTA ("Mint & verify ecash") reaches #/mint
 //   3. #/mint connects to the production mint + evidence service by itself
 //   6. a browser refresh on #/mint reconnects
 //   7. at 390px the landing and #/mint have no horizontal overflow
@@ -17,6 +21,17 @@ import { chromium, type Page } from 'playwright';
 const DEFAULT_SITE = 'https://solvent-ashen.vercel.app/';
 const DEFAULT_MINT = 'https://solvent-production-2029.up.railway.app';
 const DEFAULT_EVIDENCE = 'https://solvent-production-9c92.up.railway.app';
+
+/** Options passed through to the browser harness: who pays a real-Lightning invoice, and whether to also swap and pay. */
+function harnessOptions(): string[] {
+  const out: string[] = [];
+  for (const flag of ['--pay-faucet', '--pay-ldk']) {
+    const i = process.argv.indexOf(flag);
+    if (i >= 0 && process.argv[i + 1]) out.push(flag, process.argv[i + 1]!);
+  }
+  for (const flag of ['--swap', '--melt']) if (process.argv.includes(flag)) out.push(flag);
+  return out;
+}
 
 let failures = 0;
 function check(label: string, ok: boolean, detail = ''): void {
@@ -38,7 +53,7 @@ async function overflow(page: Page): Promise<number> {
 }
 
 async function main() {
-  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--mint', '--evidence'].includes(all[i - 1] ?? ''));
+  const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith('--') && !['--mint', '--evidence', '--pay-faucet', '--pay-ldk'].includes(all[i - 1] ?? ''));
   const site = (positional[0] ?? DEFAULT_SITE).replace(/\/?$/, '/');
   const mint = opt('--mint') ?? DEFAULT_MINT;
   const evidence = opt('--evidence') ?? DEFAULT_EVIDENCE;
@@ -57,7 +72,7 @@ async function main() {
     const ctaText = ((await cta.textContent()) ?? '').trim();
     await cta.click();
     await page.waitForSelector('#panel-mint:not([hidden])', { timeout: 15_000 });
-    check('2. the primary CTA reaches #/mint', page.url().includes('#/mint'), `"${ctaText}" -> ${page.url()}`);
+    check('2. the primary CTA "Mint & verify ecash" reaches #/mint', ctaText === 'Mint & verify ecash' && page.url().includes('#/mint'), `"${ctaText}" -> ${page.url()}`);
 
     const reality = await connectedMint(page);
     const unconfigured = await page.isVisible('#mint-unconfigured');
@@ -81,7 +96,7 @@ async function main() {
 
   const flows = (label: string, args: string[]) => {
     console.log(`\n4/5. ${label}\n`);
-    const r = spawnSync('npx', ['tsx', 'src/cli/verify-real-mint-browser.ts', site, ...args], { stdio: 'inherit', shell: process.platform === 'win32' });
+    const r = spawnSync('npx', ['tsx', 'src/cli/verify-real-mint-browser.ts', site, ...args, ...harnessOptions()], { stdio: 'inherit', shell: process.platform === 'win32' });
     check(`4/5. ${label}: honest ACCEPT_VERIFIED, broken promise REFUSE_ISSUANCE_OMITTED`, r.status === 0);
   };
   flows('default connection (plain #/mint)', ['-', '-']);

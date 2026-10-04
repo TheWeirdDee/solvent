@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--SOLVENT_REVISION_META-->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>SOLVENT</title>
     <meta
       name="description"
@@ -18,19 +19,16 @@
   </head>
   <body>
     <header class="topbar">
-      <a id="nav-home" class="brand nav-link" href="#/">SOLVENT</a>
+      <a id="nav-home" class="brand nav-link" href="#/" aria-label="SOLVENT home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M12 3h17v6H18v3h-6z" fill="currentColor"/><path d="M20 29H3v-6h11v-3h6z" fill="currentColor"/><rect x="12" y="12" width="8" height="8" fill="#f32b35"/></svg><span class="brand-word">SOLVENT</span></a>
       <nav class="nav-mid" aria-label="Site">
-        <a class="nav-landing-anchor" href="#problem" data-scroll="problem">Why</a>
         <a class="nav-landing-anchor" href="#how-it-works" data-scroll="how-it-works">How it works</a>
-        <a class="nav-landing-anchor" href="#reserve" data-scroll="reserve">Reserve</a>
-        <a class="nav-landing-anchor" href="#nostr" data-scroll="nostr">Nostr</a>
         <a id="nav-publish" class="nav-link" href="#/publish">Evidence</a>
         <a id="nav-docs" class="nav-link" href="#/docs">Docs</a>
+        <a id="nav-protocol" class="nav-link" href="#/protocol">Protocol</a>
+        <a id="nav-verify" class="nav-link" href="#/verify">Verify evidence</a>
       </nav>
       <div class="nav-right">
-        <a id="nav-protocol" class="nav-link btn btn-outline btn-sm" href="#/protocol">Protocol</a>
-        <a id="nav-mint" class="nav-link btn btn-outline btn-sm" href="#/mint">Live mint</a>
-        <a id="nav-verify" class="nav-link btn btn-solid btn-sm" href="#/verify">Verify</a>
+        <a id="nav-mint" class="nav-link btn btn-solid btn-sm" href="#/mint">Mint ecash</a>
       </div>
       <button id="nav-burger" type="button" class="nav-burger" aria-label="Open menu" aria-expanded="false" aria-controls="nav-drawer">
         <span></span><span></span><span></span>
@@ -40,7 +38,7 @@
     <div id="nav-drawer" class="nav-drawer" hidden>
       <p class="nav-drawer-heading">EXPLORE SOLVENT</p>
       <a href="#/" data-drawer-close>Home</a>
-      <a href="#/mint" data-drawer-close>Live mint</a>
+      <a href="#/mint" data-drawer-close>Mint ecash</a>
       <a href="#/verify" data-drawer-close>Verify</a>
       <a href="#/protocol" data-drawer-close>Protocol</a>
       <a href="#/publish" data-drawer-close>Evidence</a>
@@ -50,7 +48,7 @@
       <a class="nav-landing-anchor" href="#how-it-works" data-scroll="how-it-works" data-drawer-close>How it works</a>
       <a class="nav-landing-anchor" href="#reserve" data-scroll="reserve" data-drawer-close>Reserve</a>
       <a class="nav-landing-anchor" href="#nostr" data-scroll="nostr" data-drawer-close>Nostr</a>
-      <a href="#/mint" class="btn btn-solid nav-drawer-cta" data-drawer-close>Try the live mint</a>
+      <a href="#/mint" class="btn btn-solid nav-drawer-cta" data-drawer-close>Mint &amp; verify ecash</a>
       <p class="nav-drawer-footnote">SOLVENT &middot; BOSS Battle 2026 submission</p>
     </div>
     <div id="nav-drawer-scrim" class="nav-drawer-scrim" hidden></div>
@@ -72,10 +70,14 @@
               &mdash; before you accept the ecash.
             </p>
             <div class="hero-ctas">
-              <a href="#/mint" id="hero-mint-cta" class="btn btn-solid btn-lg">Try the live mint</a>
+              <a href="#/mint" id="hero-mint-cta" class="btn btn-solid btn-lg">Mint &amp; verify ecash</a>
               <a href="#/verify?mode=live" id="hero-recheck-cta" class="btn btn-outline btn-lg">Re-check published evidence</a>
             </div>
-            <p class="hero-cta-explain"><strong>Try the live mint:</strong> mints fresh ecash on a public, real patched CDK mint and verifies it (about 30&ndash;90&nbsp;s). <strong>Re-check published evidence:</strong> re-verifies an already-published reference case against live relays and the chain &mdash; it mints nothing.</p>
+            <p class="hero-cta-explain">
+              <span data-show="real"><strong>Mint &amp; verify ecash:</strong> pay a real Mutinynet Lightning invoice, receive Cashu, then let your browser verify whether the mint kept its accounting promise before accepting it. Mutinynet is a test network: the sats have no monetary value.</span>
+              <span data-show="demo"><strong>Mint &amp; verify ecash:</strong> receive Cashu from a real, patched CDK mint, then let your browser verify whether the mint kept its accounting promise before accepting it. This mint&rsquo;s Lightning is a labelled demo: the invoice settles by itself.</span>
+              <span data-show="unknown"><strong>Mint &amp; verify ecash:</strong> receive Cashu from a real, patched CDK mint, then let your browser verify whether the mint kept its accounting promise before accepting it.</span>
+              <strong>Re-check published evidence:</strong> re-verifies an already-published reference case against live relays and the chain &mdash; it mints nothing.</p>
             <p class="hero-footnote">Signed promise &middot; Closed accounting epoch &middot; Public state &middot; Live Bitcoin reserve</p>
           </div>
 
@@ -306,8 +308,31 @@
       <section class="how-to-try" id="judge">
        <div class="section-inner">
         <p class="eyebrow eyebrow-center">Get started</p>
-        <h2 class="section-heading section-heading-center">Judge SOLVENT<br />in 3 minutes.</h2>
-        <div class="how-to-try-grid">
+        <h2 class="section-heading section-heading-center" data-show="real">Judge SOLVENT<br />in about <span class="judge-minutes">5</span> minutes.</h2>
+        <h2 class="section-heading section-heading-center" data-show="demo unknown">Judge SOLVENT<br />in 3 minutes.</h2>
+        <div class="how-to-try-grid" data-show="real">
+          <div class="how-to-try-step">
+            <p class="how-to-try-num">1</p>
+            <p class="how-to-try-title">Mint 64 test sats</p>
+            <p class="how-to-try-desc">Pay the invoice over Mutinynet Lightning &mdash; from any Mutinynet wallet or the public faucet. The mint issues real Cashu once its own Lightning node sees the payment.</p>
+          </div>
+          <div class="how-to-try-step">
+            <p class="how-to-try-num">2</p>
+            <p class="how-to-try-title">Verify, then accept</p>
+            <p class="how-to-try-desc">SOLVENT checks the mint&rsquo;s signed promise against its closed epoch, public Nostr evidence and the reserve, and answers <code>ACCEPT_VERIFIED</code>.</p>
+          </div>
+          <div class="how-to-try-step">
+            <p class="how-to-try-num">3</p>
+            <p class="how-to-try-title">Swap it, pay with it</p>
+            <p class="how-to-try-desc">Old proofs become spent and new ones stay usable, liability unchanged; then the mint pays a Mutinynet Lightning invoice and its liabilities drop by exactly that.</p>
+          </div>
+          <div class="how-to-try-step">
+            <p class="how-to-try-num">4</p>
+            <p class="how-to-try-title">Break the promise</p>
+            <p class="how-to-try-desc">Mint again with a deliberate demo fault that omits your issuance from the epoch. Every signature stays valid &mdash; SOLVENT answers <code>REFUSE_ISSUANCE_OMITTED</code>.</p>
+          </div>
+        </div>
+        <div class="how-to-try-grid" data-show="demo unknown">
           <div class="how-to-try-step">
             <p class="how-to-try-num">1</p>
             <p class="how-to-try-title">Mint an honest issuance</p>
@@ -330,7 +355,7 @@
           </div>
         </div>
         <div class="gate-cta">
-          <a href="#/mint" id="how-to-try-cta" class="btn btn-solid btn-lg">Try the live mint &rarr;</a>
+          <a href="#/mint" id="how-to-try-cta" class="btn btn-solid btn-lg">Mint &amp; verify ecash &rarr;</a>
         </div>
        </div>
       </section>
@@ -420,7 +445,7 @@
           <div class="grid-cell"><span class="grid-cell-label">Coverage</span><span class="grid-cell-value" id="reserve-coverage">&hellip;</span></div>
           <div class="grid-cell grid-cell-wide"><span class="grid-cell-label">Observed</span><span class="grid-cell-value" id="reserve-checked">&hellip;</span></div>
         </div>
-        <p class="reserve-live-note">Signature, script and mint-binding checks run on every verification &mdash; <a href="#/mint">try the live mint</a>.</p>
+        <p class="reserve-live-note">Signature, script and mint-binding checks run on every verification &mdash; <a href="#/mint">mint &amp; verify ecash</a>.</p>
        </div>
       </section>
 
@@ -508,7 +533,7 @@
             <p class="editorial-subhead">&ldquo;A signed receipt means nothing if nobody checks what happened next.&rdquo;</p>
 
             <div class="hero-ctas hero-ctas-center">
-              <a href="#/mint" class="btn btn-solid btn-lg">Try the live mint</a>
+              <a href="#/mint" class="btn btn-solid btn-lg">Mint &amp; verify ecash</a>
               <a href="#/verify?mode=live" class="btn btn-outline btn-lg">Re-check published evidence</a>
             </div>
           </div>
@@ -518,16 +543,24 @@
 
     <!-- ============ REAL MINT PANEL ============ -->
     <main id="panel-mint" class="route route-app panel" hidden>
-      <p class="eyebrow">Live mint</p>
-      <h1 class="page-heading">GET ECASH. VERIFY IT.</h1>
-      <p class="page-sub">This page creates a <strong>fresh issuance</strong> on a real, public, patched CDK Cashu mint. The mint signs a promise to count it in an accounting epoch; SOLVENT then checks that promise against the mint&rsquo;s own signed epoch, public Nostr evidence and a Bitcoin reserve it observes itself &mdash; before accepting. One run takes about 30&ndash;90 seconds: the epoch has to close and be published first.</p>
+      <p class="eyebrow">Mint ecash</p>
+      <h1 class="page-heading">MINT ECASH. VERIFY IT. USE IT.</h1>
+      <p class="page-sub">Get real Cashu from a real, patched CDK mint, let your browser check the mint&rsquo;s accounting promise before accepting it &mdash; then spend it, and finally watch SOLVENT catch a mint that breaks its promise.</p>
 
-      <ol class="judge-path card" aria-label="Judge SOLVENT in 3 minutes">
+      <ol class="judge-path card" aria-label="Judge SOLVENT" data-show="real">
+        <li class="judge-path-title">Judge SOLVENT in about <span class="judge-minutes">5</span> minutes</li>
+        <li><strong>1. Mint 64 test sats</strong> and pay the invoice over Mutinynet Lightning.</li>
+        <li><strong>2. Watch SOLVENT verify</strong> the mint&rsquo;s signed accounting promise and accept the ecash.</li>
+        <li><strong>3. Swap it</strong> &mdash; old proofs become spent, replacements stay usable, liability is conserved.</li>
+        <li><strong>4. Pay with it</strong> &mdash; the mint pays a Mutinynet Lightning invoice and its liabilities fall by exactly that.</li>
+        <li><strong>5. Break the promise</strong> &mdash; mint another issuance that is deliberately omitted, and watch SOLVENT refuse it.</li>
+      </ol>
+      <ol class="judge-path card" aria-label="Judge SOLVENT in 3 minutes" data-show="demo">
         <li class="judge-path-title">Judge SOLVENT in 3 minutes</li>
         <li><strong>1. Mint an honest issuance</strong> &rarr; <code>ACCEPT_VERIFIED</code></li>
         <li><strong>2. Break the promise</strong> &rarr; <code>REFUSE_ISSUANCE_OMITTED</code> (every signature valid, the issuance missing)</li>
         <li><strong>3. Inspect the evidence</strong> &mdash; open the Nostr event and the reserve transaction from the result; every record is on the <a href="#/publish">Evidence page</a></li>
-        <li><strong>4. Real-Lightning proof</strong> &mdash; the same pipeline over real LND in CI: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
+        <li><strong>4. Real-Lightning proof</strong> &mdash; this mint&rsquo;s Lightning is a labelled demo; the same pipeline over real LND is committed CI evidence: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
       </ol>
 
       <div id="mint-unconfigured" class="card verify-intro" hidden>
@@ -536,17 +569,27 @@
       </div>
 
       <div id="mint-configured" hidden>
-        <div class="card verify-intro">
-          <h2 class="verify-intro-title">THE MINT</h2>
-          <p id="mint-live-status" class="mint-live-status" aria-live="polite"></p>
-          <dl id="mint-reality" class="mint-reality"></dl>
-          <div class="mint-actions">
-            <button id="mint-honest-btn" type="button" class="btn btn-solid btn-lg">Mint &amp; verify an honest issuance</button>
-            <button id="mint-omit-btn" type="button" class="btn btn-outline btn-lg" hidden>Break the promise</button>
-          </div>
-          <p id="mint-busy-reason" class="mint-busy-reason" aria-live="polite"></p>
-          <p id="mint-omit-note" class="verify-intro-copy mint-omit-note" hidden><strong>Break the promise:</strong> 64 sats are minted as usual and the mint signs its receipt &mdash; but SOLVENT&rsquo;s real epoch closer is told, before minting, to leave exactly this issuance out of the epoch it promised. Nothing is faked in the browser: the verifier sees what the mint actually published.</p>
+        <div id="mint-progress" class="mint-progress" aria-label="Where you are">
+          <ol id="mint-lifecycle" class="lifecycle">
+            <li data-step="mint" data-state="current"><span class="lc-num">1</span><span class="lc-name">Mint</span></li>
+            <li data-step="verify" data-state="pending"><span class="lc-num">2</span><span class="lc-name">Verify</span></li>
+            <li data-step="accept" data-state="pending"><span class="lc-num">3</span><span class="lc-name">Accept</span></li>
+            <li data-step="swap" data-state="pending"><span class="lc-num">4</span><span class="lc-name">Swap</span></li>
+            <li data-step="pay" data-state="pending"><span class="lc-num">5</span><span class="lc-name">Pay</span></li>
+          </ol>
+          <p id="mint-wallet" class="ecash-strip" aria-live="polite" hidden><span class="ecash-label">Your ecash</span> <span id="mint-wallet-amount" class="ecash-amount"></span> <span id="mint-wallet-state" class="ecash-state"></span></p>
+        </div>
 
+        <section id="mint-step-mint" class="card mint-step-card">
+          <p class="step-kicker">Step 1 &middot; Mint</p>
+          <h2 class="mint-step-title">Get ecash</h2>
+          <p class="mint-step-copy" data-show="real">You will pay a real Mutinynet Lightning invoice. Test sats have no monetary value.</p>
+          <p class="mint-step-copy" data-show="demo">This mint&rsquo;s Lightning is a labelled demo (fakewallet): its invoice settles by itself and no payment happens. Everything SOLVENT checks is real.</p>
+          <div class="mint-actions">
+            <button id="mint-honest-btn" type="button" class="btn btn-solid btn-lg">Mint 64 test sats</button>
+          </div>
+          <p class="need-sats" data-show="real"><strong>Need test sats?</strong> Open <a href="https://faucet.mutinynet.com/" target="_blank" rel="noopener noreferrer">faucet.mutinynet.com &#8599;</a>, sign in with GitHub, and paste the invoice there to pay it. Any Mutinynet (signet) Lightning wallet works too.</p>
+          <p id="mint-busy-reason" class="mint-busy-reason" aria-live="polite"></p>
           <section id="mint-op" class="mint-op" hidden aria-live="polite">
             <div class="mint-op-head">
               <p id="mint-op-title" class="mint-op-title"></p>
@@ -556,15 +599,60 @@
             <ol id="mint-steps" class="mint-steps" hidden></ol>
             <button id="mint-retry-btn" type="button" class="btn btn-solid btn-sm" hidden>Retry verification (same issuance)</button>
           </section>
-        </div>
+        </section>
+
+        <div id="mint-flow">
+        <section id="mint-promise" class="card mint-promise" hidden>
+          <p class="step-kicker">Step 2 &middot; Verify</p>
+          <h2 class="mint-step-title">The mint&rsquo;s promise</h2>
+          <p id="mint-promise-line" class="mint-step-copy"></p>
+          <dl class="promise-facts">
+            <div><dt>Receipt</dt><dd id="mint-promise-receipt">&mdash;</dd></div>
+            <div><dt>Promised epoch</dt><dd id="mint-promise-epoch">&mdash;</dd></div>
+            <div><dt>Epoch</dt><dd id="mint-promise-status">&mdash;</dd></div>
+          </dl>
+          <p class="mint-step-note">The mint promised this issuance would appear in this accounting epoch. SOLVENT checks that promise after the epoch is publicly committed.</p>
+          <ul id="mint-checks" class="hl-checks" hidden></ul>
+        </section>
 
         <div id="mint-result" class="result-card" hidden>
+          <p id="mint-result-step" class="step-kicker">Step 3 &middot; Accept</p>
           <div id="mint-decision-badge" class="decision-badge"></div>
           <p id="mint-decision-headline" class="decision-headline"></p>
           <p id="mint-decision-body" class="decision-body"></p>
+          <p id="mint-accept-line" class="accept-line"></p>
           <dl id="mint-decision-facts" class="decision-facts"></dl>
-          <div id="mint-enforcement" class="enforce-card"></div>
+          <section id="mint-swap" class="mint-swap" hidden>
+            <p class="step-kicker">Step 4 &middot; Swap</p>
+            <h3 class="mint-swap-title">Swap your ecash</h3>
+            <p class="mint-swap-copy">Exchange the accepted Cashu proofs for new proofs from the same mint. SOLVENT then checks the mint&rsquo;s own books: the old proof must appear as spent, the new ones as issued, and the liability must not change. <span class="tech-label">NUT-03 swap</span></p>
+            <button id="mint-swap-btn" type="button" class="btn btn-solid">Swap ecash</button>
+            <ol id="mint-swap-steps" class="mint-steps" aria-live="polite"></ol>
+            <p id="mint-swap-verdict" class="mint-swap-verdict" hidden></p>
+            <dl id="mint-swap-facts" class="decision-facts" hidden></dl>
+            <details id="mint-swap-checks" class="evidence" hidden><summary>Every accounting check</summary><ul id="mint-swap-check-list" class="mint-swap-check-list"></ul></details>
+          </section>
+          <section id="mint-pay" class="mint-swap" hidden>
+            <p class="step-kicker">Step 5 &middot; Pay</p>
+            <h3 class="mint-swap-title">Pay with your ecash</h3>
+            <p class="mint-swap-copy">Use part of your accepted Cashu to pay a real Mutinynet Lightning invoice &mdash; 40 sats to the public Mutinynet faucet. The mint pays it and returns your change; SOLVENT then checks the proof of payment and the mint&rsquo;s books. <span class="tech-label">NUT-05 melt</span></p>
+            <button id="mint-pay-btn" type="button" class="btn btn-solid">Pay with ecash</button>
+            <ol id="mint-pay-steps" class="mint-steps" aria-live="polite"></ol>
+            <p id="mint-pay-verdict" class="mint-swap-verdict" hidden></p>
+            <dl id="mint-pay-facts" class="decision-facts" hidden></dl>
+            <details id="mint-pay-checks" class="evidence" hidden><summary>Every payment and accounting check</summary><ul id="mint-pay-check-list" class="mint-swap-check-list"></ul></details>
+          </section>
+          <div class="mint-result-actions">
+            <button id="mint-result-retry-btn" type="button" class="btn btn-outline" hidden>Retry verification (same issuance)</button>
+            <button id="mint-again-btn" type="button" class="btn btn-outline">Start again (new issuance)</button>
+          </div>
+          <p id="mint-result-actions-note" class="mint-result-actions-note">Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.</p>
+          <h3 class="mint-evidence-heading">The evidence behind this result</h3>
           <div id="mint-evidence-card" class="enforce-card"></div>
+          <details class="evidence">
+            <summary>Acceptance, exactly once</summary>
+            <div id="mint-enforcement" class="enforce-card"></div>
+          </details>
           <details class="evidence">
             <summary>The eight checks and the decision</summary>
             <div class="decision-chain" id="mint-decision-chain"></div>
@@ -573,21 +661,34 @@
             <summary>Technical details</summary>
             <div id="mint-technical" class="evidence-content"></div>
           </details>
-          <div class="mint-result-actions">
-            <button id="mint-result-retry-btn" type="button" class="btn btn-outline" hidden>Retry verification (same issuance)</button>
-            <button id="mint-again-btn" type="button" class="btn btn-outline">Start again (new issuance)</button>
-          </div>
-          <p id="mint-result-actions-note" class="mint-result-actions-note">Retry re-checks this exact issuance against the public relays and the reserve now; it mints nothing and never accepts twice. Start again mints a new one.</p>
         </div>
+        </div>
+
+        <section id="mint-attack" class="card mint-attack" hidden>
+          <p class="step-kicker step-kicker-red">Test the attack &middot; deliberate demo fault</p>
+          <h2 class="mint-step-title">Now make the mint break its promise.</h2>
+          <p class="mint-step-copy">The mint will still issue real Cashu and sign a receipt promising to count it. SOLVENT&rsquo;s demo fault switch then makes the mint omit that exact issuance from the closed epoch &mdash; something an honest mint never does. <span data-show="real">This needs another Mutinynet Lightning payment.</span></p>
+          <div class="mint-actions">
+            <button id="mint-omit-btn" type="button" class="btn btn-outline btn-lg" hidden>Break the promise</button>
+          </div>
+          <p id="mint-omit-note" class="verify-intro-copy mint-omit-note" hidden><strong>Break the promise:</strong> 64 sats are minted as usual and the mint signs its receipt &mdash; but SOLVENT&rsquo;s real epoch closer is told, before minting, to leave exactly this issuance out of the epoch it promised. Nothing is faked in the browser: the verifier sees what the mint actually published.</p>
+          <div id="mint-attack-flow"></div>
+        </section>
+
+        <p id="mint-live-status" class="mint-live-status" aria-live="polite"></p>
+        <details class="card mint-about">
+          <summary>About this mint</summary>
+          <dl id="mint-reality" class="mint-reality"></dl>
+        </details>
         <p id="mint-status" class="status" aria-live="polite"></p>
       </div>
     </main>
 
     <!-- ============ VERIFIER PANEL ============ -->
     <main id="panel-verify" class="route route-app panel" hidden>
-      <p class="eyebrow">Verify ecash</p>
-      <h1 class="page-heading">VERIFY ECASH</h1>
-      <p class="page-sub">Check a mint&rsquo;s promise &mdash; its signed liability receipt, public accounting state and live Bitcoin reserve &mdash; before ecash is accepted. To mint fresh ecash and check it, use the <a href="#/mint">live mint</a>.</p>
+      <p class="eyebrow">Verify evidence</p>
+      <h1 class="page-heading">VERIFY EXISTING SOLVENT EVIDENCE</h1>
+      <p class="page-sub">Check evidence you already have &mdash; a signed liability receipt, public accounting state and live Bitcoin reserve &mdash; before ecash is accepted. To get fresh ecash and check it, use <a href="#/mint">Mint ecash</a>.</p>
 
       <div class="mode-tabs" role="tablist" aria-label="Verification mode">
         <button type="button" id="tab-live" class="mode-tab active" data-mode="live" role="tab" aria-selected="true" aria-controls="mode-live">Re-check published evidence</button>
@@ -598,7 +699,7 @@
       <section id="mode-live" class="verify-mode" role="tabpanel" aria-labelledby="tab-live">
         <div class="card verify-intro">
           <h2 class="verify-intro-title">RE-CHECK PUBLISHED EVIDENCE</h2>
-          <p class="verify-intro-copy">Re-verifies a <strong>captured reference case</strong> that was published earlier (dates below): its Nostr event is fetched again from public relays and its reserve UTXO re-queried on chain, now. It does <strong>not</strong> mint new ecash &mdash; for a fresh issuance, use the <a href="#/mint">live mint</a>.</p>
+          <p class="verify-intro-copy">Re-verifies a <strong>captured reference case</strong> that was published earlier (dates below): its Nostr event is fetched again from public relays and its reserve UTXO re-queried on chain, now. It does <strong>not</strong> mint new ecash &mdash; for a fresh issuance, use <a href="#/mint">Mint ecash</a>.</p>
           <button id="run-verification-btn" type="button" class="btn btn-solid btn-lg btn-block">Run live check</button>
         </div>
 
@@ -992,13 +1093,13 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-top">
-          <p class="footer-wordmark">SOLVENT</p>
+          <p class="footer-wordmark"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M12 3h17v6H18v3h-6z" fill="currentColor"/><path d="M20 29H3v-6h11v-3h6z" fill="currentColor"/><rect x="12" y="12" width="8" height="8" fill="#f32b35"/></svg>SOLVENT</p>
           <p class="footer-tagline">The mint made a promise. SOLVENT checks whether it kept it.</p>
         </div>
         <div class="footer-columns">
           <div class="footer-col">
             <p class="footer-col-title">Product</p>
-            <a href="#/mint">Live mint</a>
+            <a href="#/mint">Mint ecash</a>
             <a href="#/verify">Verify</a>
             <a href="#/publish">Evidence</a>
             <a href="#/protocol">Protocol</a>

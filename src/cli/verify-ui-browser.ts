@@ -52,7 +52,7 @@ const FORBIDDEN_PRIMARY = [/solvent-fixture-mint/i, /test environment/i, /fresh 
 const EXPECTED_DOCS_NAV = ['Start here', 'Getting started', 'Protocol & architecture', 'Verification bundle schema', 'Nostr schema', 'Reserve attestation', 'Evidence index', 'Attack corpus', 'Trust boundaries', 'Reality map', 'Draft alignment', 'Verify in 5 minutes', 'Deploy a real mint', 'Deploy on Railway', 'Demo runbook', 'Project README', 'FAQ'];
 const TITLES: Record<string, string> = {
   'panel-home': 'SOLVENT — Auditable Ecash',
-  'panel-mint': 'SOLVENT — Live Mint',
+  'panel-mint': 'SOLVENT — Mint ecash',
   'panel-verify': 'SOLVENT — Verify',
   'panel-docs': 'SOLVENT — Docs',
   'panel-protocol': 'SOLVENT — Protocol',
@@ -217,7 +217,7 @@ async function phoneSuite(browser: import('playwright').Browser, base: string, n
   await page.locator('#nav-drawer a[href="#/mint"]').first().click();
   await page.waitForFunction(() => document.getElementById('panel-mint')?.hidden === false, undefined, { timeout: 10000 });
   await page.waitForTimeout(600);
-  record(`${tag}: the burger menu reaches every section and closes after navigating`, ['Home', 'Live mint', 'Verify', 'Protocol', 'Evidence', 'Docs'].every((l) => drawerLinks.includes(l)) && (await page.locator('#nav-drawer').isHidden()), drawerLinks.join(' | '));
+  record(`${tag}: the burger menu reaches every section and closes after navigating`, ['Home', 'Mint ecash', 'Verify', 'Protocol', 'Evidence', 'Docs'].every((l) => drawerLinks.includes(l)) && (await page.locator('#nav-drawer').isHidden()), drawerLinks.join(' | '));
 
   // touch targets on the primary controls
   const small = await page.evaluate(() =>
@@ -330,13 +330,14 @@ async function main(): Promise<boolean> {
     record('landing states THE SOLUTION', /the solution/i.test(solution) && /checkable/i.test(solution) && /no SOLVENT server is trusted for the verdict/i.test(solution));
     const heroCtas = (await page.locator('.hero .hero-ctas a').allInnerTexts()).map((t) => t.trim());
     const explain = (await page.textContent('.hero-cta-explain')) ?? '';
-    record('landing distinguishes the live mint from the published-evidence re-check', JSON.stringify(heroCtas) === JSON.stringify(['Try the live mint', 'Re-check published evidence']) && /mints fresh ecash/i.test(explain) && /mints nothing/i.test(explain), heroCtas.join(' | '));
+    record('landing distinguishes the live mint from the published-evidence re-check', JSON.stringify(heroCtas) === JSON.stringify(['Mint & verify ecash', 'Re-check published evidence']) && /receive Cashu/i.test(explain) && /accounting promise/i.test(explain) && /mints nothing/i.test(explain) && !/real money|mainnet/i.test(explain.replace(/not mainnet/gi, '')), heroCtas.join(' | '));
     await page.waitForFunction(() => /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(document.getElementById('reserve-source')?.textContent ?? '') && /UTC/.test(document.getElementById('reserve-checked')?.textContent ?? ''), undefined, { timeout: 30000 }).catch(() => {});
     const reserveSrc = (await page.textContent('#reserve-source')) ?? '';
     const nostrSrc = (await page.textContent('#nostr-source')) ?? '';
     record('landing evidence is labelled live or captured, with times', /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(reserveSrc) && /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(nostrSrc) && /UTC/.test((await page.textContent('#reserve-checked')) ?? '') && /UTC/.test(nostrSrc), `${reserveSrc.slice(0, 60)} | ${nostrSrc.slice(0, 60)}`);
     const navText = (await page.locator('.topbar').innerText()).replace(/\s+/g, ' ');
-    record('global navigation reaches Live mint, Verify, Protocol, Evidence and Docs', ['Live mint', 'Verify', 'Protocol', 'Evidence', 'Docs'].every((l) => navText.includes(l)), navText);
+    record('global navigation: How it works, Evidence, Docs, Protocol, Verify evidence, and Mint ecash as the one primary action', ['How it works', 'Evidence', 'Docs', 'Protocol', 'Verify evidence', 'Mint ecash'].every((l) => navText.includes(l)) && (await page.locator('.topbar .btn-solid').allInnerTexts()).map((t) => t.trim()).join('|') === 'Mint ecash', navText);
+    record('the header shows the SOLVENT mark beside the wordmark', (await page.locator('#nav-home svg.brand-mark').isVisible()) && ((await page.textContent('#nav-home')) ?? '').trim() === 'SOLVENT');
     record('landing says who it is BUILT FOR', /built for/i.test(builtFor) && /cashu wallets/i.test(builtFor) && /mint operators/i.test(builtFor));
 
     // ---- /verify: exactly two modes ----
@@ -589,8 +590,19 @@ async function main(): Promise<boolean> {
 
     // ---- live mint: judge path + two-experience copy ----
     await go(page, base, '#/mint', 'panel-mint');
-    const judge = (await page.locator('.judge-path').innerText()).replace(/\s+/g, ' ');
-    record('live mint shows the judge path in order', /1\. Mint an honest issuance.*ACCEPT_VERIFIED.*2\. Break the promise.*REFUSE_ISSUANCE_OMITTED.*3\. Inspect the evidence.*4\. Real-Lightning proof/.test(judge), judge.slice(0, 120));
+    await page.waitForFunction(() => !!document.documentElement.dataset.lightning, undefined, { timeout: 30000 }).catch(() => {});
+    const backend = await page.evaluate(() => document.documentElement.dataset.lightning ?? 'unknown');
+    const judges = await page.locator('.judge-path:visible').allInnerTexts();
+    const judge = (judges[0] ?? '').replace(/\s+/g, ' ');
+    const judgeOk =
+      judges.length === 1 &&
+      (backend === 'real'
+        ? /1\. Mint 64 test sats.*2\. Watch SOLVENT verify.*3\. Swap it.*4\. Pay with it.*5\. Break the promise/.test(judge)
+        : /1\. Mint an honest issuance.*ACCEPT_VERIFIED.*2\. Break the promise.*REFUSE_ISSUANCE_OMITTED.*3\. Inspect the evidence.*4\. Real-Lightning proof/.test(judge));
+    record(`mint page shows exactly one judge path, matching the mint's backend (${backend})`, judgeOk, judge.slice(0, 120));
+    const lc = await page.$$eval('#mint-lifecycle li', (els) => els.map((e) => `${e.textContent?.replace(/\s+/g, '')}:${(e as HTMLElement).dataset.state}`));
+    record('mint page shows the lifecycle 1 MINT 2 VERIFY 3 ACCEPT 4 SWAP 5 PAY, starting at Mint', lc.join(' ') === '1Mint:current 2Verify:pending 3Accept:pending 4Swap:pending 5Pay:pending', lc.join(' '));
+    record('step 1 offers "Mint 64 test sats"; the attack is a separate, labelled section', ((await page.textContent('#mint-honest-btn')) ?? '').trim() === 'Mint 64 test sats' && /deliberate demo fault/i.test((await page.textContent('#mint-attack')) ?? '') && (await page.$('#mint-attack #mint-omit-btn')) !== null);
 
     // ---- lab: one identity across issuances ----
     await go(page, base, '#/lab', 'panel-lab');

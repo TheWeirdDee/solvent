@@ -6,7 +6,7 @@
 // outcome set.
 import { verifyPolEvidenceEvent } from '../nostr/pol-event.js';
 import { fetchOutspend, fetchTxOutScript } from '../reserve/esplora.js';
-import { escapeHtml, formatUtc, mutinynetTxUrl, njumpUrl } from './decision-view.js';
+import { escapeHtml, formatUtc, lightningBackendLabel, mutinynetTxUrl, njumpUrl } from './decision-view.js';
 import { freshnessLabel, observe, timeWithAgo, type Observation } from './live-status.js';
 import { ATTACK_CORPUS, NOSTR_EVIDENCE, RESERVE_EVIDENCE } from './evidence-data.js';
 import { FAQ } from './faq-data.js';
@@ -79,6 +79,7 @@ export async function refreshLandingLive(): Promise<void> {
     return;
   }
   const st = status.data;
+  document.documentElement.dataset.lightning = lightningBackendLabel((st as { lightning_backend?: string }).lightning_backend).real ? 'real' : 'demo';
   const p = st.last_publication;
   if (p?.event_id && p.status === 'published') {
     byId('nostr-source').innerHTML = `<span class="live-tag">LIVE RAILWAY MINT</span> Epoch ${p.epoch_index} · published ${timeWithAgo(p.published_at)} · status ${freshnessLabel(status)}`;
