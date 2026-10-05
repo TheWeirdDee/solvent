@@ -39,8 +39,8 @@ export const FAQ: FaqEntry[] = [
   },
   {
     q: 'Is the Lightning payment on the live mint real?',
-    a: '<span data-show="real">Yes — on a test network. The public mint runs a real Lightning node (an LDK node inside the CDK mint) on Mutinynet, a Bitcoin test network: you pay its invoice from a Mutinynet wallet or the public faucet, and the mint issues ecash only after its own node sees the payment. Test sats have no monetary value; this is not mainnet.</span><span data-show="demo unknown">No — the public mint uses CDK&rsquo;s fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI; those results are committed and shown on the Evidence page.</span>',
-    linkLabel: 'See the real-LND evidence',
+    a: '<span data-show="real">Yes — on a test network. The public mint runs a real Lightning node (an LDK node inside the CDK mint) on Mutinynet, a Bitcoin test network: you pay its invoice from a Mutinynet wallet or the public faucet, and the mint issues ecash only after its own node sees the payment. Test sats have no monetary value; this is not mainnet.</span><span data-show="demo">No — the public mint uses CDK&rsquo;s fakewallet Lightning backend, so invoices settle by themselves, and the page says so. Everything SOLVENT checks (the mint, its receipts, epochs, manifests, delegation, public Nostr evidence and the Bitcoin reserve) is real. The same pipeline runs over real LND in CI; those results are committed and shown on the Evidence page.</span><span data-show="unknown">The backend status is unavailable, so this page cannot currently confirm its Lightning mode. Open Mint ecash to reconnect before attempting a payment.</span>',
+    linkLabel: 'See the evidence',
     linkHref: '#/publish',
   },
   {

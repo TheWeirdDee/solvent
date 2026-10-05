@@ -39,7 +39,7 @@ npm run verify:deployed-revision   # the site serves the commit you expect
 | 17 | 4:45 | **✕ REFUSE — BROKEN PROMISE** (`REFUSE_ISSUANCE_OMITTED`): five checks VALID, "Your issuance included" MISSING; `accept() NOT CALLED` | "Every signature is valid, the reserve covers the books. The promise was broken, so SOLVENT refuses." |
 | 18 | 5:00 | **Open Nostr event** / **Download public evidence** | "The public record, for anyone to check." |
 | 19 | 5:15 | Header → **Evidence** (`#/publish`) | "Every record is here, including the earlier real-LND CI runs." |
-| 20 | 5:30 | Landing → attack corpus, `npm run attacks:check` | "25 adversarial cases, each refused for the right reason; the honest controls are accepted." |
+| 20 | 5:30 | Landing → attack corpus, `npm run attacks:check` | "25 cases produce their expected outcomes: attacks are refused for the right reason, and the honest controls are accepted." |
 | 21 | 5:45 | Landing → "What SOLVENT proves / does not change" | "The mint is still custodial; this is a test network; the PoL semantics follow a draft proposal." |
 
 ## If something goes wrong while recording

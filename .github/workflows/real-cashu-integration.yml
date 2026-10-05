@@ -19,7 +19,7 @@
 #     persistence, and the machine-readable NUT-03 evidence package
 #     (evidence/real-pol/<run-id>/nut03-*.json) checked by
 #     `npm run verify:nut03-evidence`.
-# NUT-05 (melt) accounting is not implemented and not exercised here. See
+# NUT-05 melt accounting is exercised by the real-LND melt step below. See
 # docs/real-cashu-stack.md, docs/receipt-lifecycle.md and
 # docs/reproduce-real-stack.md.
 #

@@ -218,6 +218,7 @@ async function main() {
   const shot = async (page: Page, name: string) => shots && page.screenshot({ path: path.join(shots, `${tag}-${name}.png`), fullPage: true });
 
   const browser = await (which === 'webkit' ? webkit : chromium).launch();
+  let observedEndpoints: { mintUrl: string; evidenceUrl: string } | undefined;
   try {
     const height = Number(opt('--height') ?? (width <= 430 ? '844' : '1000'));
     const ctx = await browser.newContext({ viewport: { width, height }, acceptDownloads: true, ...(width <= 430 ? { hasTouch: true, isMobile: which !== 'webkit' ? true : undefined } : {}) });
@@ -294,7 +295,10 @@ async function main() {
     await waitResult(page, interval);
     const a2 = await outcome(page);
     check(`[${tag}] A. immediate retry: same issuance, still ACCEPT, no new invoice, accept calls still 1`, a2.code === 'ACCEPT_VERIFIED' && a2.enforcement['Accept function calls (this issuance)'] === '1' && /already accepted/.test(a2.enforcement['Calls made by this verification'] ?? '') && !a2.steps.some((s) => /issued a \d+-sat invoice/.test(s)), JSON.stringify(a2.enforcement));
-    const dl = await Promise.all([page.waitForEvent('download', { timeout: 10_000 }), page.click('#mint-dl-public')]).then(([d]) => d).catch(() => null);
+    const dl = await Promise.all([page.waitForEvent('download', { timeout: 10_000 }), tap(page, '#mint-dl-public')]).then(([d]) => d).catch((error: unknown) => {
+      console.error('Public evidence download failed:', error instanceof Error ? error.message : String(error));
+      return null;
+    });
     check(`[${tag}] A. public evidence downloads`, !!dl && /solvent-public-evidence/.test(dl.suggestedFilename()), dl?.suggestedFilename());
     await tap(page, '#mint-dl-replay');
     check(`[${tag}] A. full replay bundle warns before downloading the proof secret`, await page.isVisible('#mint-replay-warning'));
@@ -306,7 +310,8 @@ async function main() {
     check(`[${tag}] A. the public evidence download completed (not just started)`, publicOk);
 
     // A swap/payment is offered only where the mint's books can be checked for it (and paying only on real Lightning).
-    const evBase = (await page.evaluate(() => JSON.parse(localStorage.getItem('solvent.mint.lastRun.v1') ?? '{}').cfg?.evidenceUrl)) as string;
+    observedEndpoints = (await page.evaluate(() => JSON.parse(localStorage.getItem('solvent.mint.lastRun.v1') ?? '{}').cfg)) as { mintUrl: string; evidenceUrl: string };
+    const evBase = observedEndpoints.evidenceUrl;
     const evStatus = (await (await fetch(`${evBase}/v1/solvent/status`)).json()) as { spend_evidence?: boolean; lightning_backend?: string; demo_faucet_invoices?: boolean };
     if (!evStatus.spend_evidence) check(`[${tag}] A2. no swap is offered when the evidence service cannot show the mint's books for it`, await page.locator('#mint-swap').isHidden());
     if (evStatus.lightning_backend === 'fakewallet') check(`[${tag}] A3. no "payment" is offered on a fakewallet mint`, await page.locator('#mint-pay').isHidden());
@@ -500,8 +505,9 @@ async function main() {
   }
   const outFile = opt('--evidence-out');
   if (outFile) {
-    const info = mint === '-' ? null : ((await (await fetch(`${mint}/v1/info`)).json()) as { name?: string; version?: string; pubkey?: string });
-    const st = evidence === '-' ? null : ((await (await fetch(`${evidence}/v1/solvent/status`)).json()) as Record<string, unknown>);
+    if (!observedEndpoints) throw new Error('No observed mint endpoints to record');
+    const info = (await (await fetch(`${observedEndpoints.mintUrl}/v1/info`)).json()) as { name?: string; version?: string; pubkey?: string };
+    const st = (await (await fetch(`${observedEndpoints.evidenceUrl}/v1/solvent/status`)).json()) as Record<string, unknown>;
     writeFileSync(
       outFile,
       JSON.stringify(
@@ -512,8 +518,8 @@ async function main() {
           git_commit: execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim(),
           working_tree_clean: execSync('git status --porcelain', { encoding: 'utf8' }).trim() === '',
           site,
-          mint: { url: mint, name: info?.name, version: info?.version, nut06_identity: info?.pubkey },
-          evidence_service: { url: evidence, lightning_backend: st?.lightning_backend, manifest_pubkey: st?.manifest_pubkey, reserve_outpoint: st?.reserve_outpoint, reserve_network: st?.reserve_network, relays: st?.relays },
+          mint: { url: observedEndpoints.mintUrl, name: info.name, version: info.version, nut06_identity: info.pubkey },
+          evidence_service: { url: observedEndpoints.evidenceUrl, lightning_backend: st.lightning_backend, manifest_pubkey: st.manifest_pubkey, reserve_outpoint: st.reserve_outpoint, reserve_network: st.reserve_network, relays: st.relays },
           browser: `${opt('--browser') ?? 'chromium'}-${opt('--width') ?? '1440'}`,
           checks_failed: failures,
           ...evidenceRecord,

@@ -1,15 +1,10 @@
 // The one deterministic central verifier (PRD §18). UI/CLI/enforcement all
 // consume this; no acceptance policy is scattered elsewhere.
 //
-// HONESTY NOTE (read before wiring this into a UI): this build implements
-// checks 1-9 of the PRD's 17-check decision rule — the full Gate 0-3
-// cryptographic spine (parse -> DLEQ -> B' reconstruction -> signed
-// receipt -> closed epoch -> signed manifest -> inclusion -> liability
-// arithmetic). Reserve attestation (Gate 6) and Nostr evidence (Gate 5)
-// are NOT implemented in this build. `reserve` and `nostr` are optional
-// inputs; when omitted, verify() fails closed with REFUSE_UNVERIFIABLE
-// rather than silently treating them as passed. See
-// docs/draft-alignment.md.
+// This deterministic core checks the cryptographic chain and consumes the
+// reserve (Gate 6) and Nostr (Gate 5) evaluations performed by the submission
+// pipeline. It never performs network I/O itself. Missing reserve or Nostr
+// evaluations fail closed with REFUSE_UNVERIFIABLE. See docs/draft-alignment.md.
 import type { Proof } from '@cashu/cashu-ts';
 import { reconstruct } from '../cashu/reconstruct.js';
 import { hexToBytes as mHexToBytes, verifyManifest, type ManifestFields } from '../pol/manifest.js';
@@ -30,7 +25,7 @@ export interface VerifyInput {
   issuedMmrSize: number;
   /** null when the mint could not/did not supply a valid inclusion proof — this is the omission case. */
   inclusionProof: InclusionProof | null;
-  /** Optional — Gate 6 (real Signet reserves) is not implemented in this build. Omitting it fails closed. */
+  /** Gate 6's reserve evaluation. Optional at the type boundary; omitting it fails closed. */
   reserve?: {
     verified: boolean;
     reserveSats: number;
@@ -68,9 +63,9 @@ export interface VerifyChecks {
   liabilityArithmeticValid: boolean;
   /** Phase 3B: mint identity -> manifest key delegation. Present only for a real (URL) mint. */
   delegationValid?: boolean;
-  /** null = not evaluated in this build (Gate 6 not implemented). */
+  /** null = no reserve evaluation supplied; verification fails closed. */
   reserveCoverage: boolean | null;
-  /** null = not evaluated in this build (Gate 5 not implemented). */
+  /** null = no Nostr evaluation supplied; verification fails closed. */
   nostrEvidence: boolean | null;
 }
 

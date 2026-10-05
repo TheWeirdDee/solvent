@@ -30,8 +30,8 @@ const EVIDENCE_DIR = path.resolve(import.meta.dirname, '..', '..', 'evidence', '
 const AMOUNT = 30_000;
 const EPOCH_INDEX = 12;
 
-// Gate 6 (real Signet reserves) is not implemented yet. This is a fixed,
-// clearly-labeled placeholder digest/network so the v2 evidence schema's
+// This standalone Gate 5 fixture uses a fixed, historical placeholder
+// digest/network so the v2 evidence schema's
 // reserve fields are exercised end-to-end by Gate 5's mechanism; it is
 // NOT a real chain-state binding. See docs/trust-boundaries.md.
 const RESERVE_DIGEST_PLACEHOLDER = bytesToHex(new TextEncoder().encode('gate-6-not-yet-implemented').slice(0, 32));
