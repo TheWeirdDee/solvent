@@ -1,4 +1,17 @@
-# Limitations — Phase 1
+# Limitations
+
+## Current deployment (2026-10-04)
+
+- The public mint uses real LDK Lightning on Mutinynet, a test network; sats have no monetary value. This is an early-stage verifier/reference client, not a production wallet.
+- Cashu remains custodial. One holder's inclusion check does not prove that every liability was included, reserve exclusivity, future solvency, or future redemption.
+- Multi-keyset epochs fail closed. Remote-signatory mint-identity delegation, OpenTimestamps anchoring and the remaining draft challenge types are not implemented; see [Draft alignment](draft-alignment.md).
+- Relay, chain API, faucet and Lightning availability can interrupt the demo. Incomplete verification never calls acceptance. The faucet requires GitHub login; wallets need current channel routing information.
+- The broken-promise action intentionally omits one promised issuance. It is a labelled adversarial demonstration, not a spontaneous production failure.
+- The browser's acceptance store is a reference integration, not a universal wallet guarantee. The deployment is single-replica and requires safe LDK channel-state operation.
+
+The following Phase 1 record is historical. Its CI-only and disconnected-protocol statements describe that phase, not today's public product. See [Reality map](REALITY-MAP.md) for the current deployment.
+
+## Historical limitations — Phase 1
 
 Explicit, not implied. See `docs/REALITY-MAP.md` for the full real/simulated table.
 

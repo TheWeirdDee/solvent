@@ -337,7 +337,7 @@ async function main(): Promise<boolean> {
     record('landing evidence is labelled live or captured, with times', /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(reserveSrc) && /(LIVE RAILWAY MINT|CAPTURED REFERENCE RUN)/.test(nostrSrc) && /UTC/.test((await page.textContent('#reserve-checked')) ?? '') && /UTC/.test(nostrSrc), `${reserveSrc.slice(0, 60)} | ${nostrSrc.slice(0, 60)}`);
     const navText = (await page.locator('.topbar').innerText()).replace(/\s+/g, ' ');
     record('global navigation: How it works, Evidence, Docs, Protocol, Verify evidence, and Mint ecash as the one primary action', ['How it works', 'Evidence', 'Docs', 'Protocol', 'Verify evidence', 'Mint ecash'].every((l) => navText.includes(l)) && (await page.locator('.topbar .btn-solid').allInnerTexts()).map((t) => t.trim()).join('|') === 'Mint ecash', navText);
-    record('the header shows the SOLVENT mark beside the wordmark', (await page.locator('#nav-home svg.brand-mark').isVisible()) && ((await page.textContent('#nav-home')) ?? '').trim() === 'SOLVENT');
+    record('the header shows the clean SOLVENT wordmark', ((await page.textContent('#nav-home')) ?? '').trim() === 'SOLVENT');
     record('landing says who it is BUILT FOR', /built for/i.test(builtFor) && /cashu wallets/i.test(builtFor) && /mint operators/i.test(builtFor));
 
     // ---- /verify: exactly two modes ----
@@ -598,7 +598,7 @@ async function main(): Promise<boolean> {
       judges.length === 1 &&
       (backend === 'real'
         ? /1\. Mint 64 test sats.*2\. Watch SOLVENT verify.*3\. Swap it.*4\. Pay with it.*5\. Break the promise/.test(judge)
-        : /1\. Mint an honest issuance.*ACCEPT_VERIFIED.*2\. Break the promise.*REFUSE_ISSUANCE_OMITTED.*3\. Inspect the evidence.*4\. Real-Lightning proof/.test(judge));
+        : /1\. Mint an honest issuance.*ACCEPT_VERIFIED.*2\. Break the promise.*REFUSE_ISSUANCE_OMITTED.*3\. Inspect the evidence.*4\. (Real-LND CI evidence|Real-Lightning proof)/.test(judge));
     record(`mint page shows exactly one judge path, matching the mint's backend (${backend})`, judgeOk, judge.slice(0, 120));
     const lc = await page.$$eval('#mint-lifecycle li', (els) => els.map((e) => `${e.textContent?.replace(/\s+/g, '')}:${(e as HTMLElement).dataset.state}`));
     record('mint page shows the lifecycle 1 MINT 2 VERIFY 3 ACCEPT 4 SWAP 5 PAY, starting at Mint', lc.join(' ') === '1Mint:current 2Verify:pending 3Accept:pending 4Swap:pending 5Pay:pending', lc.join(' '));

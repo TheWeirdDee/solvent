@@ -1,11 +1,11 @@
 # Reality map
 
-## Current status (2026-09-30)
+## Current status (2026-10-04)
 
 | Where | What runs | Lightning | Real? |
 | --- | --- | --- | --- |
 | **Public app** — <https://solvent-ashen.vercel.app/> (Vercel, static) | The verifier, in the visitor's browser: `verifySubmission()` → `verify()` | — | **Real** verifier; NUT-06 identity, Nostr event and reserve fetched independently |
-| **Live mint** — `https://solvent-production-2029.up.railway.app` (Railway) | Real patched CDK `cdk-mintd` v0.18.1 (`patches/cdk/0001-0009`), persistent SQLite on a volume | **fakewallet** (demo; invoices self-settle), labelled on every page and in the evidence | **Real** mint, receipts, accounting, epochs, manifests, delegation |
+| **Public mint** — `https://solvent-production-2029.up.railway.app` (Railway) | Real patched CDK `cdk-mintd` v0.18.1 (`patches/cdk/0001-0009`), persistent SQLite on a volume | **Real LDK node on Mutinynet**; every invoice must be paid, and test sats have no monetary value | **Real** mint, NUT-04 issuance, NUT-03 swap, NUT-05 payment, receipts, accounting, epochs, manifests and delegation |
 | **Evidence service** — `https://solvent-production-9c92.up.railway.app` (same Railway service) | SOLVENT sidecar: epoch closer, Nostr publisher, evidence API, broken-promise queue, read-only relay fetch | — | **Real** epochs closed and published to public relays (ACK + fetch-back) |
 | **Public Nostr** | kind 8181 on `nos.lol`, `relay.primal.net`, `nostr.mom`, `offchain.pub`, `relay.snort.social` | — | **Real** |
 | **Reserve** | The deployment's own Mutinynet (Bitcoin Signet) UTXO, re-queried on every verification | — | **Real** test-network coins (no monetary value) |
@@ -13,6 +13,8 @@
 | **Re-check published evidence** (`#/verify`) | A captured reference case published earlier by `npm run live-demo`, re-fetched and re-queried live | — | Real publication; the case itself is a stable reference, not a fresh issuance |
 | **Reference lab** (`#/lab`) | SOLVENT's in-browser reference mint for protocol inspection; never published | — | Local cryptography only, by design |
 | Acceptance side effect | `src/enforcement/accept-gate.ts` behind the verdict, recorded in a local reference store in the browser (`src/app/acceptance-store.ts`) | — | Real side effect, exactly once; not a universal wallet store |
+
+The public journey is **Mint → Verify → Accept → Swap → Pay**, followed by the separately labelled deliberate omission attack: **Break promise → Refuse**. The [production record](../evidence/real-lightning-mutinynet/2026-10-04-production/) includes the browser matrix and restart persistence.
 
 Everything below is the dated build history, kept as it was recorded. Where a row says "not yet", the current status above supersedes it.
 

@@ -48,7 +48,7 @@ The web app (GitHub Pages or any static host) talks to both public URLs from the
 
 ```sh
 cd deploy
-cp mint.env.example mint.env         # CDK_MINTD_MNEMONIC, SOLVENT_MANIFEST_PUBKEY
+cp mint.env.example mint.env         # mint seed, separate LDK seed, SOLVENT_MANIFEST_PUBKEY
 cp sidecar.env.example sidecar.env   # SOLVENT_MINT_URL, SOLVENT_MANIFEST_PRIVKEY, hosts, backend label
 cp mint.ldk-node.toml mint.toml      # or mint.lnd.toml / mint.fakewallet.toml; set [info].url to the public mint URL
 mkdir -p secrets && cp <reserve key>.json secrets/reserve-key.json

@@ -5,19 +5,21 @@
 **Team:** [TheWeirdDee](https://github.com/TheWeirdDee)
 **License:** MIT
 
-**Public app:** https://solvent-ashen.vercel.app/ — start at the landing page, then **Try the live mint**: a real patched CDK mint and SOLVENT evidence service on Railway, already connected.
+**Public app:** https://solvent-ashen.vercel.app/ — start at the landing page, then **Mint & verify ecash**: **Mint** 64 test sats over real Mutinynet Lightning from a real patched CDK mint on Railway → SOLVENT **verifies** the mint's signed promise → the ecash is **accepted** → **swap** it → **pay** with it → then **break the promise** and watch SOLVENT **refuse**. Mutinynet is a test network; the sats have no monetary value.
 **Demo video:** DEMO_VIDEO_URL_PENDING — being recorded from [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md)
 
 > The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against the mint's own closed accounting epoch, public Nostr evidence and a live Bitcoin reserve — before the ecash is accepted.
 
 ## Demo
 
-**Judge SOLVENT in 3 minutes** on https://solvent-ashen.vercel.app/#/mint:
+**Judge SOLVENT in minutes** on https://solvent-ashen.vercel.app/#/mint (about 2½ minutes of it is the mint and the verifier working; the rest is paying two test invoices by hand). Everything runs on **Mutinynet**, a Bitcoin test network: the sats have no monetary value, and this is not mainnet.
 
-1. **Mint & verify an honest issuance** → `ACCEPT_VERIFIED` (the accept function is called once).
-2. **Break the promise** → `REFUSE_ISSUANCE_OMITTED`: every signature valid, public evidence retrieved, reserve covering — only the promised issuance is missing. The accept function is not called.
-3. **Inspect the evidence**: open the Nostr event and the reserve transaction from the result, or download it.
-4. **Real Lightning**: the live mint uses demo (fakewallet) Lightning; the same pipeline over real LND is committed evidence: the app's [Evidence page](https://solvent-ashen.vercel.app/#/publish), or the [Evidence](#evidence) section below.
+1. **Mint.** Click **Mint 64 test sats** and pay the invoice over Mutinynet Lightning — from any Mutinynet wallet, or at [faucet.mutinynet.com](https://faucet.mutinynet.com/) (sign in with GitHub, paste the invoice). The mint issues real Cashu only after its own Lightning node sees the payment.
+2. **Verify → accept.** The mint signed a promise to count the issuance in epoch *N*; epoch *N* closes, is published to public Nostr relays, and the reserve is re-queried on chain. `ACCEPT_VERIFIED`, and the accept function is called exactly once.
+3. **Swap** (NUT-03). **Swap ecash**: the original proof becomes `SPENT`, the replacements are `UNSPENT`, the spend is committed in the mint's signed spent accounting and the liability is conserved.
+4. **Pay** (NUT-05). **Pay with ecash**: the mint pays a real 40-sat Mutinynet Lightning invoice; the preimage proves payment, the change comes back, and the liability drops by exactly what was paid.
+5. **Break the promise → refuse.** A deliberate, labelled demo fault (another test payment): every signature valid, public evidence retrieved, reserve covering — only the promised issuance is missing. `REFUSE_ISSUANCE_OMITTED`, and the accept function is **not** called.
+6. **Inspect the evidence**: open the Nostr event and the reserve transaction from the result, or download it.
 
 Video: DEMO_VIDEO_URL_PENDING. Script: [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md). Step-by-step: [`docs/start-here.md`](docs/start-here.md).
 
@@ -42,11 +44,11 @@ The protocol follows the Cashu PR #388 Proof-of-Liabilities draft (receipts, sum
 
 | What | How |
 | --- | --- |
-| **Public app** | https://solvent-ashen.vercel.app/. **Try the live mint** (`#/mint`) issues real ecash from the Railway-hosted mint: **Mint & verify an honest issuance** (ACCEPT), then **Break the promise** (REFUSE). No URLs or JSON to paste. **Re-check published evidence** (`#/verify`) re-verifies a captured reference case against live relays and the chain; it mints nothing |
-| **Live backend** | Mint [`/v1/info`](https://solvent-production-2029.up.railway.app/v1/info) · evidence service [`/v1/solvent/status`](https://solvent-production-9c92.up.railway.app/v1/solvent/status) (Railway; [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). Lightning is **fakewallet** there, and the page says so |
-| **Real mint, locally** | Start a patched `cdk-mintd` and the sidecar ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md); `deploy/docker-compose.yml`), then open `#/mint?mint=<mint URL>&evidence=<sidecar URL>`. Click **Mint & verify an honest issuance** (ACCEPT), then **Break the promise** (REFUSE) |
+| **Public app** | https://solvent-ashen.vercel.app/. **Mint & verify ecash** (`#/mint`): mint over real Mutinynet Lightning (ACCEPT), **Swap ecash**, **Pay with ecash**, then **Break the promise** (REFUSE). No URLs or JSON to paste. **Re-check published evidence** (`#/verify`) re-verifies a captured reference case against live relays and the chain; it mints nothing |
+| **Live backend** | Mint [`/v1/info`](https://solvent-production-2029.up.railway.app/v1/info) · evidence service [`/v1/solvent/status`](https://solvent-production-9c92.up.railway.app/v1/solvent/status) (Railway; [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)). Lightning is a real **LDK node** inside the mint, on Mutinynet, with a public channel to the faucet's node |
+| **Real mint, locally** | Start a patched `cdk-mintd` and the sidecar ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md); `deploy/docker-compose.yml`), then open `#/mint?mint=<mint URL>&evidence=<sidecar URL>`. Click **Mint 64 test sats**, pay the invoice, verify and accept; then swap, pay, and try **Break the promise** |
 | **One-command checks** | `npm run verify:submission` (mechanism, attack corpus, live reference case); `npm run verify:phase3b-evidence -- evidence/real-pol/phase3b-local-fakewallet` (offline replay of a real public-evidence run) |
-| **Real-mint browser E2E** | `npm run verify:public-app` (the exact public app) or `npm run verify:real-mint:browser -- <site> <mint URL> <sidecar URL> [--browser webkit --width 390]` |
+| **Real-mint browser E2E** | `npm run verify:public-app -- --swap --melt --pay-faucet <private-token-file>` (the exact public app, with real test payments) or `npm run verify:real-mint:browser -- <site> <mint URL> <sidecar URL> [--browser webkit --width 390] --swap --melt --pay-faucet <private-token-file>` |
 
 ## Architecture
 
@@ -75,7 +77,7 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 
 ## Reality map
 
-**Real**, and verified in CI over real regtest Lightning (LND):
+**Real on the public Mutinynet deployment (LDK), and also verified in CI over regtest Lightning (LND):**
 
 - the CDK Cashu mint (`cdk-mintd` v0.18.1, built from source with `patches/cdk/0001-0009`);
 - NUT-04 issuance, NUT-03 swap, NUT-05 melt with change, NUT-07 proof state and NUT-12 DLEQ;
@@ -86,24 +88,26 @@ Details: [`docs/epoch-lifecycle.md`](docs/epoch-lifecycle.md), [`docs/manifest-k
 - Nostr kind 8181 publication on public relays, with ACK and exact fetch-back;
 - the central verifier's ACCEPT and REFUSE decisions, including the broken promise.
 
-**Public interactive deployment** (https://solvent-ashen.vercel.app/ + Railway): real patched CDK mint, real receipts, accounting, epochs, manifests and delegation, real public Nostr, a real Mutinynet reserve and the real verifier — with CDK **fakewallet** Lightning, where invoices settle by themselves. It is labelled so in the UI and in the evidence, and never called real Lightning.
+**Public interactive deployment** (https://solvent-ashen.vercel.app/ + Railway): the real patched CDK mint with **real Mutinynet Lightning** (an LDK node inside `cdk-mintd`), real NUT-04 issuance, NUT-03 swap and NUT-05 melt, real receipts, issued and spent accounting, epochs, manifests and delegation, real public Nostr, a real Mutinynet reserve and the real verifier in the visitor's browser. The broken promise is a deliberate, labelled demo switch on the real epoch closer.
 
-**CI evidence:** the same mint over **real LND**, the full Phase 3B public evidence, and real NUT-05 (see the [Evidence page](https://solvent-ashen.vercel.app/#/publish) and the [Evidence](#evidence) section below).
+**CI evidence:** the same mint over **real LND** (regtest), the full Phase 3B public evidence, and NUT-05 accounting (see the [Evidence page](https://solvent-ashen.vercel.app/#/publish) and the [Evidence](#evidence) section below).
 
 **Also:** *Re-check published evidence* verifies a captured *reference* case (published earlier, re-checked live); the network is a **test network** (Mutinynet / Bitcoin Signet), not Bitcoin mainnet.
 
 **Limitations:**
 
-- Custodial Cashu trust remains. SOLVENT makes the mint's accounting checkable; it does not remove the custodian.
+- Custodial Cashu trust remains. SOLVENT makes the mint's accounting checkable; it does not remove the custodian. SOLVENT is an early-stage verifier and reference client, not a production wallet.
 - Multi-keyset epochs are refused (`REFUSE_UNSUPPORTED_MULTI_KEYSET_STATE`), not aggregated.
 - A remote (gRPC) signatory cannot sign the mint-identity delegation, so it fails closed.
 - Public relay availability matters. When evidence can't be fetched, nothing is accepted and the result says the check *could not complete* (`REFUSE_NOSTR_EVENT_NOT_FOUND` or `…_UNAVAILABLE`); that is not a finding against the mint, and *Retry verification* re-checks the same issuance.
-- The public mint runs fakewallet Lightning (labelled); real LND is proven in CI. Hosting is reproducible: Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)) or Docker Compose on any Linux host ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)).
+- Mutinynet is a test network; the public deployment's sats have no monetary value, and it is not mainnet. A judge needs Mutinynet test sats (the public faucet provides them). Hosting is reproducible: Railway (`railway.toml`, [`docs/DEPLOY-RAILWAY.md`](docs/DEPLOY-RAILWAY.md)) or Docker Compose on any Linux host ([`docs/DEPLOY-REAL-MINT.md`](docs/DEPLOY-REAL-MINT.md)).
 - The HTTPS relay fetch (used only when a browser cannot open relay WebSockets) is run by the mint's own evidence service; its result is still verified in the browser, but "was it published" then rests on that service querying the relays honestly. See [`docs/trust-boundaries.md`](docs/trust-boundaries.md).
 
 The complete line-by-line table is in [`docs/REALITY-MAP.md`](docs/REALITY-MAP.md), and the decision history in [`DECISIONS.md`](DECISIONS.md).
 
 ## Evidence
+
+**Current production:** [real Mutinynet lifecycle and restart evidence](evidence/real-lightning-mutinynet/2026-10-04-production/) — Chromium desktop, Chromium 390, WebKit 390, and the same lifecycle after restart. Public values only; no spendable Cashu secrets.
 
 Every real-LND result below is **committed to this repository**, so it can be read directly and survives the expiry of GitHub's CI artifacts (December 2026). The full index, with backends, dates, event ids and verification commands, is [`evidence/README.md`](evidence/README.md).
 
@@ -114,7 +118,7 @@ Every real-LND result below is **committed to this repository**, so it can be re
 | **Phase 3A / Phase 2: epoch lifecycle, mint-native accounting, crash and restart** | [`phase3a/`](evidence/real-pol/ci-36614823173-lnd/phase3a/) (public audit record; two never-spent proof files withheld, so not offline-replay complete) | [36614823173](https://github.com/TheWeirdDee/solvent/actions/runs/36614823173) | Inspect the JSON |
 | **NUT-03: swap accounting** | in the run artifact | [36150315347](https://github.com/TheWeirdDee/solvent/actions/runs/36150315347) | `npm run verify:nut03-evidence -- 36150315347` |
 
-The live public mint's evidence (fakewallet Lightning) is published as it runs: see *Live mint* and *Evidence* in the app. The CI artifacts are secret-scanned before upload. Committed packages contain no keys, and only Cashu proofs recorded as spent.
+The public mint's evidence (real Mutinynet Lightning, LDK node) is published as it runs; the production browser matrix and restart record, plus the earlier Railway-shaped and staging gates, are in [`evidence/real-lightning-mutinynet/`](evidence/real-lightning-mutinynet/): see *Mint ecash* and *Evidence* in the app. The CI artifacts are secret-scanned before upload. Committed packages contain no keys, and only Cashu proofs recorded as spent.
 
 ## Why SOLVENT exists
 
@@ -135,7 +139,7 @@ A reserve-ratio dashboard cannot catch this — the ratio is computed from whate
 Hash-routed single page:
 
 - **`/`** — the broken-promise story in plain language, with live observations of the Railway mint.
-- **`/mint`** — **Live mint**: a fresh issuance on the real patched CDK mint, its signed promise, the epoch wait, verification, the enforcement card, evidence links and downloads. Also the broken-promise run and Retry verification.
+- **`/mint`** — **Mint ecash**: a fresh issuance on the real patched CDK mint, its signed promise, the epoch wait, verification, the enforcement card, evidence links and downloads. Also the broken-promise run and Retry verification.
 - **`/verify`** — **Re-check published evidence** (a captured reference case, re-checked live) and **Verify evidence** (paste, upload or drop a bundle).
 - **`/publish`** — **Evidence**: the mint-operator evidence pipeline.
 - **`/protocol`** — the decision chain `verify()` runs.
@@ -144,17 +148,21 @@ Hash-routed single page:
 
 ## What SOLVENT supports
 
+SOLVENT is an early-stage verifier and reference client, not a production wallet. Cashu remains custodial.
+
 **Supported:** SOLVENT-compatible evidence bundles — a signed PoL receipt, a signed closed epoch manifest, an inclusion proof (or an honest `null`), a signed reserve attestation, and a signed Nostr evidence event, in the exact structure `src/app/submission.ts`'s `SubmissionBundle` defines (see `docs/verification-bundle.md`). A SOLVENT-compatible mint exports it with the ecash; **Load live example** on /verify loads the published reference case, and the developer reference mint lab (`#/lab`) generates local ones — you never hand-construct it.
 
 **Not automatically supported:** arbitrary Cashu tokens or mints that don't publish this evidence chain. Pasting a plain Cashu token, or a bundle from a mint that doesn't produce signed PoL receipts/manifests/reserve attestations/Nostr evidence, is reported as **UNSUPPORTED MINT** or **INCOMPLETE BUNDLE** — SOLVENT fails closed rather than guessing at partial support.
 
 ## Quick start (clean machine)
 
+Use Node.js 24.15 or later and npm.
+
 ```bash
-git clone <this-repo>
+git clone https://github.com/TheWeirdDee/solvent.git
 cd solvent
-npm install
-npm test                    # 200+ tests
+npm ci
+npm test                    # 434 deterministic tests
 npm run build                # typecheck + production bundle
 npm run verify:submission    # the 5-minute judge verifier — see VERIFY_IN_5_MINUTES.md
 npm run verify:cashu-real    # PHASE 1: real CDK mint + real regtest Lightning lifecycle — see docs/real-cashu-stack.md (requires the stack from docs/reproduce-real-stack.md or .github/workflows/real-cashu-integration.yml; not runnable standalone)
@@ -200,7 +208,7 @@ Opens on the landing page (`/`): the problem (a valid Cashu token doesn't prove 
 - **Protocol** (`/protocol`), **Docs** (`/docs`), and a read-only **evidence pipeline** view (`/publish`).
 - **Reference mint lab** (`#/lab`, developers only — linked from the footer, not the navigation) — SOLVENT's reference mint running in the browser, with one persistent identity and keyset (until explicitly rotated), a new proof, receipt and closed epoch per issuance, and a choice of amounts. Its evidence is never published, so its primary action is **Check local cryptography**; a full verification of lab evidence refuses with PUBLIC EVIDENCE NOT FOUND. It can also break a promise on purpose (BROKEN PROMISE) or issue past the reserve (RESERVE SHORTFALL).
 
-The real CDK mint is the backend behind **Live mint** (`#/mint`): the Railway-hosted patched `cdk-mintd` with fakewallet Lightning. The same mint runs over real LND in CI. See `docs/trust-boundaries.md`'s "What the app runs against".
+The real CDK mint is the backend behind **Mint ecash** (`#/mint`): the Railway-hosted patched `cdk-mintd` with a real LDK Lightning node on Mutinynet. After an accepted issuance the page offers **Swap ecash** (NUT-03) and **Pay with ecash** (NUT-05), each checked against the mint's issued and spent commitments. The same mint runs over real LND in CI. See `docs/trust-boundaries.md`'s "What the app runs against".
 
 ### The two-tier Nostr guarantee
 
@@ -296,7 +304,7 @@ visitor ──► Vercel: https://solvent-ashen.vercel.app/   canonical frontend
                │  (GitHub Pages mirror: https://theweirddee.github.io/solvent/)
                ▼
             Railway: one service (railway.toml -> deploy/railway/Dockerfile), volume /data
-               ├── mint      https://solvent-production-2029.up.railway.app   patched cdk-mintd, fakewallet
+               ├── mint      https://solvent-production-2029.up.railway.app   patched cdk-mintd + LDK node (Mutinynet)
                └── evidence  https://solvent-production-9c92.up.railway.app   SOLVENT sidecar
                ▼
             public Nostr relays + Mutinynet reserve
@@ -316,7 +324,7 @@ visitor ──► Vercel: https://solvent-ashen.vercel.app/   canonical frontend
 npm test
 ```
 
-380+ tests across the epoch lifecycle, the mint-identity delegation, Phase 3B public evidence, NUT-05 melt accounting and the SOLVENT sidecar (all on the real CDK schema), NUT-12/DLEQ (official vectors + mutation attacks), the sum-MMR and epoch manifest (official PR #388 vectors), signed PoL receipts, the hero omission contradiction, the central `verify()` decision rule, Gate 4's real acceptance-boundary spy tests, Gate 5's real Nostr evidence evaluation (signature/freshness/conflict/mismatch), Gate 6's real reserve attestation evaluation, the fail-closed submission verifier's own logic, and a jsdom test driving the real v2 web UI (landing page, all three verifier scenarios, Gate 4 enforcement, and the evidence pipeline / protocol pages).
+434 tests across the epoch lifecycle, the mint-identity delegation, Phase 3B public evidence, NUT-05 melt accounting and the SOLVENT sidecar (all on the real CDK schema), NUT-12/DLEQ (official vectors + mutation attacks), the sum-MMR and epoch manifest (official PR #388 vectors), signed PoL receipts, the hero omission contradiction, the central `verify()` decision rule, Gate 4's real acceptance-boundary spy tests, Gate 5's real Nostr evidence evaluation (signature/freshness/conflict/mismatch), Gate 6's real reserve attestation evaluation, the fail-closed submission verifier's own logic, and a jsdom test driving the real v2 web UI (landing page, all three verifier scenarios, Gate 4 enforcement, and the evidence pipeline / protocol pages).
 
 ## Tech stack
 
@@ -324,4 +332,4 @@ TypeScript, Node 24, Vite (vanilla TS, no framework), Vitest, `@cashu/cashu-ts` 
 
 ## Future work
 
-Real (non-fakewallet) Lightning on the public mint; multi-keyset epoch aggregation; a remote-signatory RPC for the mint-identity delegation; a second, fully live Signet reserve funding path without a human-solved faucet step; the remaining PR #388 fraud-challenge types (`append_only_violation`, `sum_mmr_consistency_violation`, keyset-lifecycle enforcement); OpenTimestamps anchoring; and wallet integrations that call `verify()` as a real accept gate outside this demo client. Full list in `docs/draft-alignment.md`.
+Multi-keyset epoch aggregation; a remote-signatory RPC for the mint-identity delegation; a second, fully live Signet reserve funding path without a human-solved faucet step; the remaining PR #388 fraud-challenge types (`append_only_violation`, `sum_mmr_consistency_violation`, keyset-lifecycle enforcement); OpenTimestamps anchoring; and wallet integrations that call `verify()` as a real accept gate outside this demo client. Full list in `docs/draft-alignment.md`.

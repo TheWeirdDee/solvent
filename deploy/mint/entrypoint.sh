@@ -10,7 +10,7 @@
 #      valid from epoch 1 — written to /data/delegation.json (public)
 # Then run cdk-mintd in the foreground.
 #
-# Secrets this container holds: CDK_MINTD_MNEMONIC only. The manifest key
+# Secrets this container holds: the mint seed and, for LDK, its separate node seed. The manifest key
 # arrives as its PUBLIC key; its private key lives only in the sidecar.
 set -eu
 

@@ -1,0 +1,215 @@
+{
+  "schema": "solvent/browser-run-evidence/v1",
+  "note": "Public values only. No Cashu proof secret, key or mnemonic is recorded.",
+  "generated_at": "2026-10-04T19:38:12.352Z",
+  "git_commit": "c3fae6862140cc1799d63f4e2d10331a7f4da3ea",
+  "working_tree_clean": false,
+  "site": "https://solvent-ashen.vercel.app/",
+  "mint": {
+    "url": "-"
+  },
+  "evidence_service": {
+    "url": "-"
+  },
+  "browser": "chromium-1440",
+  "checks_failed": 0,
+  "honest_invoice": {
+    "bolt11": "lntbs640n1p4v9250dqqnp4qfwx2guppg3s7n7ewafw5r7sp9n2ppttfheadx2u42regxs8l34fxpp5gjy795cxtx4t494eh8fm9aaf0hkfugn5xnz5zsq37he7cl5xwphssp5zp2uhx67huhjke3d5c3vyw7gflxg9qc9wj09wnmw88cqfeq7uq0s9qyysgqcqzp2xqrrsspcrtxkq3y7wk7w38dwzh2yua9sczees02tucjmfmxdeuqfh89wnsdwcc7djaeacp4e5d4zhc4m42svnhrlnu0jn43y3nad6rtvyqfecpehnavj",
+    "payment_hash": "4489e2d30659aaba96b9b9d3b2f7a97dec9e227434c5414011f5f3ec7e86706f",
+    "paid_by": "Mutinynet faucet (Faucet LND)"
+  },
+  "honest": {
+    "decision": "ACCEPT_VERIFIED",
+    "facts": {
+      "Local cryptography": "VALID",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Reason code": "ACCEPT_VERIFIED"
+    },
+    "enforcement": {
+      "Decision": "ACCEPT_VERIFIED",
+      "Accept function calls (this issuance)": "1",
+      "Calls made by this verification": "1",
+      "Accepted record stored": "yes",
+      "Accepted at": "Oct 4, 2026, 19:36 UTC",
+      "Store records": "0 \u2192 1"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "0294d5b02aafe6d7a9c35c5129628265bc02bd42cb6311e2435b123e1010743dd7",
+      "Receipt target epoch": "98",
+      "Manifest digest": "cb07015fd53a272c0bc25ba42aa9523da9608ea1d8041d427712cc198621a7be",
+      "Nostr event": "90b1027fda383de16b68d22f247871c1359c547c4eca519e86b3a8a888c6f93c",
+      "Published": "Oct 4, 2026, 19:36 UTC \u2014 ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "809e5190a63ea454d35fbb0b86919d6799fa65a6fe4385baa63eb180711308c2:1",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 4, 2026, 19:36 UTC",
+      "Final reason": "ACCEPT_VERIFIED"
+    },
+    "steps": [
+      "\n      Fund this test invoice over Mutinynet Lightning. These are test sats with no monetary value.\n      Amount64 sats (Mutinynet)ExpiresOct 4, 2026, 20:35 UTC (59:58 left)Statuspaid \u2014 the mint saw the payment on its own Lightning node\n      lntbs640n1p4v9250dqqnp4qfwx2guppg3s7n7ewafw5r7sp9n2ppttfheadx2u42regxs8l34fxpp5gjy795cxtx4t494eh8fm9aaf0hkfugn5xnz5zsq37he7cl5xwphssp5zp2uhx67huhjke3d5c3vyw7gflxg9qc9wj09wnmw88cqfeq7uq0s9qyysgqcqzp2xqrrsspcrtxkq3y7wk7w38dwzh2yua9sczees02tucjmfmxdeuqfh89wnsdwcc7djaeacp4e5d4zhc4m42svnhrlnu0jn43y3nad6rtvyqfecpehnavj\n      Copy invoice\n      No Mutinynet wallet? Open faucet.mutinynet.com, sign in with GitHub, paste this invoice where it asks for a BOLT11 invoice, and pay. Any Mutinynet (signet) Lightning wallet works too.\n    ",
+      "1. The mint gave you 64 sats of ecash (keyset 01b3bebead910a5d\u2026).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 98.",
+      "3. Epoch 98 closed and published Oct 4, 2026, 19:36 UTC \u2014 ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: ACCEPT_VERIFIED."
+    ]
+  },
+  "swap": {
+    "verdict": "SWAP COMPLETE \u2014 the original proof is spent, the replacements are usable, and the mint's books show the liability unchanged.",
+    "original": {
+      "y": "022bdb6c2c02f8ca72d7e3a36b0fc3e06ac8b32045d2af3cb9a0b3d6b8051ee209",
+      "amount": 64,
+      "nut07_state": "SPENT"
+    },
+    "replacements": [
+      {
+        "y": "021f4ff5d54918e83a541fca269a8e443bf5331c232d4522546c73334b7e17cf5c",
+        "amount": 32,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "02ac5750beb6843b42224875e218a8c1259817ad98a9c2249eba38949b612f5be0",
+        "amount": 16,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "0235588eed0e6e045748363b3e9c8785d88a67091c3cb62e9d7ba3709e27db75ba",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "02643df8248995a96d7e4b8582d636374562c47d5c69794c4320ed24bacf046b55",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      }
+    ],
+    "epoch": 99,
+    "operation": {
+      "kind": "swap",
+      "consumed": [
+        {
+          "proof_y": "022bdb6c2c02f8ca72d7e3a36b0fc3e06ac8b32045d2af3cb9a0b3d6b8051ee209",
+          "amount": 64,
+          "target_epoch": 99
+        }
+      ],
+      "issued": [
+        {
+          "blinded_message": "022ead411a01857d9d637c34743e0df4c3d4dd42087b8acfda44c0ca30b0f6b55d",
+          "amount": 32,
+          "target_epoch": 99
+        },
+        {
+          "blinded_message": "023a00eb3fc49b3f821312d7fc15d296df9b6434f27698b40b20d4850583b4b01f",
+          "amount": 8,
+          "target_epoch": 99
+        },
+        {
+          "blinded_message": "033087ca7d8e90012d8a2218f1122c6810a84fde2c937acfe628634e5e8f8791c0",
+          "amount": 16,
+          "target_epoch": 99
+        },
+        {
+          "blinded_message": "03cb62bb20606d2264b18b977e8e3da52a1279cb85723483dd9c92bd5ef4ca08a8",
+          "amount": 8,
+          "target_epoch": 99
+        }
+      ],
+      "consumed_sum": 64,
+      "issued_sum": 64
+    },
+    "liability_before": 3968,
+    "liability_after": 3968
+  },
+  "melt": {
+    "verdict": "PAYMENT COMPLETE \u2014 the mint paid a Mutinynet Lightning invoice with your ecash, returned your change, and its books fell by exactly what was paid.",
+    "invoice": {
+      "bolt11": "lntbs400n1p4v92k8pp52yr0sl94qtx98qhr3tuu7gm6h276duj34yn42ueg9u9yszy57j8qdqqcqzzsxqyz5vqsp5q3dz0x0xwwglyhpyqhvp9r9v2rezgurln0makphfx9ansfqmrl4s9qxpqysgquuvscka9tvydhztprgctdrv40kyrlw7huz0m8aq3xzvu52zy74l4vexhssa8kfvk5xrzk8m3w3mrh7ex53m5q66v5zpkh52at0may2sqtcmr30",
+      "payment_hash": "5106f87cb502cc5382e38af9cf237ababda6f251a9275573282f0a480894f48e",
+      "payee": "Mutinynet faucet (faucet.mutinynet.com)"
+    },
+    "payment_preimage": "0bd4c70513c187b5dce01e37ce850cbc7390137310ece1d7a890e51504ca70e8",
+    "inputs": [
+      {
+        "y": "021f4ff5d54918e83a541fca269a8e443bf5331c232d4522546c73334b7e17cf5c",
+        "amount": 32,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "02ac5750beb6843b42224875e218a8c1259817ad98a9c2249eba38949b612f5be0",
+        "amount": 16,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "0235588eed0e6e045748363b3e9c8785d88a67091c3cb62e9d7ba3709e27db75ba",
+        "amount": 8,
+        "nut07_state": "SPENT"
+      },
+      {
+        "y": "02643df8248995a96d7e4b8582d636374562c47d5c69794c4320ed24bacf046b55",
+        "amount": 8,
+        "nut07_state": "SPENT"
+      }
+    ],
+    "change": [
+      {
+        "y": "0222fc59edfcac5b634e9f4cd5187c705ba9ebb0cc6431ef48da58a27db6443327",
+        "amount": 16,
+        "nut07_state": "UNSPENT"
+      },
+      {
+        "y": "0213297b3bb15f32edafa57e22045d505acd0a0b901066a0d3d57474089291e85a",
+        "amount": 8,
+        "nut07_state": "UNSPENT"
+      }
+    ],
+    "lightning_fee_paid": 0,
+    "epoch": 100,
+    "liability_before": 3968,
+    "liability_after": 3928
+  },
+  "broken_promise_invoice": {
+    "bolt11": "lntbs640n1p4v92htdqqnp4qfwx2guppg3s7n7ewafw5r7sp9n2ppttfheadx2u42regxs8l34fxpp59yxag3fptex6lf99zru5zqej3z7zt2esqawzydc9dc2uwaxv3l5ssp5galvqemdr4sqjfmw3cqqhrr06wl2w5zt9xmtmfhwwfmjhw25x3cs9qyysgqcqzp2xqrrssykykkqcp5jejmjp83k3ejdumh57p4vkyl2jklww4hqs226quhuc5gadznlxm3lwtzy92g243xw8xadsvxq5d07r7cc82fv8fww6ytacqnaxkdj",
+    "payment_hash": "290dd445215e4dafa4a510f941033288bc25ab30075c2237056e15c774cc8fe9",
+    "paid_by": "Mutinynet faucet (Faucet LND)"
+  },
+  "broken_promise": {
+    "decision": "REFUSE_ISSUANCE_OMITTED",
+    "facts": {
+      "Receipt signature": "VALID",
+      "Epoch manifest": "VALID (signed by the mint)",
+      "Manifest key delegation": "VALID (NUT-06 identity)",
+      "Public Nostr retrieval": "RETRIEVED AND VERIFIED",
+      "Live reserve": "COVERED (1,000,000 sats)",
+      "Promised issuance": "MISSING from the closed epoch",
+      "Reason code": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "enforcement": {
+      "Decision": "REFUSE_ISSUANCE_OMITTED",
+      "Accept function calls": "0",
+      "Accepted record stored": "no",
+      "Store changed": "no"
+    },
+    "evidence": {
+      "Mint identity (NUT-06)": "0294d5b02aafe6d7a9c35c5129628265bc02bd42cb6311e2435b123e1010743dd7",
+      "Receipt target epoch": "101",
+      "Manifest digest": "724847ef04735fe240adc545e56b2b2e37822c6dd8d46a9f6f4eed4cee4f8339",
+      "Nostr event": "bff1386ffa6bcb9aa922d8b9575a21dbb0d314e70e6694ba71e81c6060a68ab4",
+      "Published": "Oct 4, 2026, 19:37 UTC \u2014 ACKed and fetched back by the mint from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social",
+      "Retrieved by this browser": "directly from public relays",
+      "Reserve": "809e5190a63ea454d35fbb0b86919d6799fa65a6fe4385baa63eb180711308c2:1",
+      "Reserve amount": "1,000,000 sats (just queried)",
+      "Checked at": "Oct 4, 2026, 19:37 UTC",
+      "Final reason": "REFUSE_ISSUANCE_OMITTED"
+    },
+    "steps": [
+      "Broken-promise request registered for issuance 03265cd395c3\u2026 \u2014 before minting, so the epoch cannot close without it.",
+      "\n      Fund this test invoice over Mutinynet Lightning. These are test sats with no monetary value.\n      Amount64 sats (Mutinynet)ExpiresOct 4, 2026, 20:37 UTC (59:51 left)Statuspaid \u2014 the mint saw the payment on its own Lightning node\n      lntbs640n1p4v92htdqqnp4qfwx2guppg3s7n7ewafw5r7sp9n2ppttfheadx2u42regxs8l34fxpp59yxag3fptex6lf99zru5zqej3z7zt2esqawzydc9dc2uwaxv3l5ssp5galvqemdr4sqjfmw3cqqhrr06wl2w5zt9xmtmfhwwfmjhw25x3cs9qyysgqcqzp2xqrrssykykkqcp5jejmjp83k3ejdumh57p4vkyl2jklww4hqs226quhuc5gadznlxm3lwtzy92g243xw8xadsvxq5d07r7cc82fv8fww6ytacqnaxkdj\n      Copy invoice\n      No Mutinynet wallet? Open faucet.mutinynet.com, sign in with GitHub, paste this invoice where it asks for a BOLT11 invoice, and pay. Any Mutinynet (signet) Lightning wallet works too.\n    ",
+      "1. The mint gave you 64 sats of ecash (keyset 01b3bebead910a5d\u2026).",
+      "2. The mint signed a promise to count this issuance in accounting epoch 101.",
+      "Demo: the mint's real epoch closer will leave this issuance out of epoch 101.",
+      "3. Epoch 101 closed and published Oct 4, 2026, 19:37 UTC \u2014 ACKed by nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social; fetched back from nos.lol, relay.primal.net, nostr.mom, offchain.pub, relay.snort.social.",
+      "4. Verification finished: REFUSE_ISSUANCE_OMITTED."
+    ]
+  }
+}

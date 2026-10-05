@@ -6,11 +6,11 @@ Run all of these before pushing any change that touches the verifier, the epoch 
 npm run typecheck
 npm test
 npm run build
-npm run attacks            # then: git checkout -- evidence/attacks  (the run rewrites them)
+npm run attacks:check      # reproduces and compares without modifying committed evidence
 npm run verify:submission
 npm run verify:ui:browser -- http://localhost:4173/   # against `npx vite preview --port 4173`
 
-# Against a running local patched cdk-mintd (patches 0001-0008, migrations 0001-0003;
+# Against a running local patched cdk-mintd (patches 0001-0009, migrations 0001-0003;
 # fakewallet is fine here — see docs/reproduce-real-stack.md):
 CDK_MINT_URL=http://127.0.0.1:8085 \
 SOLVENT_MANIFEST_PRIVKEY=<the mint's manifest key> \

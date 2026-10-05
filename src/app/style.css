@@ -4305,18 +4305,13 @@ body:not([data-route='home']) .nav-landing-anchor { display: none !important; }
 .mint-swap-check-list { margin: 8px 0 0; padding-left: 18px; line-height: 1.5; overflow-wrap: anywhere; }
 .protocol-doc h2[id], .doc-article [id], #mint-op, #mint-result, #mint-decision-badge { scroll-margin-top: var(--header-offset); }
 .terminal-scope { margin: 0 0 6px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; color: var(--amber); }
+.terminal-scope-badge { display: inline-block; padding: 3px 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 4px; color: var(--amber); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; }
 .cache-tag { display: inline-block; margin-right: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(205, 191, 177, 0.14); color: var(--text-muted-on-dark); font-weight: 700; font-size: 0.78rem; letter-spacing: 0.04em; }
 .explorer-note { font-size: 0.82rem; color: var(--text-subtle-on-dark); }
 .bundle-drop-hint { font-size: 0.86rem; color: var(--text-subtle-on-dark); }
 
-/* ---- brand mark: two ledger lines resolving into one checked inclusion point ---- */
-.brand-mark { width: 28px; height: 28px; flex: none; display: block; }
+/* ---- wordmark ---- */
 .brand-word { line-height: 1; }
-.footer-wordmark .brand-mark { width: 32px; height: 32px; }
-@media (max-width: 640px) {
-  .brand-mark { width: 24px; height: 24px; }
-  .brand { gap: 8px; }
-}
 
 /* ---- copy that depends on the live mint's Lightning backend (set from its status) ---- */
 html:not([data-lightning]) [data-show]:not([data-show~='unknown']),

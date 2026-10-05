@@ -13,9 +13,9 @@ A Railway volume attaches to a single service, so the two processes run in one s
 
 ```text
 Railway service (railway.toml -> deploy/railway/Dockerfile)
-├── cdk-mintd (patches 0001-0009, fakewallet)   0.0.0.0:8085  <- domain 1: PUBLIC MINT URL
+├── cdk-mintd (patches 0001-0009, LDK node)   0.0.0.0:8085  <- domain 1: PUBLIC MINT URL
 ├── SOLVENT sidecar (closer, Nostr, evidence)   :8086         <- domain 2: PUBLIC EVIDENCE URL
-└── volume /data: cdk-mintd.sqlite, delegation.json, solvent-publications.json
+└── volume /data: cdk-mintd.sqlite, delegation.json, solvent-publications.json, ldk-node/
 ```
 
 The sidecar never calls the mint over HTTP; it reads the shared database. No internal or private-network URL is involved. The only mint URL anywhere is the public one, and it is bound into the NUT-06 delegation.
@@ -52,7 +52,15 @@ The image is built from the same sources as `deploy/mint/Dockerfile` and `deploy
 | `SOLVENT_EPOCH_INTERVAL_SECONDS` | public config | `30` |
 | `SOLVENT_EVIDENCE_VALIDITY_SECONDS` | public config | `3600` |
 
-The start script sets the Lightning backend to `fakewallet`. The image ships only the fakewallet mint configuration, and the page and evidence say so.
+The image supports `fakewallet` and `ldk-node`. Production uses **`SOLVENT_LIGHTNING_BACKEND=ldk-node`**, `CDK_MINTD_LDK_NODE_MNEMONIC` (a separate production-only secret) and `SOLVENT_DEMO_FAUCET_INVOICES=1`. The latter enables the 40-test-sat faucet invoice used by **Pay with ecash**. A fresh deployment defaults to the explicitly labelled fakewallet backend unless configured otherwise.
+
+`npm run railway:secrets -- --backend ldk-node` prepares the LDK seed without rotating existing secrets. Set the public mint URL before first boot. Do not publish the generated file or mnemonic. Never use a staging seed in production.
+
+For an existing volume, configuration is applied only when `SOLVENT_APPLY_MINT_CONFIG=1`; use this once for the reviewed migration, then disable it (`0`) without triggering a second deploy. Ordinary restarts read the persisted configuration.
+
+Run exactly **one replica**. Preserve the mint database, identity, keysets, delegation, publication history and reserve configuration. `/data/ldk-node` is the live channel state: never restore an older copy, never run two copies of the seed, and never roll back the mint database. Keep interruptions below the established channel-risk window (about 20 minutes on this test network). The management dashboard is loopback-only at `127.0.0.1:8087`; access it through operator SSH, never a public domain.
+
+Fund the node's on-chain address using Mutinynet test sats. Production uses the staging-proven topology: a 300,000-test-sat announced channel to the faucet node, with 150,000 test sats initially pushed to provide inbound liquidity. Wait for ACTIVE before testing payments. The [production verification record](../evidence/real-lightning-mutinynet/2026-10-04-production/) records the actual node/channel and persistence checks.
 
 Railway itself provides `RAILWAY_PROJECT_ID` and `RAILWAY_VOLUME_MOUNT_PATH`.
 
@@ -65,7 +73,7 @@ Both APIs send `Access-Control-Allow-Origin: *`: cdk-axum's own middleware for t
 | | Railway (public, interactive) | Real Cashu + SOLVENT Integration (CI) |
 | --- | --- | --- |
 | Mint | real patched CDK `cdk-mintd` | real patched CDK `cdk-mintd` |
-| Lightning | **fakewallet**: invoices settle by themselves, labelled on screen | **real LND** (regtest) |
+| Lightning | **Real LDK node** on Mutinynet: invoices require a real test-network payment | **Real LND** (regtest) |
 | Receipts, accounting, epochs, manifests, delegation | real | real |
 | Nostr | real public relays | real public relays |
 | Reserve | real Mutinynet UTXO (this deployment's own key) | real Mutinynet UTXO |
@@ -74,7 +82,7 @@ Both APIs send `Access-Control-Allow-Origin: *`: cdk-axum's own middleware for t
 ## After deploying
 
 ```sh
-npm run verify:railway -- https://<mint domain> https://<evidence domain>
+npm run verify:railway -- https://<mint domain> https://<evidence domain> --swap --melt --pay-faucet <private-token-file>
 ```
 
 This checks the following:
@@ -82,7 +90,7 @@ This checks the following:
 - **A. Mint:** `/v1/info`.
 - **B. Identity:** the NUT-06 identity against the delegation.
 - **C. Evidence service:** health, binding to the public mint URL, and the backend label.
-- **D. CORS:** requests from the GitHub Pages origin.
+- **D. CORS:** requests from the canonical public app origin.
 - **E. Nostr:** the latest epoch's event on public relays.
 - **F. Browser:** a real browser on the public app (https://solvent-ashen.vercel.app/) runs the honest flow (`ACCEPT_VERIFIED`) and the broken-promise flow (`REFUSE_ISSUANCE_OMITTED`). Together these cover the receipt endpoint, the epoch evidence, the live reserve and the Nostr fetch-back.
 
@@ -124,5 +132,5 @@ It fails on an HTML `/v1/info`, on a missing endpoint map at `/`, or on a change
 The delegation is bound to the URL at first boot, and the container refuses to start under a different one. To move to a new domain, either:
 
 - keep the old domain; or
-- delete the volume, which is a new mint with new keysets (outstanding ecash is lost); or
+- create a separate new mint with new state and a new URL; do not delete a live mint or its channel state; or
 - keep the volume and re-issue the delegation and the stored config (operator work: `cdk-mintd config replace` and `solvent delegate-manifest-key`).

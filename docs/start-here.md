@@ -1,4 +1,4 @@
-# Start here — judge SOLVENT in about 5 minutes
+# Start here — judge SOLVENT in minutes
 
 No terminal, no JSON, no install. Everything below runs on the public app, <https://solvent-ashen.vercel.app/>, against a real patched CDK Cashu mint with its own Lightning node on **Mutinynet**, a Bitcoin test network. The Lightning payments are real; the sats have no monetary value.
 

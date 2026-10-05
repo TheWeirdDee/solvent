@@ -19,7 +19,7 @@
   </head>
   <body>
     <header class="topbar">
-      <a id="nav-home" class="brand nav-link" href="#/" aria-label="SOLVENT home"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M12 3h17v6H18v3h-6z" fill="currentColor"/><path d="M20 29H3v-6h11v-3h6z" fill="currentColor"/><rect x="12" y="12" width="8" height="8" fill="#f32b35"/></svg><span class="brand-word">SOLVENT</span></a>
+      <a id="nav-home" class="brand nav-link" href="#/" aria-label="SOLVENT home"><span class="brand-word">SOLVENT</span></a>
       <nav class="nav-mid" aria-label="Site">
         <a class="nav-landing-anchor" href="#how-it-works" data-scroll="how-it-works">How it works</a>
         <a id="nav-publish" class="nav-link" href="#/publish">Evidence</a>
@@ -83,7 +83,7 @@
 
           <div class="hero-panel-wrap" id="hero-proof">
             <div class="terminal">
-              <p class="terminal-scope">REFERENCE EXAMPLE &middot; not the live mint</p>
+              <p class="terminal-scope"><span class="terminal-scope-badge">HISTORICAL AUDIT CASE &middot; NOT THE LIVE MINT</span></p>
               <p class="terminal-title">SOLVENT / EPOCH <span id="hero-epoch">12</span></p>
               <dl class="terminal-meta">
                 <dt>Issuance</dt>
@@ -308,8 +308,8 @@
       <section class="how-to-try" id="judge">
        <div class="section-inner">
         <p class="eyebrow eyebrow-center">Get started</p>
-        <h2 class="section-heading section-heading-center" data-show="real">Judge SOLVENT<br />in about <span class="judge-minutes">5</span> minutes.</h2>
-        <h2 class="section-heading section-heading-center" data-show="demo unknown">Judge SOLVENT<br />in 3 minutes.</h2>
+        <h2 class="section-heading section-heading-center" data-show="real">Judge SOLVENT<br />in minutes.</h2>
+        <h2 class="section-heading section-heading-center" data-show="demo unknown">Judge SOLVENT<br />in minutes.</h2>
         <div class="how-to-try-grid" data-show="real">
           <div class="how-to-try-step">
             <p class="how-to-try-num">1</p>
@@ -332,7 +332,8 @@
             <p class="how-to-try-desc">Mint again with a deliberate demo fault that omits your issuance from the epoch. Every signature stays valid &mdash; SOLVENT answers <code>REFUSE_ISSUANCE_OMITTED</code>.</p>
           </div>
         </div>
-        <div class="how-to-try-grid" data-show="demo unknown">
+        <p class="section-intro" data-show="unknown">Open Mint ecash to connect and check the backend status before starting.</p>
+        <div class="how-to-try-grid" data-show="demo">
           <div class="how-to-try-step">
             <p class="how-to-try-num">1</p>
             <p class="how-to-try-title">Mint an honest issuance</p>
@@ -350,8 +351,8 @@
           </div>
           <div class="how-to-try-step">
             <p class="how-to-try-num">4</p>
-            <p class="how-to-try-title">See it on real Lightning</p>
-            <p class="how-to-try-desc">The live mint uses a demo Lightning backend. The same pipeline over real LND is committed evidence on the <a href="#/publish">Evidence page</a>: honest ACCEPT, broken-promise REFUSE and a NUT-05 melt.</p>
+            <p class="how-to-try-title">Real-LND CI evidence</p>
+            <p class="how-to-try-desc">This browser run uses the demo settlement backend. The same pipeline over real LND is committed evidence on the <a href="#/publish">Evidence page</a>: honest ACCEPT, broken-promise REFUSE and a NUT-05 melt.</p>
           </div>
         </div>
         <div class="gate-cta">
@@ -548,19 +549,19 @@
       <p class="page-sub">Get real Cashu from a real, patched CDK mint, let your browser check the mint&rsquo;s accounting promise before accepting it &mdash; then spend it, and finally watch SOLVENT catch a mint that breaks its promise.</p>
 
       <ol class="judge-path card" aria-label="Judge SOLVENT" data-show="real">
-        <li class="judge-path-title">Judge SOLVENT in about <span class="judge-minutes">5</span> minutes</li>
+        <li class="judge-path-title">Judge SOLVENT in minutes</li>
         <li><strong>1. Mint 64 test sats</strong> and pay the invoice over Mutinynet Lightning.</li>
         <li><strong>2. Watch SOLVENT verify</strong> the mint&rsquo;s signed accounting promise and accept the ecash.</li>
         <li><strong>3. Swap it</strong> &mdash; old proofs become spent, replacements stay usable, liability is conserved.</li>
         <li><strong>4. Pay with it</strong> &mdash; the mint pays a Mutinynet Lightning invoice and its liabilities fall by exactly that.</li>
         <li><strong>5. Break the promise</strong> &mdash; mint another issuance that is deliberately omitted, and watch SOLVENT refuse it.</li>
       </ol>
-      <ol class="judge-path card" aria-label="Judge SOLVENT in 3 minutes" data-show="demo">
-        <li class="judge-path-title">Judge SOLVENT in 3 minutes</li>
+      <ol class="judge-path card" aria-label="Judge SOLVENT" data-show="demo">
+        <li class="judge-path-title">Judge SOLVENT in minutes</li>
         <li><strong>1. Mint an honest issuance</strong> &rarr; <code>ACCEPT_VERIFIED</code></li>
         <li><strong>2. Break the promise</strong> &rarr; <code>REFUSE_ISSUANCE_OMITTED</code> (every signature valid, the issuance missing)</li>
         <li><strong>3. Inspect the evidence</strong> &mdash; open the Nostr event and the reserve transaction from the result; every record is on the <a href="#/publish">Evidence page</a></li>
-        <li><strong>4. Real-Lightning proof</strong> &mdash; this mint&rsquo;s Lightning is a labelled demo; the same pipeline over real LND is committed CI evidence: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
+        <li><strong>4. Real-LND CI evidence</strong> &mdash; this browser run uses the demo settlement backend; the same pipeline over real LND is committed CI evidence: <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36614823173" target="_blank" rel="noopener noreferrer">Phase 3A/3B run ↗</a> · <a href="https://github.com/TheWeirdDee/solvent/actions/runs/36619816959" target="_blank" rel="noopener noreferrer">NUT-05 run ↗</a></li>
       </ol>
 
       <div id="mint-unconfigured" class="card verify-intro" hidden>
@@ -1093,7 +1094,7 @@
     <footer class="site-footer">
       <div class="footer-inner">
         <div class="footer-top">
-          <p class="footer-wordmark"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M12 3h17v6H18v3h-6z" fill="currentColor"/><path d="M20 29H3v-6h11v-3h6z" fill="currentColor"/><rect x="12" y="12" width="8" height="8" fill="#f32b35"/></svg>SOLVENT</p>
+          <p class="footer-wordmark">SOLVENT</p>
           <p class="footer-tagline">The mint made a promise. SOLVENT checks whether it kept it.</p>
         </div>
         <div class="footer-columns">

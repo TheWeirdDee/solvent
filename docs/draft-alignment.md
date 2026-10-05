@@ -8,7 +8,7 @@ SOLVENT never refers to it as "NUT-388" in product copy — only "Cashu PR #388 
 
 ## Current implementation status (2026-09-30)
 
-- **Where the draft's objects are produced:** a real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`) signs receipts inside its own transactions for NUT-04, NUT-03 and NUT-05; SOLVENT's closer closes real epochs over the mint's own database into signed per-keyset manifests. This runs publicly (the live mint, fakewallet Lightning) and in CI over real LND. The in-process reference mint (`src/cashu/`) remains only for deterministic tests, the attack corpus and the `#/lab` inspector.
+- **Where the draft's objects are produced:** a real patched CDK `cdk-mintd` (`patches/cdk/0001-0009`) signs receipts inside its own transactions for NUT-04, NUT-03 and NUT-05; SOLVENT's closer closes real epochs over the mint's own database into signed per-keyset manifests. This runs publicly with a real LDK Lightning node on Mutinynet, and in CI over real regtest LND. The in-process reference mint (`src/cashu/`) remains only for deterministic tests, the attack corpus and the `#/lab` inspector.
 - **Over HTTP:** the mint serves receipts at `GET /v1/solvent/pol-receipt/{B_}`; the SOLVENT evidence service serves each issuance's closed-epoch evidence (manifest, inclusion proof, delegation, reserve binding, Nostr event). These are SOLVENT's routes, **not** the draft's `/v1/pol/...` wire API (see below).
 - **Genuine deviations that remain:** receipts are retrievable rather than inline in the mint response; no OpenTimestamps anchoring; no BLS path; keyset-lifecycle and append-only/consistency fraud challenges are not verified; multi-keyset epochs are refused rather than aggregated.
 

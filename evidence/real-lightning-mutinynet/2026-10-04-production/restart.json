@@ -1,0 +1,259 @@
+{
+  "schema": "solvent/production-restart-evidence/v1",
+  "recorded_at": "2026-10-05T15:57:52.554Z",
+  "source_commit": "c3fae6862140cc1799d63f4e2d10331a7f4da3ea",
+  "deployment_before": "7a09cd69-a6d1-4a76-b05c-8087db982835",
+  "deployment_after": "af613b74-5484-45e5-a01b-43dd291ecbf6",
+  "replicas": 1,
+  "ldk_node_id": "025c6523810a230f4fd97752ea0fd00966a0856b4df3d6995caa87941a07fc6a93",
+  "channel_id": "1755e680b54aa7402d9d6e961a00e2e32b0717076a7bcda5dc0e9019bf27b6ed",
+  "channel_active_after": true,
+  "channel_liquidity_after_test_sats": {
+    "outbound": 146948,
+    "inbound": 146392
+  },
+  "public_before": {
+    "recordedAt": "2026-10-05T03:48:22.768Z",
+    "identity": "0294d5b02aafe6d7a9c35c5129628265bc02bd42cb6311e2435b123e1010743dd7",
+    "keysets": [
+      {
+        "id": "01b3bebead910a5d5f6430556d05164a92e72e2912a2df72eacda76a3e1cad8d1c",
+        "unit": "sat",
+        "active": true,
+        "input_fee_ppk": 0
+      }
+    ],
+    "backend": "ldk-node",
+    "openEpoch": 118,
+    "lastPublication": {
+      "epoch_index": 117,
+      "status": "published",
+      "event_id": "eb2d16afb5b8f02af2480556df82dde503abb0149ae1d97657c2ae472fc370d1",
+      "published_at": "2026-10-05T03:47:28.154Z",
+      "acked": [
+        "wss://nos.lol",
+        "wss://nostr.mom",
+        "wss://offchain.pub",
+        "wss://relay.snort.social"
+      ],
+      "fetched_from": [
+        "wss://nos.lol",
+        "wss://nostr.mom",
+        "wss://offchain.pub",
+        "wss://relay.snort.social"
+      ],
+      "outstanding_balance": 4256
+    },
+    "reserveOutpoint": "809e5190a63ea454d35fbb0b86919d6799fa65a6fe4385baa63eb180711308c2:1",
+    "reserveNetwork": "bitcoin-signet-mutinynet",
+    "states": [
+      {
+        "Y": "0213297b3bb15f32edafa57e22045d505acd0a0b901066a0d3d57474089291e85a",
+        "state": "UNSPENT",
+        "witness": null
+      },
+      {
+        "Y": "021f4ff5d54918e83a541fca269a8e443bf5331c232d4522546c73334b7e17cf5c",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "0222fc59edfcac5b634e9f4cd5187c705ba9ebb0cc6431ef48da58a27db6443327",
+        "state": "UNSPENT",
+        "witness": null
+      },
+      {
+        "Y": "022bdb6c2c02f8ca72d7e3a36b0fc3e06ac8b32045d2af3cb9a0b3d6b8051ee209",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "0235588eed0e6e045748363b3e9c8785d88a67091c3cb62e9d7ba3709e27db75ba",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "02643df8248995a96d7e4b8582d636374562c47d5c69794c4320ed24bacf046b55",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "02ac5750beb6843b42224875e218a8c1259817ad98a9c2249eba38949b612f5be0",
+        "state": "SPENT",
+        "witness": null
+      }
+    ],
+    "priorSpend": {
+      "state": "EPOCH_CLOSED",
+      "epoch": 99,
+      "sha256": "04f60bbd758a27fc289ea244567fc2b2394939ebec1f98ee87efd03f643a6d96"
+    }
+  },
+  "public_after": {
+    "recordedAt": "2026-10-05T15:57:52.554Z",
+    "identity": "0294d5b02aafe6d7a9c35c5129628265bc02bd42cb6311e2435b123e1010743dd7",
+    "keysets": [
+      {
+        "id": "01b3bebead910a5d5f6430556d05164a92e72e2912a2df72eacda76a3e1cad8d1c",
+        "unit": "sat",
+        "active": true,
+        "input_fee_ppk": 0
+      }
+    ],
+    "backend": "ldk-node",
+    "openEpoch": 118,
+    "lastPublication": {
+      "epoch_index": 117,
+      "status": "published",
+      "event_id": "eb2d16afb5b8f02af2480556df82dde503abb0149ae1d97657c2ae472fc370d1",
+      "published_at": "2026-10-05T03:47:28.154Z",
+      "acked": [
+        "wss://nos.lol",
+        "wss://nostr.mom",
+        "wss://offchain.pub",
+        "wss://relay.snort.social"
+      ],
+      "fetched_from": [
+        "wss://nos.lol",
+        "wss://nostr.mom",
+        "wss://offchain.pub",
+        "wss://relay.snort.social"
+      ],
+      "outstanding_balance": 4256
+    },
+    "reserveOutpoint": "809e5190a63ea454d35fbb0b86919d6799fa65a6fe4385baa63eb180711308c2:1",
+    "reserveNetwork": "bitcoin-signet-mutinynet",
+    "states": [
+      {
+        "Y": "0213297b3bb15f32edafa57e22045d505acd0a0b901066a0d3d57474089291e85a",
+        "state": "UNSPENT",
+        "witness": null
+      },
+      {
+        "Y": "021f4ff5d54918e83a541fca269a8e443bf5331c232d4522546c73334b7e17cf5c",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "0222fc59edfcac5b634e9f4cd5187c705ba9ebb0cc6431ef48da58a27db6443327",
+        "state": "UNSPENT",
+        "witness": null
+      },
+      {
+        "Y": "022bdb6c2c02f8ca72d7e3a36b0fc3e06ac8b32045d2af3cb9a0b3d6b8051ee209",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "0235588eed0e6e045748363b3e9c8785d88a67091c3cb62e9d7ba3709e27db75ba",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "02643df8248995a96d7e4b8582d636374562c47d5c69794c4320ed24bacf046b55",
+        "state": "SPENT",
+        "witness": null
+      },
+      {
+        "Y": "02ac5750beb6843b42224875e218a8c1259817ad98a9c2249eba38949b612f5be0",
+        "state": "SPENT",
+        "witness": null
+      }
+    ],
+    "priorSpend": {
+      "state": "EPOCH_CLOSED",
+      "epoch": 99,
+      "sha256": "04f60bbd758a27fc289ea244567fc2b2394939ebec1f98ee87efd03f643a6d96"
+    }
+  },
+  "database_before": {
+    "recordedAt": "2026-10-05T03:48:25.771Z",
+    "tables": {
+      "solvent_issued_liability": {
+        "rows": 135,
+        "sha256": "8fae87b054f6e1c6e6d7da393fcd30cbb1422d9ed1716524591cfc099b2071b2"
+      },
+      "solvent_consumed_liability": {
+        "rows": 20,
+        "sha256": "5bf12237c7da307cac602d17344c760a7f644b05ca47d5b96f72e731d995a222"
+      },
+      "proof": {
+        "rows": 20,
+        "sha256": "fe7889b1f0226cec9802df0e0c27cbe57e1ef705f84f8ec26c34ed1891eb9dfc"
+      },
+      "solvent_pol_epoch": {
+        "rows": 118,
+        "sha256": "667b0a855c51100847bae8b63d2cb9e443f6cd0f264203a3bd4df13554db4981"
+      },
+      "solvent_pol_receipt": {
+        "rows": 135,
+        "sha256": "1bd67581e6177a6f878a7f3b7c15f659419a8a7e27fd909e4aca4cca73844af0"
+      }
+    },
+    "originalClosedEpochs": {
+      "count": 97,
+      "sha256": "e2850abb383e68ebca57ee698389d860d0600ec7a36b7212c46ba9ab908cb9bf"
+    },
+    "publications": {
+      "sha256": "e29f6bafce6efeed602beb93be129c5ab66bdafadbb16d4aa43594f0701b8b3c"
+    },
+    "delegationSha256": "6b3230f328867885effdd951ef97effaddc83c39ddc136e852a4091405dc2501"
+  },
+  "database_after": {
+    "recordedAt": "2026-10-05T15:58:02.657Z",
+    "tables": {
+      "solvent_issued_liability": {
+        "rows": 135,
+        "sha256": "8fae87b054f6e1c6e6d7da393fcd30cbb1422d9ed1716524591cfc099b2071b2"
+      },
+      "solvent_consumed_liability": {
+        "rows": 20,
+        "sha256": "5bf12237c7da307cac602d17344c760a7f644b05ca47d5b96f72e731d995a222"
+      },
+      "proof": {
+        "rows": 20,
+        "sha256": "fe7889b1f0226cec9802df0e0c27cbe57e1ef705f84f8ec26c34ed1891eb9dfc"
+      },
+      "solvent_pol_epoch": {
+        "rows": 118,
+        "sha256": "667b0a855c51100847bae8b63d2cb9e443f6cd0f264203a3bd4df13554db4981"
+      },
+      "solvent_pol_receipt": {
+        "rows": 135,
+        "sha256": "1bd67581e6177a6f878a7f3b7c15f659419a8a7e27fd909e4aca4cca73844af0"
+      }
+    },
+    "originalClosedEpochs": {
+      "count": 97,
+      "sha256": "e2850abb383e68ebca57ee698389d860d0600ec7a36b7212c46ba9ab908cb9bf"
+    },
+    "publications": {
+      "sha256": "e29f6bafce6efeed602beb93be129c5ab66bdafadbb16d4aa43594f0701b8b3c"
+    },
+    "delegationSha256": "6b3230f328867885effdd951ef97effaddc83c39ddc136e852a4091405dc2501"
+  },
+  "closed_epoch_audit": {
+    "open_epoch": 118,
+    "closed_epochs_audited": 117,
+    "failures": [],
+    "rows": {
+      "issued": 135,
+      "consumed": 20,
+      "spent": 20
+    }
+  },
+  "health_observation": {
+    "samples": 400,
+    "failed_samples": 1,
+    "last_healthy_before": "2026-10-05T03:52:16.284Z",
+    "first_healthy_after": "2026-10-05T03:52:28.043Z",
+    "note": "Both endpoints timed out in one five-second sample. The surrounding healthy samples bound the observed interruption to about 12 seconds; this is sampled monitoring, not an exact outage duration."
+  },
+  "operator_checks": {
+    "same_ldk_identity": true,
+    "same_channel": true,
+    "no_force_close_panic_or_corruption_observed": true,
+    "one_time_config_apply_disabled": true,
+    "production_seed_distinct_from_staging": true
+  }
+}

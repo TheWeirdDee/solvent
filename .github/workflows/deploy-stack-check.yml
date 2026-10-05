@@ -51,7 +51,7 @@ jobs:
           echo "::add-mask::$MNEMONIC"
           echo "::add-mask::$MANIFEST_KEY"
           printf 'CDK_MINTD_MNEMONIC=%s\nSOLVENT_MANIFEST_PUBKEY=%s\nSOLVENT_MINT_PORT=8085\n' "$MNEMONIC" "$MANIFEST_PUB" > mint.env
-          sed 's#^SOLVENT_MINT_URL=.*#SOLVENT_MINT_URL=http://127.0.0.1:8085#; s#^SOLVENT_MANIFEST_PRIVKEY=.*#SOLVENT_MANIFEST_PRIVKEY='"$MANIFEST_KEY"'#; s#^SOLVENT_EPOCH_INTERVAL_SECONDS=.*#SOLVENT_EPOCH_INTERVAL_SECONDS=20#' sidecar.env.example > sidecar.env
+          sed 's#^SOLVENT_MINT_URL=.*#SOLVENT_MINT_URL=http://127.0.0.1:8085#; s#^SOLVENT_MANIFEST_PRIVKEY=.*#SOLVENT_MANIFEST_PRIVKEY='"$MANIFEST_KEY"'#; s#^SOLVENT_EPOCH_INTERVAL_SECONDS=.*#SOLVENT_EPOCH_INTERVAL_SECONDS=20#; s#^SOLVENT_LIGHTNING_BACKEND=.*#SOLVENT_LIGHTNING_BACKEND=fakewallet#' sidecar.env.example > sidecar.env
           sed 's#^url = .*#url = "http://127.0.0.1:8085"#' mint.fakewallet.toml > mint.toml
           mkdir -p secrets
           cp ../evidence/reserves/reserve-key.json secrets/reserve-key.json

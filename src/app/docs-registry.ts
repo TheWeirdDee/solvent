@@ -8,7 +8,7 @@ export interface DocMeta {
 }
 
 export const DOC_REGISTRY: DocMeta[] = [
-  { id: 'start-here', navLabel: 'Start here', title: 'Start here — judge SOLVENT in 3 minutes', path: 'docs/start-here.md' },
+  { id: 'start-here', navLabel: 'Start here', title: 'Start here — judge SOLVENT in minutes', path: 'docs/start-here.md' },
   { id: 'getting-started', navLabel: 'Getting started', title: 'Getting started', path: 'docs/getting-started.md' },
   { id: 'protocol', navLabel: 'Protocol & architecture', title: 'Protocol & architecture', path: 'PROTOCOL.md' },
   { id: 'verification-bundle', navLabel: 'Verification bundle schema', title: 'Verification bundle schema', path: 'docs/verification-bundle.md' },
