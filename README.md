@@ -1,4 +1,3 @@
-```markdown
 # SOLVENT
 
 **Auditable Cashu: verify the mint counted what it owes before you accept.**
@@ -353,4 +352,3 @@ TypeScript, Node 24, Vite (vanilla TS, no framework), Vitest, `@cashu/cashu-ts` 
 ## Future work
 
 Multi-keyset epoch aggregation; a remote-signatory RPC for the mint-identity delegation; a second, fully live Signet reserve funding path without a human-solved faucet step; the remaining PR #388 fraud-challenge types (`append_only_violation`, `sum_mmr_consistency_violation`, keyset-lifecycle enforcement); OpenTimestamps anchoring; and wallet integrations that call `verify()` as a real accept gate outside this demo client. Full list in `docs/draft-alignment.md`.
-```
