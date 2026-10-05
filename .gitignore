@@ -17,3 +17,10 @@ evidence/railway-shots/
 evidence/real-pol/local-20*/
 evidence/real-pol/nut05-local-20*/
 evidence/real-pol/phase3b-local-20*/
+
+# Demo video production workflow (externally hosted)
+video/
+*.mp4
+*.webm
+*.mov
+

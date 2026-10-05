@@ -6,7 +6,7 @@
 **License:** MIT
 
 **Public app:** https://solvent-ashen.vercel.app/ — start at the landing page, then **Mint & verify ecash**: **Mint** 64 test sats over real Mutinynet Lightning from a real patched CDK mint on Railway → SOLVENT **verifies** the mint's signed promise → the ecash is **accepted** → **swap** it → **pay** with it → then **break the promise** and watch SOLVENT **refuse**. Mutinynet is a test network; the sats have no monetary value.
-**Demo video:** DEMO_VIDEO_URL_PENDING — being recorded from [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md)
+**Demo video:** [Watch the final SOLVENT demo](https://youtu.be/LUjGGAOdjx0) (4:28)
 
 > The mint made a promise. Did it keep it? SOLVENT checks a Cashu mint's signed Proof-of-Liabilities receipt against the mint's own closed accounting epoch, public Nostr evidence and a live Bitcoin reserve — before the ecash is accepted.
 
@@ -21,7 +21,7 @@
 5. **Break the promise → refuse.** A deliberate, labelled demo fault (another test payment): every signature valid, public evidence retrieved, reserve covering — only the promised issuance is missing. `REFUSE_ISSUANCE_OMITTED`, and the accept function is **not** called.
 6. **Inspect the evidence**: open the Nostr event and the reserve transaction from the result, or download it.
 
-Video: DEMO_VIDEO_URL_PENDING. Script: [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md). Step-by-step: [`docs/start-here.md`](docs/start-here.md).
+**Demo video:** [Watch the final SOLVENT demo](https://youtu.be/LUjGGAOdjx0) · Script: [`docs/DEMO-RUNBOOK.md`](docs/DEMO-RUNBOOK.md) · Step-by-step: [`docs/start-here.md`](docs/start-here.md).
 
 ## What SOLVENT is
 
