@@ -89,7 +89,7 @@ Details: [`docs/epoch-lifecycle.md`](https://github.com/TheWeirdDee/solvent/blob
 
 **Public interactive deployment** ([https://solvent-ashen.vercel.app/](https://solvent-ashen.vercel.app/) + Railway): the real patched CDK mint with **real Mutinynet Lightning** (an LDK node inside `cdk-mintd`), real NUT-04 issuance, NUT-03 swap and NUT-05 melt, real receipts, issued and spent accounting, epochs, manifests and delegation, real public Nostr, a real Mutinynet reserve and the real verifier in the visitor's browser. The broken promise is a deliberate, labelled demo switch on the real epoch closer.
 
-**CI evidence:** the same mint over **real LND** (regtest), the full Phase 3B public evidence, and NUT-05 accounting (see the [Evidence page](https://solvent-ashen.vercel.app/#/publish) and the [Evidence](https://github.com/TheWeirdDee/solvent#evidence) section below).
+**CI evidence:** the same mint over **real LND** (regtest), the full Phase 3B public evidence, and NUT-05 accounting (see the [Evidence page](https://solvent-ashen.vercel.app/#/publish) and the [Evidence](#evidence) section below).
 
 **Also:** *Re-check published evidence* verifies a captured *reference* case (published earlier, re-checked live); the network is a **test network** (Mutinynet / Bitcoin Signet), not Bitcoin mainnet.
 
@@ -313,7 +313,7 @@ Read [`docs/trust-boundaries.md`](https://github.com/TheWeirdDee/solvent/blob/ma
 visitor ──► Vercel: https://solvent-ashen.vercel.app/
               canonical frontend (static build from main)
               │
-              │  GitHub Pages mirror:
+              │  GitHub Pages (secondary mirror only):
               │  https://theweirddee.github.io/solvent/
               ▼
             Railway: one service
@@ -332,7 +332,7 @@ visitor ──► Vercel: https://solvent-ashen.vercel.app/
 - **Frontend — Vercel (canonical).** Vercel builds `npm run build` from every push to `main`. `.env.production` points `#/mint` at the Railway mint and evidence service by default. `#/mint?mint=&evidence=` still overrides them.
 - **Backend — Railway.** The mint and the SOLVENT sidecar run in one service, sharing one SQLite file on one volume ([`docs/DEPLOY-RAILWAY.md`](https://github.com/TheWeirdDee/solvent/blob/main/docs/DEPLOY-RAILWAY.md)). Railway rebuilds on pushes that touch its watch paths. Live-mint evidence is fetched from Railway at run time, so it never needs a frontend redeploy.
 - **Reference evidence refresh.** *Re-check published evidence* uses `evidence/nostr/live-demo.json`, bundled into the static build. Its reserve attestation stays fresh for about 7 days. `.github/workflows/refresh-live-demo.yml` regenerates and republishes it twice a day, fails closed through `verify:live-demo`, tests, attacks and `verify:submission`, and then commits the one file to `main`. That redeploys Vercel, and the `live-evidence` artifact redeploys the GitHub Pages mirror.
-- **GitHub Pages (secondary mirror).** `.github/workflows/deploy-site.yml` deploys the same build to Pages, smoke-tests it (`verify:deployed`, `verify:ui:browser`), and runs a strict live-acceptance job.
+- **GitHub Pages (secondary mirror only).** `.github/workflows/deploy-site.yml` deploys the same build to Pages, smoke-tests it (`verify:deployed`, `verify:ui:browser`), and runs a strict live-acceptance job. Judges should use the Vercel app; no step depends on the mirror.
 - **Deploy Stack Check** builds and runs both the Compose stack and the Railway image in CI. It drives the real browser flows, restarts the Railway image to prove its state persists, and checks its start guards.
 
 **Manual fallback:** run `npm run live-demo`, commit `evidence/nostr/live-demo.json`, and push. Then `npm run verify:public-app` checks the exact public app end to end.
