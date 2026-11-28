@@ -1,33 +1,33 @@
 {
   "_note": "SOLVENT Live Public Demo — a stable, real, once-published evidence set. Generated/published by npm run live-demo; the browser fetches and re-verifies this live on every run rather than trusting this file directly. A fresh mint identity is minted on every run — a persisted/stable identity was tried and reverted because kind 8181 is deliberately immutable/non-replaceable, so an old event never disappears and would permanently conflict with a newer one for the same identity/epoch (see this script's module header and DECISIONS.md). Re-run this script (or run `npm run verify:live-demo` to check first) if the reserve attestation goes stale — a network-aware ~1 week budget, see maxAttestationAgeBlocks in src/reserve/evaluate.ts and docs/trust-boundaries.md's \"Effective expiry\" section.",
-  "token": "cashuBo2FtdHNvbHZlbnQtZml4dHVyZS1taW50YXVjc2F0YXSBomFpSAC4ijF1yOspYXCBpGFhGgABEXBhc3gfc29sdmVudC1saXZlLWRlbW8tMTc5NTc5NDU1MzQ5NWFjWCED1dZzs07w_asI06fBvC8eJrrmPsQ68XpSWx5wZAYZstZhZKNhZVgg3a8ZBQXBWEZwsCBlmo2Y_cLEUcMm-FgUAcDY03e2DERhc1ggyrsNgI9XVYa6qR9M9LJYh8s9F3C6dqrfJbHy7zz8xdVhclgg1MLLqAkfHn5X7qkrUl-z4OzqEQA4Ao7cWERbbxOUwx0",
+  "token": "cashuBo2FtdHNvbHZlbnQtZml4dHVyZS1taW50YXVjc2F0YXSBomFpSAAiglZKiEYCYXCBpGFhGgABEXBhc3gfc29sdmVudC1saXZlLWRlbW8tMTc5NTgyNzAxMTczN2FjWCED8pVTnaaPZ-nnQp3ZIJj2JSUXXK3W08hII8y4cDvBYNVhZKNhZVggcSheyCsSg5RELGIPcYs6pam70AnfyoZQxXJGKQxYh0lhc1ggoRQ834qfUtC7rltQCuj-CtR6UVh1xtE7cUIV-THgkQ9hclggnoP5d8XLg-pz6DmZArO2oz8IacvjctNImo7Mc6gqTCo",
   "bundle": {
     "proof": {
-      "id": "00b88a3175c8eb29",
+      "id": "002282564a884602",
       "amount": 70000,
-      "secret": "solvent-live-demo-1795794553495",
-      "C": "03d5d673b34ef0fdab08d3a7c1bc2f1e26bae63ec43af17a525b1e70640619b2d6",
+      "secret": "solvent-live-demo-1795827011737",
+      "C": "03f295539da68f67e9e7429dd92098f62525175cadd6d3c84823ccb8703bc160d5",
       "dleq": {
-        "e": "ddaf190505c1584670b020659a8d98fdc2c451c326f8581401c0d8d377b60c44",
-        "s": "cabb0d808f575586baa91f4cf4b25887cb3d1770ba76aadf25b1f2ef3cfcc5d5",
-        "r": "d4c2cba8091f1e7e57eea92b525fb3e0ecea110038028edc58445b6f1394c31d"
+        "e": "71285ec82b128394442c620f718b3aa5a9bbd009dfca8650c57246290c588749",
+        "s": "a1143cdf8a9f52d0bbae5b500ae8fe0ad47a515875c6d13b714215f931e0910f",
+        "r": "9e83f977c5cb83ea73e8399902b3b6a33f0869cbe372d3489a8ecc73a82a4c2a"
       }
     },
     "mint": "solvent-fixture-mint",
-    "keysetId": "00b88a3175c8eb29",
-    "amountPublicKeyHex": "03642a6e581f195fdad27328019a0d38e25d6d2d0928804f617d0655afb51cc2ee",
+    "keysetId": "002282564a884602",
+    "amountPublicKeyHex": "03808d32594c8a762d71c00504124a4efc84495e9724baa970d41d99c8cac14f3e",
     "receipt": {
       "target_epoch": 12,
-      "signature": "6db2ad1966e867ebe50d077b67329f14c524083649820441db73eb5056aaf65e7ae064c1472f28e7d5d5d425eda93288438069356d44482f1dc6e963a28ba068"
+      "signature": "dab5545471cdd8a96a60ce9ee22d7310715af652eac0b80f40777e24014682fcfb0052fbb812670f54264638617e9f8cd7b13348c6faac4b73fa46f8827d0edc"
     },
     "manifest": {
-      "keyset_id": "00b88a3175c8eb29",
+      "keyset_id": "002282564a884602",
       "unit": "sat",
       "epoch_index": 12,
-      "timestamp": "2026-11-27T15:49:13Z",
+      "timestamp": "2026-11-28T00:50:11Z",
       "previous_global_digest": "0000000000000000000000000000000000000000000000000000000000000000",
       "issued_mmr_size": 1,
-      "issued_mmr_root_hash": "05a5064c5984d89a67bebadc91433f24d6a16c0edd671534f612ae0ea4dc349f",
+      "issued_mmr_root_hash": "b31f4979a9c390a156d06f7fa86f680e97d8938b5b318812ef8bc74a22df4c02",
       "issued_mmr_root_sum": 70000,
       "spent_mmr_size": 0,
       "spent_mmr_root_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -36,15 +36,15 @@
       "active": true,
       "deactivation_epoch": 999
     },
-    "manifestSignature": "666d6fffec4d44d93f1dc0818b063553366b4c945a9ae84a3840fb34aec5c1ccf2b21bb1860c6875939504eeb8b36f14a9f926545b9c7d04dbcc43d13efcbdde",
-    "masterPublicKeyHex": "0337b44dd458e4cae659d027d60a43986b106539d201f4cebd26c8aa65bb81eacc",
+    "manifestSignature": "1ac517f9fb8a092710364b9aa62e04db781c21400af3403ca52961c9d8487c9e650698bc50c869cb7e0bea1f2fb43b977756962f06d86a39eb245877da959c99",
+    "masterPublicKeyHex": "02dfe9acb86472d32e2cf19da516abd054bae536c8edc3970c73c111bdacc1fa1b",
     "issuedMmrSize": 1,
     "inclusionProof": {
       "leafIndex": 0,
       "siblingPath": [],
       "peaks": [
         {
-          "hash": "05a5064c5984d89a67bebadc91433f24d6a16c0edd671534f612ae0ea4dc349f",
+          "hash": "b31f4979a9c390a156d06f7fa86f680e97d8938b5b318812ef8bc74a22df4c02",
           "sum": "70000"
         }
       ]
@@ -61,20 +61,20 @@
             "script_pubkey_hex": "5120971b0e8567dac48362471ad328e602a19fb9faee92e871b94e77a3fa03998895"
           }
         ],
-        "timestamp": "2026-11-27T15:49:13Z",
-        "block_height": 3626195
+        "timestamp": "2026-11-28T00:50:12Z",
+        "block_height": 3627241
       },
-      "statementSignature": "df4d27b868dc53afca14b6bf559559f26a3ac7ee12016e2c7576a7c2daf85af7c3a9570a8c75063d09310d83b93ac1ca58ac68ac14a37a5a025840d5a27e5a08",
-      "bindingSignature": "125ffa8150a47b89c49609b99ec36be7cde5dce9c861a12d353ded58914f8f0ca97405a005194a39af3e60d19f3d1f98a6ddd720cf8078d0bbb0ac20532e05f2",
-      "masterPublicKeyHex": "0337b44dd458e4cae659d027d60a43986b106539d201f4cebd26c8aa65bb81eacc"
+      "statementSignature": "19dc43d7ba6f7d243cdbb67d9a09bc8c5316c7f83f1cb4df79c652e773403199292ce6837322fa75d4e2ebad87af82c9ed8a191a2ad10642ad2533e437b435a0",
+      "bindingSignature": "dfe1dd1440d44f8965e00e9e13c49b3e93524b8ded1f88327bc7e2d667f3415adb66f3f1b3ee2b942ef13af42fae30a254911d2b93338b68c66d1a3af9896058",
+      "masterPublicKeyHex": "02dfe9acb86472d32e2cf19da516abd054bae536c8edc3970c73c111bdacc1fa1b"
     },
     "nostrEvent": {
       "kind": 8181,
-      "created_at": 1795794553,
+      "created_at": 1795827012,
       "tags": [
         [
           "M",
-          "0337b44dd458e4cae659d027d60a43986b106539d201f4cebd26c8aa65bb81eacc"
+          "02dfe9acb86472d32e2cf19da516abd054bae536c8edc3970c73c111bdacc1fa1b"
         ],
         [
           "E",
@@ -82,16 +82,16 @@
         ],
         [
           "K",
-          "00b88a3175c8eb29"
+          "002282564a884602"
         ]
       ],
-      "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"0337b44dd458e4cae659d027d60a43986b106539d201f4cebd26c8aa65bb81eacc\",\"keyset_id\":\"00b88a3175c8eb29\",\"epoch_index\":12,\"manifest_digest\":\"c2b8f8c692621139bed029bd8e571b9de7f9d41f484c651fa312242c0549dbba\",\"manifest_signature\":\"666d6fffec4d44d93f1dc0818b063553366b4c945a9ae84a3840fb34aec5c1ccf2b21bb1860c6875939504eeb8b36f14a9f926545b9c7d04dbcc43d13efcbdde\",\"global_digest\":\"82f952f2f7d3f9fd3569bcde8c87b9b0a46a6502602edb2364e0b45b801fdeaa\",\"issued_mmr_root_hash\":\"05a5064c5984d89a67bebadc91433f24d6a16c0edd671534f612ae0ea4dc349f\",\"issued_mmr_root_sum\":70000,\"spent_mmr_root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"spent_mmr_root_sum\":0,\"outstanding_balance\":70000,\"reserve_digest\":\"ccee091443c9d7f8aac1e18ea7ae747bb29bbbfad903daa9e7ba1a27a7199079\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1795794553,\"valid_until\":1798386553,\"proof_uri\":\"https://github.com/TheWeirdDee/solvent — SOLVENT Live Public Demo\"}",
-      "pubkey": "e8662ad6c7fb376c625bd1eaf17512c7dc6e449c3267131af6f1fa90d828b511",
-      "id": "3f0c3125e1961fc782a7d4433de7865366a361ff634174733a3513802c87b8e1",
-      "sig": "fbb4ce0258e6915c86c3be9bdbbdfe716277a664bb8a53bc81ce68920f03ba17efc71cbe4c7dde76d5e4eb4d7f9dfd521f78cbf69c04035a0133e86071562c0c"
+      "content": "{\"schema\":\"solvent/pol/v2\",\"mint\":\"solvent-fixture-mint\",\"mint_identity\":\"02dfe9acb86472d32e2cf19da516abd054bae536c8edc3970c73c111bdacc1fa1b\",\"keyset_id\":\"002282564a884602\",\"epoch_index\":12,\"manifest_digest\":\"96d6ea7b7718acf34eb9eb8275e071c4bb3e602a15a71c34927149d460249074\",\"manifest_signature\":\"1ac517f9fb8a092710364b9aa62e04db781c21400af3403ca52961c9d8487c9e650698bc50c869cb7e0bea1f2fb43b977756962f06d86a39eb245877da959c99\",\"global_digest\":\"59d50c12f888372e05caa9e1521fb01b42997aec409b1148a21fbc3c1f51e86c\",\"issued_mmr_root_hash\":\"b31f4979a9c390a156d06f7fa86f680e97d8938b5b318812ef8bc74a22df4c02\",\"issued_mmr_root_sum\":70000,\"spent_mmr_root_hash\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"spent_mmr_root_sum\":0,\"outstanding_balance\":70000,\"reserve_digest\":\"87cc1645e1f39410e68e94e1eb7b62e06a21ed1de94243c56435d79f44bf2475\",\"reserve_sats\":1000000,\"reserve_network\":\"bitcoin-signet-mutinynet\",\"issued_at\":1795827012,\"valid_until\":1798419012,\"proof_uri\":\"https://github.com/TheWeirdDee/solvent — SOLVENT Live Public Demo\"}",
+      "pubkey": "55ac6492b8eb0f9a855ce631813fec6fded22b390c99289d95521450a4ddd334",
+      "id": "f4068bc3312a0ebdb8c1e625c8cc6df14d852f7727cc8bcc867ee2abbf9a6e74",
+      "sig": "c730b95a6a4f9bb7ac1f5d6b3b8d8ad9732e09a31a91c982c2dcc9cbe5251eb2ec36a0869cfdf95cd745f969c83b50c6dc883f463c31c54b14f4035be80b9e50"
     }
   },
-  "publishedAt": "2026-11-27T15:49:13.000Z",
+  "publishedAt": "2026-11-28T00:50:12.000Z",
   "publishResults": [
     {
       "relay": "wss://nos.lol",
@@ -100,8 +100,8 @@
     },
     {
       "relay": "wss://relay.primal.net",
-      "ok": true,
-      "detail": ""
+      "ok": false,
+      "detail": "publish timed out"
     },
     {
       "relay": "wss://nostr.mom",
